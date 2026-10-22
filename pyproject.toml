@@ -1,0 +1,53 @@
+[project]
+name = "klode-kit"
+version = "0.1.0.dev0"
+description = "Claude Code plugin: scanned documents -> citable klode knowledge base"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+    "jsonschema>=4.23",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "hypothesis>=6.120",
+    "pytest-cov>=6.0",
+    "pytest-socket>=0.7",
+    "mutmut>=3.2",
+    "jsonschema>=4.23",
+    "reportlab>=4.2",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/klode_kit"]
+
+[tool.pytest.ini_options]
+# V1: lanes are always run as `<venv>/bin/python -m pytest -m <lane>`; never via console scripts.
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+addopts = "--import-mode=importlib --strict-markers"
+markers = [
+    "unit: pure functions, schemas, HTML structure, hook scripts (0 real model calls)",
+    "contract_replay: contract samples, provenance roundtrip, replayed end-to-end chains (0 real model calls)",
+    "cli_integration: real klode/klode-mcp, pdftotext, local OCR engines, node (FAIL on missing deps, never skip)",
+    "model_integration: real model calls on synthetic images (local only, needs KLODE_KIT_GATE_ACK)",
+    "host_acceptance: claude -p --plugin-dir . host runs (local only, needs KLODE_KIT_GATE_ACK)",
+    "gate_cloud: needs KLODE_KIT_GATE_ACK=G2-<yyyymmdd>; missing ack is a session usage error (exit 2)",
+    "macos: cli_integration subset that needs macOS",
+    "macos_mlx: cli_integration subset that needs MLX weights",
+    "needs_node: cli_integration subset that needs node",
+]
+
+[tool.coverage.run]
+source = ["klode_kit"]
+branch = true
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true

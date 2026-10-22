@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/lane_receipt.json",
+  "title": "lane_receipt",
+  "description": "Receipt written by klode_kit.devtools.run_lane to work/lanes/<lane>.json. WI-00s scaffold version; WI-00b1 owns the full contract schema set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lane",
+    "status",
+    "bootstrap",
+    "tests_discovered",
+    "pytest_exit_code",
+    "started_at",
+    "finished_at",
+    "command",
+    "env_fingerprint",
+    "tags"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "lane": { "enum": ["unit", "contract_replay", "cli_integration", "model_integration", "host_acceptance"] },
+    "status": { "enum": ["PASS", "FAIL", "BOOTSTRAP"] },
+    "bootstrap": { "type": "boolean" },
+    "tests_discovered": { "type": "integer", "minimum": 0 },
+    "tests_failed": { "type": "integer", "minimum": 0 },
+    "tests_skipped": { "type": "integer", "minimum": 0 },
+    "pytest_exit_code": { "type": "integer" },
+    "started_at": { "type": "string", "minLength": 20 },
+    "finished_at": { "type": "string", "minLength": 20 },
+    "command": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "env_fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release_sha", "repo_root", "python", "python_version", "platform"],
+      "properties": {
+        "release_sha": { "type": "string", "minLength": 1 },
+        "repo_root": { "type": "string", "minLength": 1 },
+        "python": { "type": "string", "minLength": 1 },
+        "python_version": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "BOOTSTRAP" } } },
+      "then": { "properties": { "bootstrap": { "const": true }, "tests_discovered": { "const": 0 } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "PASS" } } },
+      "then": { "properties": { "bootstrap": { "const": false }, "tests_discovered": { "minimum": 1 } } }
+    }
+  ]
+}

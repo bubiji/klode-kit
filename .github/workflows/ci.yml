@@ -1,0 +1,50 @@
+# CI runs only the lanes with zero real model calls (plan section 0.2).
+# - Order: privacy_scan -> unit -> contract_replay -> coverage gate (merged unit + contract_replay).
+# - Receipts are tagged not-release; release_check (WI-15b) never accepts them as release evidence.
+# - V1: everything runs as `.venv/bin/python -m <module>`; no venv console scripts.
+# - No macOS cli_integration job yet: it is only created once klode==0.5.0 installs from a public
+#   source (a job that skips would pass as green without running anything).
+# - model_integration and host_acceptance never run in CI.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-lanes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Create .venv with dev dependencies
+        run: uv sync --python 3.12 --frozen
+
+      - name: privacy_scan
+        run: .venv/bin/python -m klode_kit.devtools.privacy_scan
+
+      - name: unit lane
+        run: .venv/bin/python -m klode_kit.devtools.run_lane unit --not-release
+
+      - name: contract_replay lane
+        run: .venv/bin/python -m klode_kit.devtools.run_lane contract_replay --not-release
+
+      - name: Coverage gate (unit + contract_replay merged)
+        run: |
+          .venv/bin/python -m coverage json -o work/coverage/ci.json
+          .venv/bin/python -m klode_kit.devtools.coverage_gate --config .claude/tdd-guardian/config.json work/coverage/ci.json
+
+      - name: Upload lane receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lane-receipts
+          path: work/lanes/
+          if-no-files-found: error

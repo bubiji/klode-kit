@@ -1,0 +1,11 @@
+# Reviewed false positives for klode_kit.devtools.privacy_scan: <relpath>	<kind>	<sha256 of matched text>
+# Test-matrix files quote the generic placeholder used as the 00s-09 input (not a real person).
+.claude/tdd-guardian/test-matrix-20261022-klode-kit.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v2.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v3.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v4.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v5.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v6.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v6_full.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v7.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c
+.claude/tdd-guardian/test-matrix-20261022-klode-kit_v8.md	name_label	531303604fe619defd7a8f959f23f68908ef93c1c9209d14b3db6fe1de1ff74c

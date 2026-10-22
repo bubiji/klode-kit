@@ -3,3 +3,11 @@ __pycache__/
 *.pyc
 .venv/
 library/**/*.txt
+work/
+tests/host/_lab/
+.coverage
+.coverage.*
+.hypothesis/
+.pytest_cache/
+*.egg-info/
+mutants/
