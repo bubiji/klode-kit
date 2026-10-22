@@ -1,0 +1,41 @@
+{
+ "task": "20261022-klode-kit",
+ "stages": {
+  "0": {
+   "status": "pass",
+   "input_digest": "e3b0c44298fc1c14",
+   "inputs": [],
+   "artifact": "01-输入清单.md",
+   "note": "opus 主会话（逐字引用为主）",
+   "at": "2026-10-22T15:04"
+  },
+  "1": {
+   "status": "pass",
+   "input_digest": "fff1df9b438c385d",
+   "inputs": [
+    "01-输入清单.md"
+   ],
+   "artifact": "02-概要设计.md, 03-基线_现有kb-build实测.md, 03-基线_OCR复用盘点.md",
+   "note": "fable（00 经 _loki）",
+   "at": "2026-10-22T15:20"
+  },
+  "2": {
+   "status": "pending"
+  },
+  "3": {
+   "status": "pending"
+  },
+  "4": {
+   "status": "pending"
+  },
+  "5": {
+   "status": "pending"
+  },
+  "6": {
+   "status": "pending"
+  },
+  "7": {
+   "status": "pending"
+  }
+ }
+}
