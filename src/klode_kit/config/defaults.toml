@@ -1,0 +1,44 @@
+# klode-kit defaults (design 02 r2.6). A data project overrides individual keys in its own
+# klode-kit.toml; unknown keys and wrongly typed values are a configuration error (exit 40).
+# config_version is the format version only; it is not part of any fingerprint (r4.4 R3-06).
+config_version = 1
+
+routes = ["vision", "mlx", "claude", "codex"]
+base_route = "vision"
+route_retry = 2
+repeat_ratio_max = 0.3
+line_sim_tau = 0.6
+
+[claude]
+model = "opus"
+effort = "max"
+
+[codex]
+model = "gpt-6-sol"
+effort = "xhigh"
+
+[cloud]
+timeout_s = 180
+max_cost_usd_per_batch = 5.0
+
+[text_layer]
+min_chars = 50
+garbage_max = 0.05
+
+[cards]
+min_aliases = 10
+min_anchors_full = 5
+writer_max_rounds = 3
+writer_concurrency = 4
+writer_timeout_s = 600
+
+[desk]
+holdout_min = 5
+holdout_pass = 0.8
+
+[loops]
+max_total_rounds = 6
+no_progress_rounds = 2
+
+[deident]
+mode = "pseudonym"

@@ -10,6 +10,7 @@ import importlib
 import sys
 
 from klode_kit import __version__
+from klode_kit.config import ConfigError
 from klode_kit.seams import startup
 
 USAGE_EXIT = 2
@@ -18,6 +19,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "dev lane": ("klode_kit.devtools.run_lane:main", "run one test lane and write work/lanes/<lane>.json"),
     "dev privacy-scan": ("klode_kit.devtools.privacy_scan:main", "scan the repository for personal data"),
     "dev coverage-gate": ("klode_kit.devtools.coverage_gate:main", "judge a coverage.py JSON report"),
+    "config": ("klode_kit.config:main", "config show [--project DIR]: effective configuration as JSON"),
 }
 
 
@@ -41,7 +43,11 @@ def main(argv: list[str] | None = None) -> int:
         if len(argv) >= words and key in COMMANDS:
             target = COMMANDS[key][0]
             module, func = target.split(":")
-            return int(getattr(importlib.import_module(module), func)(argv[words:]) or 0)
+            try:
+                return int(getattr(importlib.import_module(module), func)(argv[words:]) or 0)
+            except ConfigError as exc:  # any command: configuration problems are exit 40 (r2.6)
+                print(f"klode-kit: configuration error: {exc}", file=sys.stderr)
+                return exc.exit_code
     print(f"klode-kit: unknown command: {' '.join(argv[:2])}\n\n{usage()}", file=sys.stderr)
     return USAGE_EXIT
 

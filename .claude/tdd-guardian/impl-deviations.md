@@ -18,3 +18,6 @@
 | WI-00b1 | 自定 13 步名：export, init_kb, ingest, split_manifest, klode_build, dispatch_writers, gate1, write_card, check_strict, desk_apply, desk_verify, gen_agent, self_check；writer_receipt 字段集；check/publish 状态枚举；fixes.manual 必含 evidence.region 等额外 schema 规则 | 接受；WI-09b 实现时以此为准 |
 | WI-00b1 | lane_receipt.release_sha 暂为非空字符串（git HEAD 或 unversioned），正式定义归 WI-15b | 接受 |
 | WI-00a（追认） | 00a-03 断言 `sorted(entries) == files` 改为 `sorted(entries) == sorted(files)`（主会话改，已记录行） | **用户 2026-10-22 AskUserQuestion 认可** |
+| WI-00b2 | config 做成包 `src/klode_kit/config/{__init__.py,defaults.toml}`（计划写 `config.py` + 根目录 `config/defaults.toml`，二者不能干净共存）；R3-08 的 `config/**` 由 `src/**` 覆盖 | 接受 |
+| WI-00b2 | 自定键公式（doc_id、rec_id、batch_id、decision_id=`<audit_rev>/d<NNNN>`、commit_id、幂等键、cfg_fp 输入、attempt 目录 `<batch>/ocr/<engine>/<cfg_fp>.t<seq>`）；CLOUD_ENV_ALLOWLIST 为代码常量不可被配置放宽 | 接受；与 WI-00a fixtures 一致 |
+| WI-00b2 | red 为 opaque-failure（receipt.js 解析不到计数，lane 输出含覆盖率段）；首次被判 runner-missing 因缺 defaults.toml，补空占位后重录 | 接受（MEDIUM，不影响 HELD） |
