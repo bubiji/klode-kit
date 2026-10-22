@@ -90,6 +90,20 @@
         "branches": 95
       },
       "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/ocr/isolation_check.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/ocr/isolation_guard.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S4"
     }
   ],
   "coverageMode": "absolute",

@@ -20,6 +20,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "dev privacy-scan": ("klode_kit.devtools.privacy_scan:main", "scan the repository for personal data"),
     "dev coverage-gate": ("klode_kit.devtools.coverage_gate:main", "judge a coverage.py JSON report"),
     "config": ("klode_kit.config:main", "config show [--project DIR]: effective configuration as JSON"),
+    "hook isolation-guard": ("klode_kit.ocr.isolation_guard:main", "PreToolUse hook: deny file reads outside cwd"),
 }
 
 

@@ -25,3 +25,7 @@
 | WI-00b3 | 自定规则：生效决定取 `rev_new ≤ R` 中最大者；未登记 der_sha256 归 der_parent_mismatch；pdftext dpi 容差 ±1px；value_audited 比对 field_ids 中第一个 .value 字段；新增 12 个违例码（共 23） | 接受 |
 | WI-00b3 | 覆盖率按 lane 单看 contract_replay 77%、合并 100%；coverage_gate 必须用合并报告 | 接受；WI-15b release_check 用合并报告 |
 | WI-00b3 | criticalPaths 补 `contract/ids.py`（主会话补，WI-00b2 漏） | — |
+| WI-00c1 | CLI 版本下限做成代码常量（claude ≥ 2.1.259 据 cli-reference `--permission-prompts`；codex ≥ 0.163.0 暂定），不进 defaults.toml，防项目覆盖放宽 | 接受；WI-00c2 实测可上调 |
+| WI-00c1 | 审查比 r4.3 更严：`-p` 必含、未知 flag 一律 FAIL（argv:closed）、补 cwd:system_tmp / cwd:mode_0700 / guard:on_path；codex 加 `--skip-git-repo-check`、`--json`、`-i`、`--output-schema` | 接受；WI-00c2 实跑确认 |
+| WI-00c1 | `receipt_still_valid(receipt, env)` 签名与矩阵 `receipt_still_valid(env)` 不同；guard 日志在 `<send dir>.guard.jsonl`，WI-05b 负责搬入 receipt 目录 | 接受；WI-05b 派工时写明 |
+| WI-00c1 | 子代理工具集无 cc-doc-search MCP，直接只读本地文档镜像原文并附官网 URL；⑫ `--setting-sources ""`、⑭ `--restricted` 下 `--settings` hook 是否触发：文档检索无结果，留 WI-00c2 实测 | 接受 |

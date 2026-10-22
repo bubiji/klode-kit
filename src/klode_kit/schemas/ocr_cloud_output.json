@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lines"],
+  "properties": {
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "uncertain"],
+        "properties": {
+          "text": {"type": "string"},
+          "uncertain": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

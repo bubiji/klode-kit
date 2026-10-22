@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "blockReadsOutsideWorkingDirectories": true,
+    "deny": ["Bash", "WebFetch", "WebSearch", "Agent", "Edit", "Write", "NotebookEdit"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {"type": "command", "command": "klode-kit", "args": ["hook", "isolation-guard"], "timeout": 30}
+        ]
+      }
+    ]
+  }
+}
