@@ -29,7 +29,12 @@
    "at": "2026-10-22T15:28"
   },
   "3": {
-   "status": "pending"
+   "status": "fail",
+   "rounds": 1,
+   "verdict": "MAJOR GAPS（第 1 轮，21 条）",
+   "note": "gpt-6-astra/high",
+   "at": "2026-10-22T15:35",
+   "revisions": 1
   },
   "4": {
    "status": "pending"
