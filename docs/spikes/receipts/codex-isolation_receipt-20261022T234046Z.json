@@ -1,0 +1,283 @@
+{
+ "argv_sha": "22b3a0d1e191af23fff23589cdfef174a2056a2b577dd0241bd92643c60b5c1a",
+ "at": "2026-10-22T23:40:47+00:00",
+ "checks": [
+  {
+   "detail": "occurrences=['/var/folders/<masked>/T/klode-kit-send-ax2_kfrm']",
+   "name": "required:-C",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=[None]",
+   "name": "required:--ephemeral",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=[None]",
+   "name": "required:--ignore-user-config",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=[None]",
+   "name": "required:--ignore-rules",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['mcp_servers={}']",
+   "name": "required:-c mcp_servers={}",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['default_permissions=\"klode-kit-ocr\"']",
+   "name": "required:-c default_permissions=\"klode-kit-ocr\"",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['permissions.klode-kit-ocr.filesystem={\":minimal\"=\"read\",\":workspace_roots\"={\".\"=\"read\"}}']",
+   "name": "required:-c permissions.klode-kit-ocr.filesystem={\":minimal\"=\"read\",\":workspace_roots\"={\".\"=\"read\"}}",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['permissions.klode-kit-ocr.network.enabled=false']",
+   "name": "required:-c permissions.klode-kit-ocr.network.enabled=false",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['skills.include_instructions=false']",
+   "name": "required:-c skills.include_instructions=false",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['features.apps=false']",
+   "name": "required:-c features.apps=false",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['agents.enabled=false']",
+   "name": "required:-c agents.enabled=false",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['features.view_image=false']",
+   "name": "required:-c features.view_image=false",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['features.image_generation=false']",
+   "name": "required:-c features.image_generation=false",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['web_search=\"disabled\"']",
+   "name": "required:-c web_search=\"disabled\"",
+   "ok": true
+  },
+  {
+   "detail": "occurrences=['allow_login_shell=false']",
+   "name": "required:-c allow_login_shell=false",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--full-auto",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:-s",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--sandbox",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--dangerously-bypass-approvals-and-sandbox",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--dangerously-bypass-hook-trust",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--yolo",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--add-dir",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--oss",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--local-provider",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:-p",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--profile",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--approve-for-me",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--worktree",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--enable",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--disable",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--cyber-access-program",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--strict-config",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:--thread-source",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "forbidden:danger-full-access",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "argv:closed",
+   "ok": true
+  },
+  {
+   "detail": "absent or empty under /Users/<user>/.codex",
+   "name": "codex_home:agents_md",
+   "ok": true
+  },
+  {
+   "detail": "cwd=/private/var/folders/<masked>/T/klode-kit-send-ax2_kfrm project=/private/var/folders/<masked>/T/pytest-of-<user>/pytest-587/test_codex_host_check_real0/synth_project",
+   "name": "cwd:outside_project",
+   "ok": true
+  },
+  {
+   "detail": "cwd=/private/var/folders/<masked>/T/klode-kit-send-ax2_kfrm tmp=/private/var/folders/<masked>/T",
+   "name": "cwd:system_tmp",
+   "ok": true
+  },
+  {
+   "detail": "mode=0o700",
+   "name": "cwd:mode_0700",
+   "ok": true
+  },
+  {
+   "detail": "files=['19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5.png', 'prompt.txt', 'schema.json']",
+   "name": "tmpdir:contents",
+   "ok": true
+  },
+  {
+   "detail": "name=19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5 content=19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5 approved=True",
+   "name": "tmpdir:png_approved",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "env:allowlist",
+   "ok": true
+  },
+  {
+   "detail": "version=0.163.0 floor=0.163.0 /opt/homebrew/bin/codex",
+   "name": "cli:version",
+   "ok": true
+  },
+  {
+   "detail": "3 sandbox runs with the production -c set, -P klode-kit-ocr, -C <send dir>",
+   "name": "host:same_config",
+   "ok": true
+  },
+  {
+   "detail": "positive control: ok",
+   "name": "host:control",
+   "ok": true
+  },
+  {
+   "detail": "{\"/private/var/folders/<masked>/T/pytest-of-<user>/pytest-587/test_codex_host_check_real0/synth_project/canary-<nonce>.txt\": \"denied\", \"/Users/<user>/canary-<nonce>.txt\": \"denied\"}",
+   "name": "host:canaries",
+   "ok": true
+  },
+  {
+   "detail": "",
+   "name": "host:verdict",
+   "ok": true
+  }
+ ],
+ "cli_version": "0.163.0",
+ "cloud_isolation": "PASS",
+ "cloud_settings_sha": null,
+ "cwd": "/private/var/folders/<masked>/T/klode-kit-send-ax2_kfrm",
+ "effective_config_sha": "4d5b98fcfbff302a8609848b3b2224d62ccf1ce2b0b71af1bf681f7ab531f136",
+ "host_check": {
+  "config_sha": "32fffd1a9b3a6d29ac4549f418b772cfe5b65b8b5461117a32ceda195f1c89bd",
+  "profile": "klode-kit-ocr",
+  "targets": [
+   {
+    "argv_sha": "54f172f50a48541f3b7e93b242f16f0c0f109c61b8f6216d3b38d4a02beaa04c",
+    "excerpt": "cat: /private/var/folders/<masked>/T/pytest-of-<user>/pytest-587/test_codex_host_check_real0/synth_project/canary-<nonce>.txt: Operation not permitted\n",
+    "outcome": "denied",
+    "path": "/private/var/folders/<masked>/T/pytest-of-<user>/pytest-587/test_codex_host_check_real0/synth_project/canary-<nonce>.txt",
+    "returncode": 1,
+    "role": "canary",
+    "timed_out": false
+   },
+   {
+    "argv_sha": "32f625a6604739856495a0000a2ddd7a76f513b381339dbf77ec5cb53140dfb7",
+    "excerpt": "cat: /Users/<user>/canary-<nonce>.txt: Operation not permitted\n",
+    "outcome": "denied",
+    "path": "/Users/<user>/canary-<nonce>.txt",
+    "returncode": 1,
+    "role": "canary",
+    "timed_out": false
+   },
+   {
+    "argv_sha": "001b4b03f887bfe4f3381ad454b44af443dc80359fb5a0c64e09b138213cb226",
+    "excerpt": "",
+    "outcome": "ok",
+    "path": "/var/folders/<masked>/T/klode-kit-send-ax2_kfrm/prompt.txt",
+    "returncode": 0,
+    "role": "control",
+    "timed_out": false
+   }
+  ],
+  "tool": "codex sandbox",
+  "verdict": "PASS"
+ },
+ "route": "codex",
+ "schema": "klode-kit.isolation_receipt/1"
+}

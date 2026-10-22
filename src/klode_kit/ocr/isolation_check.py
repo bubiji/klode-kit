@@ -28,7 +28,19 @@ Check names (stable; the receipt carries them):
                           ``_masked/MANIFEST.jsonl`` or the synthetic ``tests/fixtures/MANIFEST.json``;
 - ``env:allowlist``       env keys are a subset of ``CLOUD_ENV_ALLOWLIST`` (explicit keys, r5);
 - ``cli:version``         ``<argv[0]> --version``, resolved on the invocation PATH, is numerically
-                          >= the floor (matrix F2).
+                          >= the floor (matrix F2);
+- ``forbidden:<text>``    (codex) no argv token contains the text (``danger-full-access``);
+- ``codex_home:agents_md`` (codex) ``$HOME/.codex/AGENTS.md`` and ``AGENTS.override.md`` (``HOME`` of the
+                          invocation env; ``CODEX_HOME`` cannot be set - not allowlisted) are each absent
+                          or a 0-byte regular file. Codex loads the user-level file as model instructions and
+                          ``--ignore-user-config`` only skips ``config.toml`` (WI-00c2 F3 / RR-3). Read-only
+                          (``lstat``/``stat``); anything unreadable, non-empty, a directory or a dangling
+                          symlink fails closed (user decision 2026-10-23).
+
+Codex route since WI-00c2c (user decision 2026-10-23, plan A): the permission profile from
+``cloud_argv.CODEX_PROFILE_CONFIG`` is required ``-c`` by ``-c`` with its exact value; ``-s`` /
+``--sandbox`` are forbidden in every spelling (a legacy sandbox flag makes Codex ignore
+``default_permissions``), as is any ``-c`` key outside the closed list (``argv:closed``).
 
 Version floors: ``claude >= 2.1.285`` (WI-00c1b, user decision 2026-10-23): every piece of host
 evidence for this route - hook firing under ``--restricted``, ``--setting-sources ""`` semantics,
@@ -67,6 +79,7 @@ from klode_kit.ocr import cloud_argv as CA
 
 CLAUDE_MIN_VERSION = "2.1.285"
 CODEX_MIN_VERSION = "0.163.0"
+CODEX_AGENTS_FILES = ("AGENTS.md", "AGENTS.override.md")
 CLOUD_SETTINGS_SHA256 = "eb57a8ea24aa686cb0c49b68d972da523afada9b320529483e567244e348fc3d"
 SETTINGS_MAX_BYTES = 2 * 1024 * 1024  # cli-reference --settings: "a regular file no larger than 2 MiB"
 RECEIPT_SCHEMA = "klode-kit.isolation_receipt/1"
@@ -130,6 +143,7 @@ class RouteSpec:
     config_required: Mapping[str, str]  # codex -c key -> exact "key=value"
     config_optional: Mapping[str, Validator]
     leading: tuple[str, ...] = ()       # positionals before the prompt (codex: "exec")
+    forbidden_text: tuple[str, ...] = ()  # text that may occur in no argv token
 
 
 CLAUDE = RouteSpec(
@@ -171,10 +185,9 @@ CLAUDE = RouteSpec(
 
 CODEX = RouteSpec(
     program="codex",
-    aliases={"--cd": "-C", "--sandbox": "-s", "--config": "-c", "--model": "-m", "--image": "-i"},
+    aliases={"--cd": "-C", "--config": "-c", "--model": "-m", "--image": "-i"},
     required={
         "-C": _some,  # equality with cwd is judged in check()
-        "-s": _eq("read-only"),
         "--ephemeral": _none,
         "--ignore-user-config": _none,
         "--ignore-rules": _none,
@@ -189,15 +202,19 @@ CODEX = RouteSpec(
     forbidden={
         # r4.3 (a)
         "--full-auto": 0,
+        # WI-00c2c: a legacy sandbox flag overrides default_permissions (permissions page)
+        "-s": 1, "--sandbox": 1,
         # same class of risk, from `codex exec --help` 0.163.0
         "--dangerously-bypass-approvals-and-sandbox": 0, "--dangerously-bypass-hook-trust": 0,
         "--yolo": 0, "--add-dir": 1, "--oss": 0, "--local-provider": 1, "-p": 1, "--profile": 1,
         "--approve-for-me": 0, "--worktree": 0, "--enable": 1, "--disable": 1,
         "--cyber-access-program": 1, "--strict-config": 0, "--thread-source": 1,
     },
-    config_required={"mcp_servers": "mcp_servers={}"},
+    config_required={"mcp_servers": "mcp_servers={}",
+                     **{v.partition("=")[0]: v for v in CA.CODEX_PROFILE_CONFIG}},
     config_optional={"model_reasoning_effort": lambda v: v is not None and v.partition("=")[2] in CA.CODEX_EFFORTS},
     leading=("exec",),
+    forbidden_text=("danger-full-access",),
 )
 
 SPECS = {"claude": CLAUDE, "codex": CODEX}
@@ -451,6 +468,9 @@ def _argv_checks(spec: RouteSpec, argv: list[str], cwd: Path, parsed: _Parsed) -
     for flag in spec.forbidden:
         hits = [t for t in argv[1:] if t == flag or (flag.startswith("--") and t.startswith(flag + "="))]
         checks.append(Check(f"forbidden:{flag}", not hits, f"found={hits!r}" if hits else ""))
+    for text in spec.forbidden_text:
+        hits = [t[:120] for t in argv[1:] if text in t]
+        checks.append(Check(f"forbidden:{text}", not hits, f"found={hits!r}" if hits else ""))
 
     problems: list[str] = []
     if argv[0] != spec.program:
@@ -526,6 +546,35 @@ def _cwd_checks(cwd: Path, project: Path, approved: frozenset[str]) -> list[Chec
     return checks
 
 
+def codex_agents_check(env: Mapping[str, str]) -> Check:
+    """``codex_home:agents_md``: user-level AGENTS files absent or empty; only ``lstat``/``stat``, never opened."""
+    name = "codex_home:agents_md"
+    home = env.get("HOME")
+    if not home or not os.path.isabs(home):
+        return Check(name, False, f"HOME missing or not absolute in the invocation env: {home!r}")
+    problems: list[str] = []
+    for fname in CODEX_AGENTS_FILES:
+        path = Path(home) / ".codex" / fname
+        try:
+            os.lstat(path)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            problems.append(f"{path}: {exc}")
+            continue
+        try:
+            st = os.stat(path)
+        except OSError as exc:
+            problems.append(f"{path}: {exc}")
+            continue
+        if not stat.S_ISREG(st.st_mode):
+            problems.append(f"{path}: not a regular file")
+        elif st.st_size != 0:
+            problems.append(f"{path}: {st.st_size} bytes")
+    detail = "; ".join(problems) if problems else f"absent or empty under {Path(home) / '.codex'}"
+    return Check(name, not problems, detail[:300])
+
+
 def check(inv: CA.Invocation, *, project: str | os.PathLike,
           approved_shas: frozenset[str] | None = None) -> Result:
     """Review ``inv`` against r4.3 (a). Never raises for a malformed invocation: it fails instead."""
@@ -544,6 +593,8 @@ def check(inv: CA.Invocation, *, project: str | os.PathLike,
         guard = shutil.which(GUARD_COMMAND, path=inv.env.get("PATH", ""))
         launcher = _realpath(CA.PLUGIN_BIN / GUARD_COMMAND)
         checks.append(Check("guard:on_path", guard is not None and _realpath(guard) == launcher, f"resolved={guard}"))
+    if spec is CODEX:
+        checks.append(codex_agents_check(inv.env))
     checks += _cwd_checks(cwd, proj, approved)
 
     extra = sorted(set(inv.env) - CLOUD_ENV_ALLOWLIST)

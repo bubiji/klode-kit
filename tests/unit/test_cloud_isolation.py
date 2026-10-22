@@ -79,10 +79,11 @@ CLAUDE_FORBIDDEN = [
     ("--dangerously-skip-permissions",),
     ("--bare",),
 ]
-# Codex route: -C <tmp> -s read-only --ephemeral --ignore-user-config --ignore-rules -c mcp_servers={}
+# Codex route: -C <tmp> --ephemeral --ignore-user-config --ignore-rules -c mcp_servers={}
+# WI-00c2c (user decision 2026-10-23, plan A): no -s / --sandbox at all - the permission profile
+# replaces the legacy sandbox (`-s read-only` read the whole disk, WI-00c2 F3); see test_codex_profile_00c2c.py.
 CODEX_REQUIRED: dict[str, object] = {
     "-C": ...,
-    "-s": "read-only",
     "--ephemeral": None,
     "--ignore-user-config": None,
     "--ignore-rules": None,
@@ -213,21 +214,30 @@ def test_cloud_settings_file_content():
 
 
 def test_codex_argv_contract(systmp, project, versions):
-    """00c1-02: -C <tmp> -s read-only --ephemeral --ignore-user-config --ignore-rules -c mcp_servers={}."""
+    """00c1-02 (changed in WI-00c2c, user decision 2026-10-23): -C <tmp> --ephemeral --ignore-user-config
+    --ignore-rules -c mcp_servers={} plus the klode-kit-ocr permission profile and the feature switches;
+    no -s / --sandbox in any spelling (a legacy sandbox flag would override the profile)."""
     inv = build("codex")
     argv = list(inv.argv)
 
     assert inv.route == "codex"
     assert argv[:2] == ["codex", "exec"]
     assert Path(argv[argv.index("-C") + 1]).resolve() == Path(inv.cwd).resolve()
-    assert argv[argv.index("-s") + 1] == "read-only"
     for flag in ("--ephemeral", "--ignore-user-config", "--ignore-rules"):
         assert argv.count(flag) == 1, flag
-    assert [argv[i + 1] for i, t in enumerate(argv[:-1]) if t == "-c"].count("mcp_servers={}") == 1
+    configs = [argv[i + 1] for i, t in enumerate(argv[:-1]) if t == "-c"]
+    for exact in ("mcp_servers={}",
+                  'default_permissions="klode-kit-ocr"',
+                  'permissions.klode-kit-ocr.filesystem={":minimal"="read",":workspace_roots"={"."="read"}}',
+                  "permissions.klode-kit-ocr.network.enabled=false",
+                  "skills.include_instructions=false", "features.apps=false", "agents.enabled=false",
+                  "features.view_image=false", "features.image_generation=false", 'web_search="disabled"',
+                  "allow_login_shell=false"):
+        assert configs.count(exact) == 1, exact
     assert "--full-auto" not in argv
-    sandbox_values = [argv[i + 1] for i, t in enumerate(argv[:-1]) if t in ("-s", "--sandbox")]
-    assert sandbox_values == ["read-only"]
-    assert not any(t.startswith("--sandbox=") or t.startswith("-s=") for t in argv)
+    assert not any(t in ("-s", "--sandbox") for t in argv)
+    assert not any(t.startswith(("--sandbox=", "-s=")) for t in argv)
+    assert not any("danger-full-access" in t for t in argv)
 
     res = IC.check(inv, project=project)
     assert res.ok, failed(res)
@@ -347,8 +357,10 @@ CLAUDE_BAD_VALUES = {
     "--permission-prompts": ["host"],
     "--setting-sources": ["user", "project", "user,project,local", "local"],
 }
+# WI-00c2c: "-s" is no longer a codex flag (now forbidden, see test_codex_profile_00c2c.py), so the codex
+# value-mutation case moves to the other valued must-have: -C pointing anywhere but the send dir.
 CODEX_BAD_VALUES = {
-    "-s": ["danger-full-access", "workspace-write"],
+    "-C": ["/", "/tmp"],
 }
 CLAUDE_EQ_FORBIDDEN = ["--mcp-config=x.json", "--add-dir=/", "--agents={}", "--plugin-dir=/tmp/p"]
 

@@ -26,13 +26,49 @@ https://code.claude.com/docs/en/cli-reference):
 - Whether ``--setting-sources ""`` is accepted and whether hooks from ``--settings`` fire under
   ``--restricted`` are open items (02 r3.7 (12), r4.7 (14)) settled by the WI-00c2 spike.
 
-Codex route (r4.3 (a); ``codex exec --help`` 0.163.0):
+Codex route (r4.3 (a); ``codex exec --help`` 0.163.0; WI-00c2c, user decision 2026-10-23 plan A):
 
-    codex exec -C <send dir> -s read-only --ephemeral --ignore-user-config --ignore-rules
-               -c mcp_servers={} --skip-git-repo-check -m <m> -c model_reasoning_effort=<e>
+    codex exec -C <send dir> --ephemeral --ignore-user-config --ignore-rules
+               -c mcp_servers={} <CODEX_PROFILE_CONFIG: -c pairs, see below>
+               --skip-git-repo-check -m <m> -c model_reasoning_effort=<e>
                -i <der_sha256>.png --output-schema schema.json --json <user prompt>
 
 ``--skip-git-repo-check`` is needed because the send directory is not a git repository.
+
+No ``-s`` / ``--sandbox``: ``-s read-only`` let model commands read the data project and ``$HOME``
+(WI-00c2 F3), and a legacy sandbox flag makes Codex ignore ``default_permissions`` ("If ... you pass
+--sandbox ... Codex uses those older sandbox settings instead of default_permissions",
+https://developers.openai.com/codex/permissions , saved copy canonical
+https://learn.chatgpt.com/docs/permissions). Instead a named permission profile ``klode-kit-ocr`` is
+defined and selected on the command line (exact spelling measured in the WI-00c2b spike,
+``work/isolation/wi-00c2b-discovery-20261022T225300Z/``):
+
+- ``default_permissions="klode-kit-ocr"`` - "Name of the default permissions profile to apply to
+  sandboxed tool calls ... custom profile names require matching [permissions.<name>] tables"
+  (https://developers.openai.com/codex/config-reference);
+- ``permissions.klode-kit-ocr.filesystem={":minimal"="read",":workspace_roots"={"."="read"}}`` -
+  ``:minimal`` = "Platform and runtime paths needed by common tools", ``:workspace_roots`` = "The current
+  session's workspace roots" (here only ``-C``, the send dir), "." = the root itself (permissions page);
+  nothing else is readable, nothing is writable;
+- ``permissions.klode-kit-ocr.network.enabled=false`` - "Enables network access for commands in the
+  profile" (default false; set explicitly) (permissions page).
+
+Model-visible extras switched off (user decision 2026-10-23):
+
+- ``skills.include_instructions=false`` - WI-00c2b found that Codex sends the ``~/.codex/skills``
+  catalogue (private skill descriptions) to the model and ``--ignore-user-config`` does not stop it; with
+  this key the ``<skills_instructions>`` block is gone from the captured request. The key is not in the
+  saved config-reference (2026-10-23): evidence is the spike's request capture only;
+- ``features.apps=false`` - "Enable app (connector) integrations (stable; on by default)"
+  (config-reference);
+- ``agents.enabled=false`` - "Enable or disable multi-agent tools (default: true)" (config-reference);
+  the spike capture loses the ``collaboration.*`` tools with it;
+- ``features.view_image=false`` / ``features.image_generation=false`` - local-image attachment tool and
+  image generation; not under these names in the saved config-reference (it lists ``tools.view_image``):
+  spike capture only. The page image reaches the model through ``-i``, not through a tool;
+- ``web_search="disabled"`` - "Use ... "disabled" to remove the tool" (config-reference);
+- ``allow_login_shell=false`` - "when false, login = true requests are rejected and omitted login
+  defaults to non-login shells" (config-reference): no ``zsh -l`` sourcing of the user's profile.
 
 Environment: only the explicit allowlist ``CLOUD_ENV_ALLOWLIST`` (r5), taken from the source
 environment, with the plugin's ``bin/`` put first on ``PATH`` so that the exec-form hook command
@@ -59,6 +95,19 @@ OCR_PROMPT = PACKAGE / "prompts" / "ocr_read.md"
 OUTPUT_SCHEMA = PACKAGE / "schemas" / "ocr_cloud_output.json"
 
 SEND_PREFIX = "klode-kit-send-"
+CODEX_PERMISSION_PROFILE = "klode-kit-ocr"
+CODEX_PROFILE_CONFIG = (
+    f'default_permissions="{CODEX_PERMISSION_PROFILE}"',
+    f'permissions.{CODEX_PERMISSION_PROFILE}.filesystem={{":minimal"="read",":workspace_roots"={{"."="read"}}}}',
+    f"permissions.{CODEX_PERMISSION_PROFILE}.network.enabled=false",
+    "skills.include_instructions=false",
+    "features.apps=false",
+    "agents.enabled=false",
+    "features.view_image=false",
+    "features.image_generation=false",
+    'web_search="disabled"',
+    "allow_login_shell=false",
+)
 PROMPT_FILE = "prompt.txt"
 SCHEMA_FILE = "schema.json"
 
@@ -182,11 +231,11 @@ def codex(send_dir: str | os.PathLike, *, model: str, effort: str,
     argv = (
         "codex", "exec",
         "-C", str(send),
-        "-s", "read-only",
         "--ephemeral",
         "--ignore-user-config",
         "--ignore-rules",
         "-c", "mcp_servers={}",
+        *(tok for value in CODEX_PROFILE_CONFIG for tok in ("-c", value)),
         "--skip-git-repo-check",
         "-m", _model(model),
         "-c", f"model_reasoning_effort={_effort(effort, CODEX_EFFORTS)}",

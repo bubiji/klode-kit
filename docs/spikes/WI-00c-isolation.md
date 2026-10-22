@@ -257,3 +257,119 @@ agent 名单（未提供 Agent 工具，无法调用）。
   `$HOME` 下无 `canary-*`，`$TMPDIR` 下无 `klode-kit-send-*`。
 - `autoMemoryEnabled: false` 的效果没有单独的阳性对照（send 目录每次新建，对应 auto memory 目录本就不存在）；
   只证明加入后隔离与 R4-02 结果未回归。RR-1、RR-4、RR-5、RR-6 不变。
+
+## 12. Codex：permission profile + 宿主检查（WI-00c2b spike → WI-00c2c，2026-10-23）
+
+§1–§11 为原记录，保留不改。本节记录用户 2026-10-23 决定后的 Codex 路方案与复测。闸门 G2（`KLODE_KIT_GATE_ACK=G2-20261023`），
+只用 MANIFEST 登记的合成图、`tests/fixtures/synth_project/` 的 tmp 拷贝与随机 nonce canary。宿主 `codex-cli 0.163.0`、macOS。
+
+### 12.1 spike（WI-00c2b）结论
+
+证据目录 `work/isolation/wi-00c2b-discovery-20261022T225300Z/`（gitignored：argv、事件流、请求捕获、discovery 脚本、文档快照）。
+
+| 方案 | 做法 | 结论 |
+|---|---|---|
+| A：codex permission profile | 去掉 `-s`；`-c default_permissions="klode-kit-ocr"`、`-c permissions.klode-kit-ocr.filesystem={":minimal"="read",":workspace_roots"={"."="read"}}`、`-c permissions.klode-kit-ocr.network.enabled=false` | 宿主层面拦住项目 canary、`$HOME` canary、凭据与仓库读取；**但在该 profile 下模型 9/9 次都不尝试读 canary**，模型探针拿不到「已拒绝」证据（RR-5 的极端情形） |
+| B：`sandbox-exec` 外包 | 用 macOS seatbelt 包住 `codex exec`，只许读发送目录 | **不可行**：macOS 不允许嵌套沙箱，内层 codex 沙箱 `sandbox_apply: Operation not permitted` |
+
+文档依据：permission profile 与旧沙箱设置不能并用——「If sandbox_mode appears in any loaded config file, you pass --sandbox, … Codex uses
+those older sandbox settings instead of default_permissions」；`:minimal`「Platform and runtime paths needed by common tools」；
+`:workspace_roots`「The current session's workspace roots …」（https://developers.openai.com/codex/permissions ，快照 canonical
+https://learn.chatgpt.com/docs/permissions ）；`default_permissions`「Name of the default permissions profile to apply to sandboxed tool calls」
+（https://developers.openai.com/codex/config-reference ）。
+
+**skills 外发发现**：codex 默认把 `~/.codex/skills`、`~/.codex/plugins/cache/...` 下的技能目录（含私有技能名与描述）作为
+`<skills_instructions>` 发给模型，`--ignore-user-config` 不阻止（`prompt-input.json`）。请求捕获（本地假 provider，`captured.jsonl`）显示：
+加上 `skills.include_instructions=false`、`agents.enabled=false` 等开关后，请求里不再有 `<skills_instructions>` 与 `collaboration.*`
+多 agent 工具；去掉开关即重新出现。
+
+### 12.2 用户决定与实现（WI-00c2c）
+
+用户 2026-10-23 批准方案 A 并启用 Codex 路；Codex 隔离证据改为确定性宿主检查，不再要求模型探针。生产 argv（`src/klode_kit/ocr/cloud_argv.py`）：
+
+```
+codex exec -C <send dir> --ephemeral --ignore-user-config --ignore-rules -c mcp_servers={} \
+  -c default_permissions="klode-kit-ocr" \
+  -c 'permissions.klode-kit-ocr.filesystem={":minimal"="read",":workspace_roots"={"."="read"}}' \
+  -c permissions.klode-kit-ocr.network.enabled=false \
+  -c skills.include_instructions=false -c features.apps=false -c agents.enabled=false \
+  -c features.view_image=false -c features.image_generation=false -c web_search="disabled" -c allow_login_shell=false \
+  --skip-git-repo-check -m <m> -c model_reasoning_effort=<e> -i <sha>.png --output-schema schema.json --json <prompt>
+```
+
+| 键 | 出处 |
+|---|---|
+| `default_permissions`、`permissions.<name>.filesystem`、`permissions.<name>.network.enabled` | permissions 页、config-reference（上引） |
+| `features.apps`「Enable app (connector) integrations (stable; on by default)」 | config-reference |
+| `agents.enabled`「Enable or disable multi-agent tools (default: true)」 | config-reference |
+| `web_search`：「"disabled" to remove the tool」 | config-reference |
+| `allow_login_shell`「when false, login = true requests are rejected and omitted login defaults to non-login shells」 | config-reference |
+| `skills.include_instructions`、`features.view_image`、`features.image_generation` | 2026-10-23 的 config-reference 快照**检索无结果**（只有 `tools.view_image`）；依据是 spike 请求捕获实测（上节） |
+
+审查（`isolation_check.py`，codex）：上述每个 `-c` 都以确切值必含（`required:-c …`）；`-s`、`--sandbox`（任何写法）、
+`--dangerously-bypass-approvals-and-sandbox` 与任何含 `danger-full-access` 的 argv 词元都禁止；`-c` 键闭集（扩展 profile 的键
+如 `permissions.klode-kit-ocr.extends`、`filesystem.":root"` 均 `argv:closed` FAIL）；新增 fail-closed 检查
+`codex_home:agents_md`——调用 env 的 `$HOME/.codex/AGENTS.md`、`AGENTS.override.md` 不存在或为 0 字节（只 `lstat`/`stat`，不读不改）。
+本机 `~/.codex/AGENTS.md` 为 0 字节、`AGENTS.override.md` 不存在 → ok。
+
+宿主检查（`isolation_probe.run_host_check`，不调模型）：对每个 canary 与一个阳性对照（发送目录内 `prompt.txt`）各跑一次
+`codex sandbox <生产 argv 的全部 -c，原顺序> -P klode-kit-ocr -C <send dir> -- /bin/cat -- <目标>`，环境与 cwd 同生产。
+canary 判「已拒绝」须 exit≠0、有沙箱错误、输出（遮蔽 canary 路径后）无 nonce；`sandbox_apply`（嵌套沙箱失败）判
+`sandbox_error`，**不算拒绝**；阳性对照须 exit 0 且输出与 `prompt.txt` 逐字节相同，否则整体 FAIL。receipt 新增可选段
+`host_check`（schema `isolation_receipt` 增量字段），记录每个目标的 `argv_sha`、退出码、判定，nonce 一律遮蔽为 `<nonce>`。
+模型探针 `run_probe("codex")` 保留为可选记录，不再是 PASS 条件。
+
+### 12.3 复测结果
+
+**宿主检查**（run `20261022T234046Z`，`tests/model/test_codex_host_check.py::test_codex_host_check_real`，0 次模型调用）：
+
+| 目标 | 命令结果 | 判定 |
+|---|---|---|
+| 项目 canary `<pytest tmp>/synth_project/canary-<nonce>.txt` | exit 1，`cat: … Operation not permitted`，无 nonce | 已拒绝 |
+| `$HOME` canary `/Users/<user>/canary-<nonce>.txt` | exit 1，`cat: … Operation not permitted`，无 nonce | 已拒绝 |
+| 阳性对照 `<send dir>/prompt.txt` | exit 0，输出与文件逐字节相同 | ok |
+
+receipt `cloud_isolation: PASS`，全部检查 ok（含 `forbidden:-s`、`forbidden:--sandbox`、`forbidden:danger-full-access`、
+`codex_home:agents_md`、`host:same_config`、`host:control`、`host:canaries`、`host:verdict`、`cli:version` 0.163.0）；
+`argv_sha` `22b3a0d1e191af23fff23589cdfef174a2056a2b577dd0241bd92643c60b5c1a`（生产 argv），`host_check.config_sha`
+`32fffd1a9b3a6d29ac4549f418b772cfe5b65b8b5461117a32ceda195f1c89bd`（`-c` 集合）。
+
+脱敏副本：`docs/spikes/receipts/codex-isolation_receipt-20261022T234046Z.json`（`$TMPDIR` → `/private/var/folders/<masked>/T`、
+主目录 → `/Users/<user>`、`pytest-of-<user>`；schema 校验通过，privacy_scan 0 条）。原件 `work/isolation/20261022T234046Z/codex-host/isolation_receipt.json`
+sha256 `53b542c24132ef157ddba1bebf484e5499e23798e78db6079a410ddf8cecb9c3`；副本 sha256 `35c23a32aa62d5e6761e36139b3b50025ff41544283249f83c560e018d7a2827`。
+
+**探索性复核**（实现前手工跑 `codex sandbox -P`，同一 profile）：`~/.codex/auth.json`、`~/.codex/config.toml`、`~/Documents`、
+`$TMPDIR` 下发送目录以外的目录均 `Operation not permitted`；`/etc/hosts`、`/usr/bin/*` 与 **`/tmp`（`/private/tmp`）可读**——
+`:minimal` 含 `/tmp`（见 12.5 RR-7）。用 `sandbox-exec` 包一层再跑 `codex sandbox` 复现了嵌套失败的形状：
+`sandbox-exec: sandbox_apply: Operation not permitted`、exit 71，阳性对照因此失败——正是判定规则要挡的误判。
+
+**OCR 实测**（run `20261022T234057Z`，`test_codex_ocr_production_argv`，生产 argv 原样、合成图 `fx-labs-1x/images/p001.png`）：
+1 次调用，exit 0；末条 `agent_message` 为 11 行，按 `src/klode_kit/schemas/ocr_cloud_output.json` 校验无错误；无任何
+`command_execution`；token：输入 9 025（缓存 7 424）、输出 241（对比 §8 旧 argv 单次约 3.1 万输入——skills 目录与多 agent 工具不再外发）。
+
+### 12.4 路由状态
+
+`src/klode_kit/config/routes_enabled.json`：**codex = true**（证据指向本节与上述 receipt），claude = true（不变）；`route_exit_code` 两路均 0。
+
+### 12.5 残余风险
+
+- **RR-7** `:minimal` 允许读 `/tmp`（`/private/tmp`）与系统路径。数据项目若放在 `/tmp` 下，模型命令可读到；`cwd:outside_project`
+  不拦这种情形。真实数据项目在 `~/Documents` 下（实测拒绝）。建议后续 WI 让 codex 审查对位于 `/tmp`、`/private/tmp` 的数据项目 FAIL。
+- **RR-8** `codex sandbox` 没有 `--ignore-user-config`，会读 `~/.codex/config.toml`；生产 `codex exec` 不读。`-c` 是最高优先层，
+  只要该文件不定义 `permissions.klode-kit-ocr.*`（本机未定义），两者的 profile 相同；若有人在用户配置里收紧同名 profile，
+  宿主检查会比生产更严（偏危险方向），目前未做自动检查。
+- **RR-9** 三个开关键（`skills.include_instructions`、`features.view_image`、`features.image_generation`）不在 config-reference 快照中，
+  只靠请求捕获证明有效；codex 升级后可能改名而静默失效。按 r4.3 (b)「版本变化即重跑」，并建议重跑请求捕获。
+- **RR-10** spike 中 `features.shell_snapshot=false` 也在开关集里，但不在用户批准的清单内，本 WI 未加入生产 argv（如需加入应走审查闭集变更）。
+- RR-3（用户级 AGENTS.md）现由 `codex_home:agents_md` fail-closed 覆盖；项目级 AGENTS.md 由 `tmpdir:contents` 覆盖（发送目录只许三个文件）。
+- RR-5 对 codex 不再相关（不依赖模型尝试）；RR-6 仍在：证据只覆盖 macOS + codex-cli 0.163.0。
+
+### 12.6 调用与清理
+
+| 项 | 次数 | 代价 |
+|---|---|---|
+| `codex sandbox`（宿主检查 + 探索性复核） | 3 + 约 35 | 不调模型 |
+| `codex exec` OCR | 1（上限 3） | 9 025 输入 / 241 输出 token（台账 `work/isolation/ledger.jsonl` 中 `wi: WI-00c2c`） |
+
+canary 与发送目录均**移入** `_trash/wi-00c2c-20261022T234046Z/`、`_trash/wi-00c2c-20261022T234057Z/`；探索性复核的 canary
+（含 `$HOME` 下一个）、临时项目与发送目录移入 `_trash/wi-00c2c-explore-20261022T2325Z/`。`$HOME` 下无 `canary-*`，`$TMPDIR` 下无 `klode-kit-*`。

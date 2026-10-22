@@ -112,6 +112,89 @@
           ]
         }
       }
+    },
+    "host_check": {
+      "description": "Codex layer (b) since WI-00c2c: `codex sandbox -P <profile>` with the production -c set reads each canary (must be refused) and one file in the send dir (positive control, must succeed). No model call.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verdict",
+        "targets"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "profile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "config_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "verdict": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "path",
+              "outcome"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "canary",
+                  "control"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "argv_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "returncode": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "timed_out": {
+                "type": "boolean"
+              },
+              "outcome": {
+                "enum": [
+                  "denied",
+                  "read",
+                  "enoent",
+                  "sandbox_error",
+                  "error",
+                  "ok",
+                  "failed"
+                ]
+              },
+              "excerpt": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "allOf": [

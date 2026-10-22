@@ -149,6 +149,10 @@ def test_guard_hook_fires_under_restricted(probes):
     assert run.returncode == 0  # (12): --setting-sources "" is accepted (no usage error)
 
 
+@pytest.mark.skip(reason=(
+    "00c2-07 superseded (user decision 2026-10-23, WI-00c2c): under the klode-kit-ocr permission profile the "
+    "model never attempts canary reads, so a model probe cannot yield evidence. Codex isolation evidence is the "
+    "deterministic host check in tests/model/test_codex_host_check.py."))
 def test_codex_probe_denials(probes):
     """00c2-07 L3·S3: same for codex exec --json (r2.11 (10): read-only must not mean 'reads anywhere')."""
     run, canaries, nonce = probes["codex"]
@@ -156,7 +160,8 @@ def test_codex_probe_denials(probes):
     assert run.receipt["cloud_isolation"] == "PASS", [c for c in run.receipt["checks"] if not c["ok"]]
 
 
-@pytest.mark.parametrize("route", ["claude", "codex"])
+# codex receipts now come from the host check (test_codex_host_check.py), not the model probe (WI-00c2c).
+@pytest.mark.parametrize("route", ["claude"])
 def test_isolation_receipt_written_and_valid(probes, route):
     """00c2-09 L2·S1: receipts on disk pass the schema, bind the executed argv and carry the probe cost."""
     for route, (run, _, _) in [(route, probes[route])]:

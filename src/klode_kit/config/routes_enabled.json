@@ -6,14 +6,14 @@
    "verdict": "PASS"
   },
   "codex": {
-   "at": "2026-10-22T15:55:33+00:00",
-   "evidence": "WI-00c2 run 20261022T155533Z: codex exec -s read-only read both canaries (project + $HOME); probe FAIL. docs/spikes/WI-00c-isolation.md",
-   "verdict": "FAIL"
+   "at": "2026-10-22T23:41:27+00:00",
+   "evidence": "WI-00c2c run 20261022T234046Z (codex-cli 0.163.0): deterministic host check PASS - `codex sandbox -P klode-kit-ocr` with the production -c set refused both canaries (project + $HOME: exit 1, 'Operation not permitted', no nonce); positive control <send dir>/prompt.txt read byte-exact (exit 0); layer (a) all ok incl. forbidden:-s/--sandbox, codex_home:agents_md; argv_sha 22b3a0d1e191af23... OCR: one real codex exec with the production argv (run 20261022T234057Z) returned 11 lines valid against ocr_cloud_output. Receipt: docs/spikes/receipts/codex-isolation_receipt-20261022T234046Z.json; docs/spikes/WI-00c-isolation.md section 12",
+   "verdict": "PASS"
   }
  },
  "routes_enabled": {
   "claude": true,
-  "codex": false
+  "codex": true
  },
  "schema": "klode-kit.routes_enabled/1"
 }
