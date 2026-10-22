@@ -34,3 +34,4 @@
 | WI-00c2 | 发现 WI-00c1 缺陷：`--json-schema` 产生 StructuredOutput 工具调用，guard（matcher `*`、无 file_path 一律 exit 2）把每次结构化输出都拒掉 | 需修复（新 WI-00c1b，带复现测试） |
 | WI-00c2 | ⑫ `--setting-sources ""` 合法且不加载任何来源；⑭ `--restricted` 下 `--settings` 注入的 hook 会触发；R4-02 祖先/项目上下文不加载（输入 token Δ=0，阳性对照 Δ=+8841）；user memory 只有旁证（残余风险 RR-1） | 记录；详见 docs/spikes/WI-00c-isolation.md |
 | WI-00c2 | 费用：Claude ≈ $3.16（订阅计）；Codex 8 次 ≈ 20.2 万输入 token | 在授权内 |
+| WI-00c2 决定 | **用户 2026-10-23 AskUserQuestion**：① `USER` 加入 CLOUD_ENV_ALLOWLIST（只供本地 claude 读 Keychain）；② Codex 路先试更强沙箱（codex permissionProfile 受限读取 → 不行再 macOS sandbox-exec 只许读发送目录），期间保持关闭，仍不过再问用户；③ Claude 版本下限上调 2.1.285、cloud_settings 加 `autoMemoryEnabled:false`（允许修改 00c1-11 已记录边界断言与 CLOUD_SETTINGS_SHA256） | 新 WI-00c1b（修复+Claude 复测）、WI-00c2b（Codex 沙箱 spike） |
