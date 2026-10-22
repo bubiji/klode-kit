@@ -21,3 +21,7 @@
 | WI-00b2 | config 做成包 `src/klode_kit/config/{__init__.py,defaults.toml}`（计划写 `config.py` + 根目录 `config/defaults.toml`，二者不能干净共存）；R3-08 的 `config/**` 由 `src/**` 覆盖 | 接受 |
 | WI-00b2 | 自定键公式（doc_id、rec_id、batch_id、decision_id=`<audit_rev>/d<NNNN>`、commit_id、幂等键、cfg_fp 输入、attempt 目录 `<batch>/ocr/<engine>/<cfg_fp>.t<seq>`）；CLOUD_ENV_ALLOWLIST 为代码常量不可被配置放宽 | 接受；与 WI-00a fixtures 一致 |
 | WI-00b2 | red 为 opaque-failure（receipt.js 解析不到计数，lane 输出含覆盖率段）；首次被判 runner-missing 因缺 defaults.toml，补空占位后重录 | 接受（MEDIUM，不影响 HELD） |
+| WI-00b3 | fx-chain 每个变体只有一条记录，00b3-12「随机挑记录」退化为挑字段×路×不变量；混淆记录的校验器缺陷挡不住 | **待补**：WI-31 的 `test_provenance_roundtrip_on_pipeline_output` 必须用含 ≥2 条记录/页的产物（fx-u1-3labs 有 3 条记录的那页），并加一条「两条记录互换字段值 → 违例」用例；WI-31 派工时写明 |
+| WI-00b3 | 自定规则：生效决定取 `rev_new ≤ R` 中最大者；未登记 der_sha256 归 der_parent_mismatch；pdftext dpi 容差 ±1px；value_audited 比对 field_ids 中第一个 .value 字段；新增 12 个违例码（共 23） | 接受 |
+| WI-00b3 | 覆盖率按 lane 单看 contract_replay 77%、合并 100%；coverage_gate 必须用合并报告 | 接受；WI-15b release_check 用合并报告 |
+| WI-00b3 | criticalPaths 补 `contract/ids.py`（主会话补，WI-00b2 漏） | — |

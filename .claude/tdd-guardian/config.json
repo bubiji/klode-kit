@@ -13,7 +13,10 @@
       "name": "unit",
       "description": "Pure functions, schemas, guards (pytest marker: unit). Sockets disabled, KLODE_KIT_REAL=0.",
       "command": ".venv/bin/python -m pytest -m unit --disable-socket --cov=klode_kit --cov-branch --cov-report=json:work/coverage/unit.json -q",
-      "gateOn": ["taskCompleted", "commit"],
+      "gateOn": [
+        "taskCompleted",
+        "commit"
+      ],
       "coverage": "include",
       "coverageSummaryPath": "work/coverage/unit.json",
       "probeCommand": ".venv/bin/python -m pytest -m unit --collect-only -q",
@@ -23,7 +26,10 @@
       "name": "contract-replay",
       "description": "Contract samples and replayed chains with fake claude/codex (pytest marker: contract_replay). Sockets disabled.",
       "command": ".venv/bin/python -m pytest -m contract_replay --disable-socket --cov=klode_kit --cov-branch --cov-report=json:work/coverage/contract_replay.json -q",
-      "gateOn": ["taskCompleted", "commit"],
+      "gateOn": [
+        "taskCompleted",
+        "commit"
+      ],
       "coverage": "include",
       "coverageSummaryPath": "work/coverage/contract_replay.json",
       "probeCommand": ".venv/bin/python -m pytest -m contract_replay --collect-only -q",
@@ -33,7 +39,9 @@
       "name": "cli-integration",
       "description": "Real processes: launcher, klode/klode-mcp 0.5.0, pdftotext, local OCR engines, node (pytest marker: cli_integration). Missing deps FAIL.",
       "command": ".venv/bin/python -m pytest -m cli_integration --cov=klode_kit --cov-branch --cov-report=json:work/coverage/cli_integration.json -q",
-      "gateOn": ["commit"],
+      "gateOn": [
+        "commit"
+      ],
       "coverage": "include",
       "coverageSummaryPath": "work/coverage/cli_integration.json",
       "probeCommand": ".venv/bin/python -m pytest -m cli_integration --collect-only -q",
@@ -43,7 +51,9 @@
       "name": "model-integration",
       "description": "Real model calls on synthetic images only. Local only; needs KLODE_KIT_REAL=1 and KLODE_KIT_GATE_ACK=G2-<yyyymmdd> (gate G2).",
       "command": ".venv/bin/python -m pytest -m model_integration -q",
-      "gateOn": ["manual"],
+      "gateOn": [
+        "manual"
+      ],
       "coverage": "none",
       "timeoutMs": 1800000,
       "optional": true
@@ -52,7 +62,9 @@
       "name": "host-acceptance",
       "description": "claude -p --plugin-dir . host runs. Local only; needs KLODE_KIT_REAL=1 and KLODE_KIT_GATE_ACK=G2-<yyyymmdd> (gates G2/G5).",
       "command": ".venv/bin/python -m pytest -m host_acceptance -q",
-      "gateOn": ["manual"],
+      "gateOn": [
+        "manual"
+      ],
       "coverage": "none",
       "timeoutMs": 1800000,
       "optional": true
@@ -64,9 +76,26 @@
     "branches": 85,
     "statements": 90
   },
-  "criticalPaths": [],
+  "criticalPaths": [
+    {
+      "glob": "src/klode_kit/contract/provenance.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/contract/ids.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S5"
+    }
+  ],
   "coverageMode": "absolute",
   "requireMutation": false,
   "mutationCommand": "",
-  "mutationGateOn": ["manual"]
+  "mutationGateOn": [
+    "manual"
+  ]
 }
