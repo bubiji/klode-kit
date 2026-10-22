@@ -43,7 +43,18 @@
    "artifact": "06-评审记录.md"
   },
   "4": {
-   "status": "pending"
+   "status": "pass",
+   "input_digest": "17da502cb970387d",
+   "inputs": [
+    "02-概要设计.md",
+    "03-基线_OCR复用盘点.md",
+    "03-基线_现有kb-build实测.md",
+    "04-需求摘要与usercase.md",
+    "06-评审记录.md"
+   ],
+   "artifact": "07-TDD计划.md",
+   "note": "opus (planner/test-designer/spec-adversary); adversary SURVIVED r6",
+   "at": "2026-10-22T18:31"
   },
   "5": {
    "status": "pending"
