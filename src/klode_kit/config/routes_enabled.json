@@ -1,0 +1,19 @@
+{
+ "evidence": {
+  "claude": {
+   "at": "2026-10-22T15:55:33+00:00",
+   "evidence": "WI-00c2 run 20261022T155533Z: probe PASS (both canaries host-denied, no nonce) but receipt FAIL: probe:env_delta (USER needed for macOS OAuth keychain, outside r5 allowlist). docs/spikes/WI-00c-isolation.md",
+   "verdict": "FAIL"
+  },
+  "codex": {
+   "at": "2026-10-22T15:55:33+00:00",
+   "evidence": "WI-00c2 run 20261022T155533Z: codex exec -s read-only read both canaries (project + $HOME); probe FAIL. docs/spikes/WI-00c-isolation.md",
+   "verdict": "FAIL"
+  }
+ },
+ "routes_enabled": {
+  "claude": false,
+  "codex": false
+ },
+ "schema": "klode-kit.routes_enabled/1"
+}

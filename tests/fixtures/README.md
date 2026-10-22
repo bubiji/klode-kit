@@ -127,10 +127,12 @@ receipt 记 `pdf_unreadable`、不产出任何 text 产物（04c-06）。
 
 ## `replay/probe-synth`
 
-隔离探针事件流（合成）：`denied`、`enoent`、`unattempted`、`mixed`、`narrative-lies`（模型文字声称被拒、
-工具结果实为成功）为 `claude -p --output-format stream-json` 形状；`codex-denied`、`codex-read` 为
-`codex exec --json` 形状。字段名是占位形状，WI-00c2 在 G2 下录制真实流后校正。`expected.json` 给出每个
-canary 的判定（denied / enoent / unattempted / read）与结论（只有全部 denied 才 PASS）。
+隔离探针事件流（合成内容、真实形状）：`denied`（含 StructuredOutput 被拒的噪声）、`denied-no-guard`（无 guard
+日志，只凭 `permission_denials`）、`enoent`、`unattempted`、`mixed`、`narrative-lies`（模型文字声称被拒、
+工具结果实为成功）为 `claude -p --output-format stream-json --verbose` 2.1.285 形状，配 `<name>.guard.jsonl`；
+`codex-denied`、`codex-read` 为 `codex exec --json` 0.163.0 形状。形状取自 WI-00c2 在 G2 下的真实录制
+（2026-10-23）；codex 的拒绝 / ENOENT 输出未实测到（真实运行两个 canary 都读到了），为推定形状。
+`expected.json` 给出每个 canary 的判定（denied / enoent / unattempted / read）与结论（只有全部 denied 才 PASS）。
 
 ## `fx-chain`
 

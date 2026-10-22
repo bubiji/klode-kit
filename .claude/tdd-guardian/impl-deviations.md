@@ -29,3 +29,8 @@
 | WI-00c1 | 审查比 r4.3 更严：`-p` 必含、未知 flag 一律 FAIL（argv:closed）、补 cwd:system_tmp / cwd:mode_0700 / guard:on_path；codex 加 `--skip-git-repo-check`、`--json`、`-i`、`--output-schema` | 接受；WI-00c2 实跑确认 |
 | WI-00c1 | `receipt_still_valid(receipt, env)` 签名与矩阵 `receipt_still_valid(env)` 不同；guard 日志在 `<send dir>.guard.jsonl`，WI-05b 负责搬入 receipt 目录 | 接受；WI-05b 派工时写明 |
 | WI-00c1 | 子代理工具集无 cc-doc-search MCP，直接只读本地文档镜像原文并附官网 URL；⑫ `--setting-sources ""`、⑭ `--restricted` 下 `--settings` hook 是否触发：文档检索无结果，留 WI-00c2 实测 | 接受 |
+| WI-00c2 | 子代理原地改 README（Layout 加 docs/spikes 行）→ 主会话恢复原 README，diff 存 `_trash/wi-00c2-readme/README.diff`，由 WI-30 写入 README_v2.md | 按用户「单文件更新另存」规则处理 |
+| WI-00c2 | **BLOCKED**：Claude 路宿主隔离成立（两 canary 均 hook+permission_denials 拒绝、无 nonce）但 receipt FAIL：macOS OAuth 读 Keychain 需 `USER`，不在 r5 env 白名单；Codex 路 `codex exec -s read-only` 读到项目与 $HOME canary → FAIL。两路 routes_enabled=false，真实数据路径关闭 | 待用户决定（见会话 AskUserQuestion） |
+| WI-00c2 | 发现 WI-00c1 缺陷：`--json-schema` 产生 StructuredOutput 工具调用，guard（matcher `*`、无 file_path 一律 exit 2）把每次结构化输出都拒掉 | 需修复（新 WI-00c1b，带复现测试） |
+| WI-00c2 | ⑫ `--setting-sources ""` 合法且不加载任何来源；⑭ `--restricted` 下 `--settings` 注入的 hook 会触发；R4-02 祖先/项目上下文不加载（输入 token Δ=0，阳性对照 Δ=+8841）；user memory 只有旁证（残余风险 RR-1） | 记录；详见 docs/spikes/WI-00c-isolation.md |
+| WI-00c2 | 费用：Claude ≈ $3.16（订阅计）；Codex 8 次 ≈ 20.2 万输入 token | 在授权内 |
