@@ -30,11 +30,11 @@
   },
   "3": {
    "status": "fail",
-   "rounds": 1,
-   "verdict": "MAJOR GAPS（第 1 轮，21 条）",
+   "rounds": 2,
+   "verdict": "NEEDS REVISION（第 2 轮，12 条）",
    "note": "gpt-6-astra/high",
-   "at": "2026-10-22T15:35",
-   "revisions": 1
+   "at": "2026-10-22T15:52",
+   "revisions": 2
   },
   "4": {
    "status": "pending"
