@@ -1,0 +1,105 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "U1：同日（2026-10-22）三张化验单，共恰好 5 条分歧：p001 三条（含一条四路全不同），p002 两条，p003 无分歧。",
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 0,
+   "value": "126"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 2,
+   "value": "4.36"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "claude",
+   "row": 2,
+   "value": "4.85"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 2,
+   "value": "4.33"
+  },
+  {
+   "col": "unit",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 4,
+   "value": "‰"
+  },
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "claude",
+   "row": 1,
+   "value": "5.8"
+  },
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "mlx",
+   "row": 3,
+   "value": "183"
+  }
+ ],
+ "kind": "table",
+ "name": "fx-u1-3labs",
+ "pages": [
+  {
+   "date": "2026-10-22",
+   "der_sha256": "2c3a82a9982392b667d58a83a94553eafab7a3b839da8090aad15ba46dd41ca2",
+   "doc_id": "d-2c3a82a99823",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-2c3a82a99823/p001",
+   "record_type": "lab"
+  },
+  {
+   "date": "2026-10-22",
+   "der_sha256": "ad9aa32e4fd41f6c4a2a781787a611c51edc69fe05f10c802e5590f06179b95c",
+   "doc_id": "d-ad9aa32e4fd4",
+   "image": "images/p002.png",
+   "key": "p002",
+   "page_id": "d-ad9aa32e4fd4/p001",
+   "record_type": "lab"
+  },
+  {
+   "date": "2026-10-22",
+   "der_sha256": "0c2b54bc5d68fc99b0a4ab6b0e328c5c75f14f00187b4a41ec2c566589bfd390",
+   "doc_id": "d-0c2b54bc5d68",
+   "image": "images/p003.png",
+   "key": "p003",
+   "page_id": "d-0c2b54bc5d68/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

@@ -1,0 +1,56 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "U3：两张化验单，p001 四路完全一致（应 auto verified），p002 只有多数票分歧（两处）。",
+ "injections": [
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "mlx",
+   "row": 0,
+   "value": "138"
+  },
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "codex",
+   "row": 3,
+   "value": "286"
+  }
+ ],
+ "kind": "table",
+ "name": "fx-u3-mixed",
+ "pages": [
+  {
+   "date": "2026-10-22",
+   "der_sha256": "7c047b8562776babaf0dfd905b6c62fedbe036776ee03851f7e7fea75ea7b118",
+   "doc_id": "d-7c047b856277",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-7c047b856277/p001",
+   "record_type": "lab"
+  },
+  {
+   "date": "2026-10-22",
+   "der_sha256": "8f12d5a59165336e229a08bac77786e335362504f6d66af549a8cb450805b7c0",
+   "doc_id": "d-8f12d5a59165",
+   "image": "images/p002.png",
+   "key": "p002",
+   "page_id": "d-8f12d5a59165/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

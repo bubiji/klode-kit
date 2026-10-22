@@ -1,0 +1,10 @@
+{
+ "base": "clean",
+ "description": "row 0 项目名四路都读作 HGB，导出时经 alias transform 归一为 血红蛋白（只作用于 item）。",
+ "expect_violations": [],
+ "mutated_files": [],
+ "options": {
+  "alias": true
+ },
+ "variant": "legal-alias"
+}

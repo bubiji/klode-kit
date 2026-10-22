@@ -1,0 +1,37 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "mlx 路第 3 行（row 2）列错位：数值落进单位列、数值列为空；其余三路正确。",
+ "injections": [
+  {
+   "key": "p001",
+   "kind": "colshift",
+   "route": "mlx",
+   "row": 2
+  }
+ ],
+ "kind": "table",
+ "name": "fx-colshift",
+ "pages": [
+  {
+   "date": "2026-09-11",
+   "der_sha256": "7fa1ada1c9f4c8029569356682352a6bc70ac494ceec736f5246317a0b25b4ec",
+   "doc_id": "d-7fa1ada1c9f4",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-7fa1ada1c9f4/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

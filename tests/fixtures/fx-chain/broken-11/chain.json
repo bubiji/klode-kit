@@ -1,0 +1,14 @@
+{
+ "audit_rev": "66cbc8ea383b/a1",
+ "base_route": "pdftext",
+ "batch_id": "66cbc8ea383b",
+ "kb_id": "fx-chain-klode",
+ "rec_ids": [
+  "r-fca4966fb4bc"
+ ],
+ "routes": [
+  "pdftext"
+ ],
+ "schema": "klode-kit.fixture-chain/1",
+ "synthetic": true
+}

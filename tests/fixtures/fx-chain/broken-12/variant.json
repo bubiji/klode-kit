@@ -1,0 +1,14 @@
+{
+ "base": "clean",
+ "description": "codex 路（bbox_px:null）labs[3].value 的 prov.span 右移 1 位。",
+ "expect_violations": [
+  {
+   "code": "span_mismatch",
+   "engine": "codex"
+  }
+ ],
+ "mutated_files": [
+  "audit/a6b89e9e68dc/a1/cells.jsonl"
+ ],
+ "variant": "broken-12"
+}

@@ -1,0 +1,15 @@
+{
+ "description": "fx-text-pdf/guide-2026.pdf 的前一半字节（截断，缺 xref 与 %%EOF）。",
+ "expect": {
+  "exit": "non-zero",
+  "receipt_reason": "pdf_unreadable",
+  "text_outputs": 0
+ },
+ "file": "corrupt.pdf",
+ "kind": "pdf",
+ "name": "fx-corrupt-pdf",
+ "source": "fx-text-pdf/guide-2026.pdf",
+ "source_bytes": 4623,
+ "synthetic": true,
+ "truncated_to": 2311
+}

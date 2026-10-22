@@ -1,0 +1,211 @@
+{
+ "engine_dir": "engine",
+ "fields": [
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l05:value",
+   "item": "示例片",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10mg"
+    },
+    "codex": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10mg"
+    },
+    "mlx": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10mg"
+    },
+    "vision": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10mg"
+    }
+   },
+   "row": 0,
+   "truth": "10mg"
+  },
+  {
+   "col": "value",
+   "designed": "majority",
+   "field_id": "p001-l06:value",
+   "item": "示例片",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "5mg"
+    },
+    "codex": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "5mg"
+    },
+    "mlx": {
+     "line_idx": 6,
+     "span": [
+      4,
+      8
+     ],
+     "value": "5rng"
+    },
+    "vision": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "5mg"
+    }
+   },
+   "row": 1,
+   "truth": "5mg"
+  },
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l07:value",
+   "item": "示例片",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 7,
+     "span": [
+      4,
+      9
+     ],
+     "value": "0.25g"
+    },
+    "codex": {
+     "line_idx": 7,
+     "span": [
+      4,
+      9
+     ],
+     "value": "0.25g"
+    },
+    "mlx": {
+     "line_idx": 7,
+     "span": [
+      4,
+      9
+     ],
+     "value": "0.25g"
+    },
+    "vision": {
+     "line_idx": 7,
+     "span": [
+      4,
+      9
+     ],
+     "value": "0.25g"
+    }
+   },
+   "row": 2,
+   "truth": "0.25g"
+  }
+ ],
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 1,
+   "value": "5rng"
+  }
+ ],
+ "layout": {
+  "p001": {
+   "header_box": [
+    34,
+    85,
+    253,
+    161
+   ],
+   "size": [
+    960,
+    478
+   ],
+   "table_box": [
+    40,
+    231,
+    778,
+    399
+   ]
+  }
+ },
+ "records": [
+  {
+   "date": "2026-09-19",
+   "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80",
+   "doc_id": "d-3e68e97d5936",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-3e68e97d5936/p001",
+   "patient": "测试患者甲",
+   "patient_id": "T-0000001",
+   "rec_id": "r-4a298417ecb4",
+   "record_idx": 0,
+   "record_type": "rx",
+   "rows": [
+    {
+     "flag": "",
+     "item": "示例片",
+     "line_idx": 5,
+     "ref": "每日1次",
+     "row": 0,
+     "unit": "",
+     "value": "10mg"
+    },
+    {
+     "flag": "",
+     "item": "示例片",
+     "line_idx": 6,
+     "ref": "每日2次",
+     "row": 1,
+     "unit": "",
+     "value": "5mg"
+    },
+    {
+     "flag": "",
+     "item": "示例片",
+     "line_idx": 7,
+     "ref": "必要时",
+     "row": 2,
+     "unit": "",
+     "value": "0.25g"
+    }
+   ]
+  }
+ ],
+ "scenario": "fx-rx-stamp",
+ "schema": "klode-kit.fixture-truth/1",
+ "synthetic": true
+}

@@ -11,3 +11,4 @@ tests/host/_lab/
 .pytest_cache/
 *.egg-info/
 mutants/
+_trash/

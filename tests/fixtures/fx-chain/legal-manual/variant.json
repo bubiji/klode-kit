@@ -1,0 +1,10 @@
+{
+ "base": "clean",
+ "description": "四路都把 示例指标 读成 10.5，人工 manual 改为 1.05，evidence 带 region 与 seen；段 ① 对 10.5 仍成立。",
+ "expect_violations": [],
+ "mutated_files": [],
+ "options": {
+  "manual": true
+ },
+ "variant": "legal-manual"
+}

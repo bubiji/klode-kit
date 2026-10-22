@@ -1,0 +1,10 @@
+{
+ "base": "clean",
+ "description": "deident.mode=dateshift 导出：每行日期经 dateshift transform 偏移到 2026-10-02。",
+ "expect_violations": [],
+ "mutated_files": [],
+ "options": {
+  "dateshift": true
+ },
+ "variant": "legal-dateshift"
+}

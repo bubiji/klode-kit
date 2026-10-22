@@ -1,0 +1,2 @@
+# Data-project override for tests (00b2-11): only route_retry differs from defaults.
+route_retry = 5

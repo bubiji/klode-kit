@@ -8,3 +8,8 @@
 | WI-00s | 自定行为：暂停点只首次经过生效；PAUSE_DIR 不存在也 exit 2；hook 无法解析目标路径的写入按持久写计（保守）；启动器 venv 异常 exit 40 | 接受 |
 | WI-00s | 执行过 `rm -rf work/lanes work/coverage`、`rm -f .coverage`（本会话生成、已 gitignore、可重建的产物） | 已向用户如实报告；后续派工明确要求改为移入 `_trash/` |
 | WI-00s | `criticalPaths` 暂空，由建文件的 WI 补条目 | 接受；WI-15b release_check 时核对齐全 |
+| WI-00a | `test_manifest_complete` 比较 `sorted(entries)`（字符串序）与 `tree_files`（Path 序），`X.ext` 与目录 `X/` 并存时顺序不同而误红；实现者未改已记录断言，改 fixture 目录名 `derived/`→`derived_img/` 规避 | 暂接受规避；修断言（改为 `sorted(files)`）属改已记录行，留待下次向用户批量确认 |
+| WI-00a | privacy_scan 的 SKIP_DIRS 加 `_trash`（gitignored，CI 不可见） | 接受 |
+| WI-00a | 新增 gen_common/gen_chain/gen_project；fixture 各产物格式为暂定，WI-00b1/00b3/00c2 可调整后重生成 | 接受；对应 WI 派工时提醒 |
+| WI-00a | `repeat_ratio` 行级定义为自定，WI-04a 与 189 MLX 检测对齐 | 接受；WI-04a 派工时提醒 |
+| WI-00a | 新增 pyproject `[tool.pyright]`（主会话，消 IDE 误报） | — |

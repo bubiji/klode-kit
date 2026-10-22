@@ -1,0 +1,13 @@
+{
+ "base": "clean",
+ "description": "verified 记录的 date 字段没有任何决定。",
+ "expect_violations": [
+  {
+   "code": "missing_effective_decision"
+  }
+ ],
+ "mutated_files": [
+  "audit/a6b89e9e68dc/a1/fixes.jsonl"
+ ],
+ "variant": "broken-7"
+}

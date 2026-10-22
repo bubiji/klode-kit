@@ -1,0 +1,51 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  },
+  "t2": {
+   "dir": "engine_t2",
+   "missing": {
+    "codex": [
+     "p001"
+    ]
+   }
+  },
+  "t3": {
+   "dir": "engine_t3",
+   "missing": {}
+  }
+ },
+ "description": "U6 重做：t1 四路齐、codex 在 row 0 数值有分歧（供人工点选为 r1）；t2 重做时 codex 缺 p001；t3 修复后四路一致。",
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 0,
+   "value": "126"
+  }
+ ],
+ "kind": "table",
+ "name": "fx-redo",
+ "pages": [
+  {
+   "date": "2026-10-21",
+   "der_sha256": "e9f04e9657b807e822e220b1cb33ab5fa6052e3ac53fcce4b27fd950449a1fdc",
+   "doc_id": "d-e9f04e9657b8",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-e9f04e9657b8/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

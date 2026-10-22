@@ -32,7 +32,7 @@ NAME_ALLOW = re.compile(r"测试患者[甲乙丙丁戊己庚辛壬癸]")
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".heic", ".heif", ".svg", ".pdf"}
 SKIP_DIRS = {
     ".git", ".venv", "venv", "work", "node_modules", "__pycache__", ".pytest_cache",
-    ".hypothesis", ".mutmut-cache", "mutants", "htmlcov", "_lab", ".ruff_cache", ".mypy_cache",
+    ".hypothesis", ".mutmut-cache", "mutants", "htmlcov", "_lab", ".ruff_cache", ".mypy_cache", "_trash",
 }
 MAX_TEXT_BYTES = 5 * 1024 * 1024
 

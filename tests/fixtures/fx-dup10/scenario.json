@@ -1,0 +1,30 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "两行数值都是 10（白细胞、尿素），四路一致；对齐必须按单元格保留 ordinal，不得合并。",
+ "injections": [],
+ "kind": "table",
+ "name": "fx-dup10",
+ "pages": [
+  {
+   "date": "2026-09-15",
+   "der_sha256": "4d56f97eced2f3d71c999798c8ef48d2c0ccc688245b8b4600dbeb33a9ffa664",
+   "doc_id": "d-4d56f97eced2",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-4d56f97eced2/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

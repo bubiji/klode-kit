@@ -1,0 +1,39 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "处方笺，三行示例片，红色印章压在第 2 行规格上；mlx 路把该格读错（多数票分歧）。抬头含姓名与编号，供打码测试。",
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 1,
+   "value": "5rng"
+  }
+ ],
+ "kind": "table",
+ "name": "fx-rx-stamp",
+ "pages": [
+  {
+   "date": "2026-09-19",
+   "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80",
+   "doc_id": "d-3e68e97d5936",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-3e68e97d5936/p001",
+   "record_type": "rx"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

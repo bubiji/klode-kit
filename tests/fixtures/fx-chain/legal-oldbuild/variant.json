@@ -1,0 +1,10 @@
+{
+ "base": "clean",
+ "description": "记录已推进到 rev 2（row 1 改选 mlx 的 6.8），旧 build 仍绑定 rev 1 且自洽。",
+ "expect_violations": [],
+ "mutated_files": [],
+ "options": {
+  "oldbuild": true
+ },
+ "variant": "legal-oldbuild"
+}

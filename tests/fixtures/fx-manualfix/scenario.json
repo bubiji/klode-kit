@@ -1,0 +1,63 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "处方单一行示例片，图上规格为 1.05，四路都读成 10.5；人工确认时改为 1.05（日期 2026-09-18）。",
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "vision",
+   "row": 0,
+   "value": "10.5"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 0,
+   "value": "10.5"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "claude",
+   "row": 0,
+   "value": "10.5"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 0,
+   "value": "10.5"
+  }
+ ],
+ "kind": "table",
+ "name": "fx-manualfix",
+ "pages": [
+  {
+   "date": "2026-09-18",
+   "der_sha256": "a439d08974f0a4703d6ff0ce65fa3dcde21381e4aa6fdb8efa353da8998bb306",
+   "doc_id": "d-a439d08974f0",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-a439d08974f0/p001",
+   "record_type": "rx"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

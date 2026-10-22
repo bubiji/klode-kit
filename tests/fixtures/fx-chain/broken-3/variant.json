@@ -1,0 +1,13 @@
+{
+ "base": "legal-manual",
+ "description": "manual 决定的 evidence 去掉 region。",
+ "expect_violations": [
+  {
+   "code": "manual_evidence_missing"
+  }
+ ],
+ "mutated_files": [
+  "audit/a6b89e9e68dc/a1/fixes.jsonl"
+ ],
+ "variant": "broken-3"
+}

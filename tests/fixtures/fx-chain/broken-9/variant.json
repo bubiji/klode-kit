@@ -1,0 +1,15 @@
+{
+ "base": "clean",
+ "description": "rev 1 记录里 labs[0].value 为 129，决定值是 128；导出与记录一致（129）。",
+ "expect_violations": [
+  {
+   "code": "record_value_mismatch"
+  }
+ ],
+ "mutated_files": [
+  "build/library/items/hemoglobin.txt",
+  "build/src/export_map.jsonl",
+  "records/_rev/r-2b51853cff8d.r1.md"
+ ],
+ "variant": "broken-9"
+}

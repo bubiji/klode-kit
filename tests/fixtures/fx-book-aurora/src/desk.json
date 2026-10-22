@@ -1,0 +1,59 @@
+{
+ "dimensions": [
+  {
+   "cards": [
+    "ch01"
+   ],
+   "cues": [
+    "copper shell",
+    "annealing",
+    "domed base",
+    "tinning"
+   ],
+   "id": "d1",
+   "title": "Construction"
+  },
+  {
+   "cards": [
+    "ch02"
+   ],
+   "cues": [
+    "whistle valve",
+    "reed",
+    "valve cap",
+    "pitch"
+   ],
+   "id": "d2",
+   "title": "Whistle"
+  },
+  {
+   "cards": [
+    "ch03"
+   ],
+   "cues": [
+    "night market",
+    "ember bed",
+    "salt and lemon",
+    "winter storage"
+   ],
+   "id": "d3",
+   "title": "Care"
+  }
+ ],
+ "kb": "demo-klode",
+ "synthetic": true,
+ "tests": [
+  {
+   "expect": "ch01",
+   "q": "Why is the copper shell annealed twice?"
+  },
+  {
+   "expect": "ch02",
+   "q": "What makes the whistle produce two tones?"
+  },
+  {
+   "expect": "ch03",
+   "q": "How do vendors keep the kettle warm at night markets?"
+  }
+ ]
+}

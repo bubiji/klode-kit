@@ -1,0 +1,13 @@
+{
+ "base": "clean",
+ "description": "labs[2].value 多出一条同 rev 的生效决定。",
+ "expect_violations": [
+  {
+   "code": "multiple_effective_decisions"
+  }
+ ],
+ "mutated_files": [
+  "audit/a6b89e9e68dc/a1/fixes.jsonl"
+ ],
+ "variant": "broken-4"
+}

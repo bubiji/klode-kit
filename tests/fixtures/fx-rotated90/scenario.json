@@ -1,0 +1,30 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "整页顺时针旋转 90° 存储；逆时针转 90°（PIL ROTATE_90）复原。各路结果针对复原后的 derived 图。",
+ "injections": [],
+ "kind": "table",
+ "name": "fx-rotated90",
+ "pages": [
+  {
+   "date": "2026-09-20",
+   "der_sha256": "bf5e68883499c077aa7d693b7f36a72b5611d32ce5a24983cca8ea8c17f98dc3",
+   "doc_id": "d-a44b370b7da7",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-a44b370b7da7/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

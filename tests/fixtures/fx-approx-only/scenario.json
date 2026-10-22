@@ -1,0 +1,30 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "row 2 只有 approx 几何（vision 该行 token 标 approx，且没有其他 exact 几何路），四路完全一致；该行应进 no_geometry，不能 auto verified。",
+ "injections": [],
+ "kind": "table",
+ "name": "fx-approx-only",
+ "pages": [
+  {
+   "date": "2026-09-14",
+   "der_sha256": "9540907a834d2dd136b20f1364b037871342ba418fca540b98aa88830140a682",
+   "doc_id": "d-9540907a834d",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-9540907a834d/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

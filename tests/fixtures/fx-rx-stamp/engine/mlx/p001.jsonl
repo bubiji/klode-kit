@@ -1,0 +1,8 @@
+{"bbox_px": [40, 25, 260, 55], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 0, "page_id": "d-3e68e97d5936/p001", "text": "示例医院 处方笺", "tokens": null}
+{"bbox_px": [40, 91, 232, 115], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 1, "page_id": "d-3e68e97d5936/p001", "text": "姓名：测试患者甲", "tokens": null}
+{"bbox_px": [40, 131, 247, 155], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 2, "page_id": "d-3e68e97d5936/p001", "text": "编号：T-0000001", "tokens": null}
+{"bbox_px": [40, 171, 255, 195], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 3, "page_id": "d-3e68e97d5936/p001", "text": "日期：2026-09-19", "tokens": null}
+{"bbox_px": [40, 231, 738, 255], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 4, "page_id": "d-3e68e97d5936/p001", "text": "药品 规格 用法", "tokens": null}
+{"bbox_px": [40, 281, 778, 307], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 5, "page_id": "d-3e68e97d5936/p001", "text": "示例片 10mg 每日1次", "tokens": null}
+{"bbox_px": [40, 327, 778, 353], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 6, "page_id": "d-3e68e97d5936/p001", "text": "示例片 5rng 每日2次", "tokens": null}
+{"bbox_px": [40, 373, 762, 399], "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80", "engine": "mlx", "line_idx": 7, "page_id": "d-3e68e97d5936/p001", "text": "示例片 0.25g 必要时", "tokens": null}

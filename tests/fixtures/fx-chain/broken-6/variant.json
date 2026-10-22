@@ -1,0 +1,13 @@
+{
+ "base": "legal-oldbuild",
+ "description": "export_map 中 row 0 那一行 rev=2，而 audit_bindings 绑定 rev 1（该行字段在 r1/r2 相同）。",
+ "expect_violations": [
+  {
+   "code": "rev_binding_mismatch"
+  }
+ ],
+ "mutated_files": [
+  "build/src/export_map.jsonl"
+ ],
+ "variant": "broken-6"
+}

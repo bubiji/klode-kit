@@ -1,0 +1,14 @@
+{
+ "base": "clean",
+ "description": "导出行在 labs[0].value 声明位置上的文本为 182 ≠ apply(transforms, 128)。",
+ "expect_violations": [
+  {
+   "code": "export_text_mismatch"
+  }
+ ],
+ "mutated_files": [
+  "build/library/items/hemoglobin.txt",
+  "build/src/export_map.jsonl"
+ ],
+ "variant": "broken-10"
+}

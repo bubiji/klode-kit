@@ -1,0 +1,10 @@
+{
+ "base": "clean",
+ "description": "文字层 PDF 单路 pdftext：bbox_pt 经 page_map.dpi=150 换算为 bbox_px。",
+ "expect_violations": [],
+ "mutated_files": [],
+ "options": {
+  "pdftext": true
+ },
+ "variant": "legal-pdftext_dpi"
+}

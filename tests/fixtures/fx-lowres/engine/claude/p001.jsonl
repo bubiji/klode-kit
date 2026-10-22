@@ -1,0 +1,9 @@
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 0, "page_id": "d-d328c4abfd8d/p001", "text": "示例医院 检验报告单", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 1, "page_id": "d-d328c4abfd8d/p001", "text": "姓名：测试患者甲", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 2, "page_id": "d-d328c4abfd8d/p001", "text": "编号：T-0000001", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 3, "page_id": "d-d328c4abfd8d/p001", "text": "日期：2026-09-16", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 4, "page_id": "d-d328c4abfd8d/p001", "text": "项目 结果 单位 提示 参考范围", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 5, "page_id": "d-d328c4abfd8d/p001", "text": "血红蛋白 128 g/L 115-150", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 6, "page_id": "d-d328c4abfd8d/p001", "text": "白细胞 6.2 10^9/L 3.5-9.5", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 7, "page_id": "d-d328c4abfd8d/p001", "text": "红细胞 4.35 10^12/L 3.8-5.1", "tokens": null}
+{"bbox_px": null, "der_sha256": "d328c4abfd8df52f2ccbf2bb570dc09220f34bf9e2c3f2e2c3ad84567c28aa23", "engine": "claude", "line_idx": 8, "page_id": "d-d328c4abfd8d/p001", "text": "血小板 210 10^9/L 125-350", "tokens": null}

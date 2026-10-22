@@ -1,0 +1,37 @@
+{
+ "description": "四页混排：text / empty（无文字层）/ garbled（文字层为符号噪声）/ 扫描页（只有图像，按 empty 分流）。",
+ "expect": {
+  "ocr_pages": [
+   2,
+   3,
+   4
+  ],
+  "skipped_pages": [
+   1
+  ],
+  "text_layer": "partial"
+ },
+ "file": "mixed.pdf",
+ "kind": "pdf",
+ "name": "fx-mixed-pdf",
+ "pages": [
+  {
+   "class": "text",
+   "page": 1
+  },
+  {
+   "class": "empty",
+   "page": 2
+  },
+  {
+   "class": "garbled",
+   "page": 3
+  },
+  {
+   "class": "empty",
+   "note": "scan: image only, no text layer",
+   "page": 4
+  }
+ ],
+ "synthetic": true
+}

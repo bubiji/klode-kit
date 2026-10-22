@@ -1,0 +1,16 @@
+{
+ "base": "clean",
+ "description": "row 1 人工决定 route=vision，写入的却是★推荐值 6.8；记录与导出同步为 6.8。",
+ "expect_violations": [
+  {
+   "code": "route_value_mismatch"
+  }
+ ],
+ "mutated_files": [
+  "audit/a6b89e9e68dc/a1/fixes.jsonl",
+  "build/library/items/wbc.txt",
+  "build/src/export_map.jsonl",
+  "records/_rev/r-2b51853cff8d.r1.md"
+ ],
+ "variant": "broken-8"
+}

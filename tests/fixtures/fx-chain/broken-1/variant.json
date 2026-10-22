@@ -1,0 +1,14 @@
+{
+ "base": "clean",
+ "description": "vision 路 labs[0].value 的 prov.span 右移 1 位，行文本在该跨度处 ≠ 候选值。",
+ "expect_violations": [
+  {
+   "code": "span_mismatch",
+   "engine": "vision"
+  }
+ ],
+ "mutated_files": [
+  "audit/a6b89e9e68dc/a1/cells.jsonl"
+ ],
+ "variant": "broken-1"
+}

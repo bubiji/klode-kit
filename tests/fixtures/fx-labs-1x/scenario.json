@@ -1,0 +1,30 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "单张血常规，6 行，四路完全一致（基线；第 5 行用于裁图 ±1 行）。",
+ "injections": [],
+ "kind": "table",
+ "name": "fx-labs-1x",
+ "pages": [
+  {
+   "date": "2026-09-18",
+   "der_sha256": "19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5",
+   "doc_id": "d-19f31b8d0fa1",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-19f31b8d0fa1/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

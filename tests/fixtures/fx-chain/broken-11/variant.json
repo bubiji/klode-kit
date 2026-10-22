@@ -1,0 +1,14 @@
+{
+ "base": "legal-pdftext_dpi",
+ "description": "pdftext 路 row 0 那一行的 bbox_px 直接用 72dpi 的 bbox_pt，没有按 page_map.dpi 换算。",
+ "expect_violations": [
+  {
+   "code": "pdftext_dpi_mismatch"
+  }
+ ],
+ "mutated_files": [
+  "audit/66cbc8ea383b/a1/cells.jsonl",
+  "ocr/pdftext/86944a8e7044.t1/p001.jsonl"
+ ],
+ "variant": "broken-11"
+}

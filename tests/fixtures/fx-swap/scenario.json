@@ -1,0 +1,40 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "codex 路第 3/4 行（row 2、row 3）数值对调；值的多重集合不变。",
+ "injections": [
+  {
+   "key": "p001",
+   "kind": "swap",
+   "route": "codex",
+   "rows": [
+    2,
+    3
+   ]
+  }
+ ],
+ "kind": "table",
+ "name": "fx-swap",
+ "pages": [
+  {
+   "date": "2026-09-12",
+   "der_sha256": "38c2def26351d1a68c3f8f2071494fc2c3382cf09d1d824154cb54b836424981",
+   "doc_id": "d-38c2def26351",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-38c2def26351/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

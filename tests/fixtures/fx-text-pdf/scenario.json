@@ -1,0 +1,36 @@
+{
+ "description": "三页文字层 PDF（STSong-Light），每页字符数远超 min_chars；应整本跳过四路。",
+ "expect": {
+  "routes_skipped": [
+   "vision",
+   "mlx",
+   "claude",
+   "codex"
+  ],
+  "text_layer": true
+ },
+ "file": "guide-2026.pdf",
+ "kind": "pdf",
+ "name": "fx-text-pdf",
+ "pages": [
+  {
+   "chars": 143,
+   "class": "text",
+   "page": 1,
+   "title": "第一章 示例流程总览"
+  },
+  {
+   "chars": 132,
+   "class": "text",
+   "page": 2,
+   "title": "第二章 核对规则"
+  },
+  {
+   "chars": 127,
+   "class": "text",
+   "page": 3,
+   "title": "第三章 建库与检查"
+  }
+ ],
+ "synthetic": true
+}

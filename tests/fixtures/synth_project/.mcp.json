@@ -1,0 +1,11 @@
+{
+ "mcpServers": {
+  "synth-dummy": {
+   "args": [],
+   "command": "true",
+   "env": {
+    "KLODE_KIT_SYNTHETIC": "1"
+   }
+  }
+ }
+}

@@ -1,0 +1,8 @@
+{
+ "base": null,
+ "description": "完整来源链：四路读同一张打码 derived 图；row 1 数值分歧（vision 6.2，其余 6.8），人工按 route=vision 确认；其余字段 auto。",
+ "expect_violations": [],
+ "mutated_files": [],
+ "options": {},
+ "variant": "clean"
+}

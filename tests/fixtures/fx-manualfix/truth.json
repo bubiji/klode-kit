@@ -1,0 +1,131 @@
+{
+ "engine_dir": "engine",
+ "fields": [
+  {
+   "col": "value",
+   "designed": "agree_wrong",
+   "field_id": "p001-l05:value",
+   "item": "示例片",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10.5"
+    },
+    "codex": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10.5"
+    },
+    "mlx": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10.5"
+    },
+    "vision": {
+     "line_idx": 5,
+     "span": [
+      4,
+      8
+     ],
+     "value": "10.5"
+    }
+   },
+   "row": 0,
+   "truth": "1.05"
+  }
+ ],
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "vision",
+   "row": 0,
+   "value": "10.5"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 0,
+   "value": "10.5"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "claude",
+   "row": 0,
+   "value": "10.5"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 0,
+   "value": "10.5"
+  }
+ ],
+ "layout": {
+  "p001": {
+   "header_box": [
+    34,
+    85,
+    253,
+    161
+   ],
+   "size": [
+    960,
+    386
+   ],
+   "table_box": [
+    40,
+    231,
+    778,
+    305
+   ]
+  }
+ },
+ "records": [
+  {
+   "date": "2026-09-18",
+   "der_sha256": "a439d08974f0a4703d6ff0ce65fa3dcde21381e4aa6fdb8efa353da8998bb306",
+   "doc_id": "d-a439d08974f0",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-a439d08974f0/p001",
+   "patient": "测试患者甲",
+   "patient_id": "T-0000001",
+   "rec_id": "r-9f067baab6fc",
+   "record_idx": 0,
+   "record_type": "rx",
+   "rows": [
+    {
+     "flag": "",
+     "item": "示例片",
+     "line_idx": 5,
+     "ref": "每日1次",
+     "row": 0,
+     "unit": "",
+     "value": "1.05"
+    }
+   ]
+  }
+ ],
+ "scenario": "fx-manualfix",
+ "schema": "klode-kit.fixture-truth/1",
+ "synthetic": true
+}

@@ -1,0 +1,623 @@
+{
+ "engine_dir": "engine",
+ "fields": [
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l05:value",
+   "item": "血红蛋白",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 5,
+     "span": [
+      5,
+      8
+     ],
+     "value": "128"
+    },
+    "codex": {
+     "line_idx": 5,
+     "span": [
+      5,
+      8
+     ],
+     "value": "128"
+    },
+    "mlx": {
+     "line_idx": 5,
+     "span": [
+      5,
+      8
+     ],
+     "value": "128"
+    },
+    "vision": {
+     "line_idx": 5,
+     "span": [
+      5,
+      8
+     ],
+     "value": "128"
+    }
+   },
+   "row": 0,
+   "truth": "128"
+  },
+  {
+   "col": "unit",
+   "designed": "agree",
+   "field_id": "p001-l05:unit",
+   "item": "血红蛋白",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 5,
+     "span": [
+      9,
+      12
+     ],
+     "value": "g/L"
+    },
+    "codex": {
+     "line_idx": 5,
+     "span": [
+      9,
+      12
+     ],
+     "value": "g/L"
+    },
+    "mlx": {
+     "line_idx": 5,
+     "span": [
+      9,
+      12
+     ],
+     "value": "g/L"
+    },
+    "vision": {
+     "line_idx": 5,
+     "span": [
+      9,
+      12
+     ],
+     "value": "g/L"
+    }
+   },
+   "row": 0,
+   "truth": "g/L"
+  },
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l06:value",
+   "item": "白细胞",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "6.2"
+    },
+    "codex": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "6.2"
+    },
+    "mlx": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "6.2"
+    },
+    "vision": {
+     "line_idx": 6,
+     "span": [
+      4,
+      7
+     ],
+     "value": "6.2"
+    }
+   },
+   "row": 1,
+   "truth": "6.2"
+  },
+  {
+   "col": "unit",
+   "designed": "agree",
+   "field_id": "p001-l06:unit",
+   "item": "白细胞",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 6,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    },
+    "codex": {
+     "line_idx": 6,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    },
+    "mlx": {
+     "line_idx": 6,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    },
+    "vision": {
+     "line_idx": 6,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    }
+   },
+   "row": 1,
+   "truth": "10^9/L"
+  },
+  {
+   "col": "value",
+   "designed": "majority",
+   "field_id": "p001-l07:value",
+   "item": "红细胞",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 7,
+     "span": [
+      4,
+      8
+     ],
+     "value": "4.35"
+    },
+    "codex": {
+     "line_idx": 7,
+     "span": [
+      4,
+      8
+     ],
+     "value": "4.35"
+    },
+    "mlx": {
+     "line_idx": 7,
+     "span": [
+      4,
+      4
+     ],
+     "value": ""
+    },
+    "vision": {
+     "line_idx": 7,
+     "span": [
+      4,
+      8
+     ],
+     "value": "4.35"
+    }
+   },
+   "row": 2,
+   "truth": "4.35"
+  },
+  {
+   "col": "unit",
+   "designed": "majority",
+   "field_id": "p001-l07:unit",
+   "item": "红细胞",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 7,
+     "span": [
+      9,
+      16
+     ],
+     "value": "10^12/L"
+    },
+    "codex": {
+     "line_idx": 7,
+     "span": [
+      9,
+      16
+     ],
+     "value": "10^12/L"
+    },
+    "mlx": {
+     "line_idx": 7,
+     "span": [
+      4,
+      15
+     ],
+     "value": "4.3510^12/L"
+    },
+    "vision": {
+     "line_idx": 7,
+     "span": [
+      9,
+      16
+     ],
+     "value": "10^12/L"
+    }
+   },
+   "row": 2,
+   "truth": "10^12/L"
+  },
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l08:value",
+   "item": "血小板",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 8,
+     "span": [
+      4,
+      7
+     ],
+     "value": "210"
+    },
+    "codex": {
+     "line_idx": 8,
+     "span": [
+      4,
+      7
+     ],
+     "value": "210"
+    },
+    "mlx": {
+     "line_idx": 8,
+     "span": [
+      4,
+      7
+     ],
+     "value": "210"
+    },
+    "vision": {
+     "line_idx": 8,
+     "span": [
+      4,
+      7
+     ],
+     "value": "210"
+    }
+   },
+   "row": 3,
+   "truth": "210"
+  },
+  {
+   "col": "unit",
+   "designed": "agree",
+   "field_id": "p001-l08:unit",
+   "item": "血小板",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 8,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    },
+    "codex": {
+     "line_idx": 8,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    },
+    "mlx": {
+     "line_idx": 8,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    },
+    "vision": {
+     "line_idx": 8,
+     "span": [
+      8,
+      14
+     ],
+     "value": "10^9/L"
+    }
+   },
+   "row": 3,
+   "truth": "10^9/L"
+  },
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l09:value",
+   "item": "中性粒细胞百分比",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 9,
+     "span": [
+      9,
+      13
+     ],
+     "value": "78.5"
+    },
+    "codex": {
+     "line_idx": 9,
+     "span": [
+      9,
+      13
+     ],
+     "value": "78.5"
+    },
+    "mlx": {
+     "line_idx": 9,
+     "span": [
+      9,
+      13
+     ],
+     "value": "78.5"
+    },
+    "vision": {
+     "line_idx": 9,
+     "span": [
+      9,
+      13
+     ],
+     "value": "78.5"
+    }
+   },
+   "row": 4,
+   "truth": "78.5"
+  },
+  {
+   "col": "unit",
+   "designed": "agree",
+   "field_id": "p001-l09:unit",
+   "item": "中性粒细胞百分比",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 9,
+     "span": [
+      14,
+      15
+     ],
+     "value": "%"
+    },
+    "codex": {
+     "line_idx": 9,
+     "span": [
+      14,
+      15
+     ],
+     "value": "%"
+    },
+    "mlx": {
+     "line_idx": 9,
+     "span": [
+      14,
+      15
+     ],
+     "value": "%"
+    },
+    "vision": {
+     "line_idx": 9,
+     "span": [
+      14,
+      15
+     ],
+     "value": "%"
+    }
+   },
+   "row": 4,
+   "truth": "%"
+  },
+  {
+   "col": "value",
+   "designed": "agree",
+   "field_id": "p001-l10:value",
+   "item": "淋巴细胞百分比",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 10,
+     "span": [
+      8,
+      12
+     ],
+     "value": "15.2"
+    },
+    "codex": {
+     "line_idx": 10,
+     "span": [
+      8,
+      12
+     ],
+     "value": "15.2"
+    },
+    "mlx": {
+     "line_idx": 10,
+     "span": [
+      8,
+      12
+     ],
+     "value": "15.2"
+    },
+    "vision": {
+     "line_idx": 10,
+     "span": [
+      8,
+      12
+     ],
+     "value": "15.2"
+    }
+   },
+   "row": 5,
+   "truth": "15.2"
+  },
+  {
+   "col": "unit",
+   "designed": "agree",
+   "field_id": "p001-l10:unit",
+   "item": "淋巴细胞百分比",
+   "key": "p001",
+   "routes": {
+    "claude": {
+     "line_idx": 10,
+     "span": [
+      13,
+      14
+     ],
+     "value": "%"
+    },
+    "codex": {
+     "line_idx": 10,
+     "span": [
+      13,
+      14
+     ],
+     "value": "%"
+    },
+    "mlx": {
+     "line_idx": 10,
+     "span": [
+      13,
+      14
+     ],
+     "value": "%"
+    },
+    "vision": {
+     "line_idx": 10,
+     "span": [
+      13,
+      14
+     ],
+     "value": "%"
+    }
+   },
+   "row": 5,
+   "truth": "%"
+  }
+ ],
+ "injections": [
+  {
+   "key": "p001",
+   "kind": "colshift",
+   "route": "mlx",
+   "row": 2
+  }
+ ],
+ "layout": {
+  "p001": {
+   "header_box": [
+    34,
+    85,
+    253,
+    161
+   ],
+   "size": [
+    960,
+    616
+   ],
+   "table_box": [
+    40,
+    231,
+    793,
+    535
+   ]
+  }
+ },
+ "records": [
+  {
+   "date": "2026-09-11",
+   "der_sha256": "7fa1ada1c9f4c8029569356682352a6bc70ac494ceec736f5246317a0b25b4ec",
+   "doc_id": "d-7fa1ada1c9f4",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-7fa1ada1c9f4/p001",
+   "patient": "测试患者甲",
+   "patient_id": "T-0000001",
+   "rec_id": "r-268c00433f87",
+   "record_idx": 0,
+   "record_type": "lab",
+   "rows": [
+    {
+     "flag": "",
+     "item": "血红蛋白",
+     "line_idx": 5,
+     "ref": "115-150",
+     "row": 0,
+     "unit": "g/L",
+     "value": "128"
+    },
+    {
+     "flag": "",
+     "item": "白细胞",
+     "line_idx": 6,
+     "ref": "3.5-9.5",
+     "row": 1,
+     "unit": "10^9/L",
+     "value": "6.2"
+    },
+    {
+     "flag": "",
+     "item": "红细胞",
+     "line_idx": 7,
+     "ref": "3.8-5.1",
+     "row": 2,
+     "unit": "10^12/L",
+     "value": "4.35"
+    },
+    {
+     "flag": "",
+     "item": "血小板",
+     "line_idx": 8,
+     "ref": "125-350",
+     "row": 3,
+     "unit": "10^9/L",
+     "value": "210"
+    },
+    {
+     "flag": "H",
+     "item": "中性粒细胞百分比",
+     "line_idx": 9,
+     "ref": "40-75",
+     "row": 4,
+     "unit": "%",
+     "value": "78.5"
+    },
+    {
+     "flag": "L",
+     "item": "淋巴细胞百分比",
+     "line_idx": 10,
+     "ref": "20-50",
+     "row": 5,
+     "unit": "%",
+     "value": "15.2"
+    }
+   ]
+  }
+ ],
+ "scenario": "fx-colshift",
+ "schema": "klode-kit.fixture-truth/1",
+ "synthetic": true
+}

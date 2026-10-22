@@ -1,0 +1,13 @@
+{
+ "base": "clean",
+ "description": "导出行给 labs[0].value（数值）加了 alias transform（from==to，文本不变）。",
+ "expect_violations": [
+  {
+   "code": "transform_on_numeric"
+  }
+ ],
+ "mutated_files": [
+  "build/src/export_map.jsonl"
+ ],
+ "variant": "broken-5"
+}

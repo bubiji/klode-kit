@@ -1,0 +1,12 @@
+{
+ "audit_bindings": {
+  "r-fca4966fb4bc": {
+   "audit_rev": "66cbc8ea383b/a1",
+   "rev": 1
+  }
+ },
+ "build_id": "b-20261022T000000Z-61d5171b",
+ "deident_mode": "pseudonym",
+ "kb_id": "fx-chain-klode",
+ "schema": "klode-kit.fixture-build-receipt/1"
+}

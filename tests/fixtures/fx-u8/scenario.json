@@ -1,0 +1,96 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "U8：两张化验单；p001 一处多数票、一处四路全不同；p002 的 p002-l07（row 2 数值）2:2 平票，另一处多数票。",
+ "injections": [
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 1,
+   "value": "8.2"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "mlx",
+   "row": 3,
+   "value": "218"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "claude",
+   "row": 3,
+   "value": "270"
+  },
+  {
+   "col": "value",
+   "key": "p001",
+   "kind": "value",
+   "route": "codex",
+   "row": 3,
+   "value": "216"
+  },
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "claude",
+   "row": 2,
+   "value": "4.67"
+  },
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "codex",
+   "row": 2,
+   "value": "4.67"
+  },
+  {
+   "col": "value",
+   "key": "p002",
+   "kind": "value",
+   "route": "vision",
+   "row": 4,
+   "value": "70.7"
+  }
+ ],
+ "kind": "table",
+ "name": "fx-u8",
+ "pages": [
+  {
+   "date": "2026-10-22",
+   "der_sha256": "e30c230b6ff18acc169023757274ba8e5985ad9b4756bbf42117db4e41c1cb8e",
+   "doc_id": "d-e30c230b6ff1",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-e30c230b6ff1/p001",
+   "record_type": "lab"
+  },
+  {
+   "date": "2026-10-22",
+   "der_sha256": "823f9af4750ef95dc816755fe52c90833fd62364513d206b22f6b3bf571619ca",
+   "doc_id": "d-823f9af4750e",
+   "image": "images/p002.png",
+   "key": "p002",
+   "page_id": "d-823f9af4750e/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

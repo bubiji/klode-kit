@@ -18,6 +18,7 @@ dev = [
     "mutmut>=3.2",
     "jsonschema>=4.23",
     "reportlab>=4.2",
+    "pillow>=13.0",
 ]
 
 [build-system]
@@ -51,3 +52,8 @@ patch = ["subprocess"]
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src", "tests", "tests/fixtures"]

@@ -1,0 +1,46 @@
+{
+ "attempts": {
+  "t1": {
+   "dir": "engine",
+   "missing": {}
+  }
+ },
+ "description": "claude 路缺第 5 行（row 4）；codex 路把 row 1、row 2 拼成一行（merged_rows）。",
+ "injections": [
+  {
+   "key": "p001",
+   "kind": "missingrow",
+   "route": "claude",
+   "row": 4
+  },
+  {
+   "key": "p001",
+   "kind": "merged_rows",
+   "route": "codex",
+   "rows": [
+    1,
+    2
+   ]
+  }
+ ],
+ "kind": "table",
+ "name": "fx-missingrow",
+ "pages": [
+  {
+   "date": "2026-09-13",
+   "der_sha256": "7ec3cd4d88c3e692bf4fed79879090958130852eee6d09f3c541d7aebaf4a96b",
+   "doc_id": "d-7ec3cd4d88c3",
+   "image": "images/p001.png",
+   "key": "p001",
+   "page_id": "d-7ec3cd4d88c3/p001",
+   "record_type": "lab"
+  }
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "synthetic": true
+}

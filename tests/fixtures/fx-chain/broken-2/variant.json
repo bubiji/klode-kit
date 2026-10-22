@@ -1,0 +1,13 @@
+{
+ "base": "clean",
+ "description": "derived.jsonl 的 parent 不等于 manifest 的 img_sha256。",
+ "expect_violations": [
+  {
+   "code": "der_parent_mismatch"
+  }
+ ],
+ "mutated_files": [
+  "derived.jsonl"
+ ],
+ "variant": "broken-2"
+}

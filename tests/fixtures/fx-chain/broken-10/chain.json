@@ -1,0 +1,17 @@
+{
+ "audit_rev": "a6b89e9e68dc/a1",
+ "base_route": "vision",
+ "batch_id": "a6b89e9e68dc",
+ "kb_id": "fx-chain-klode",
+ "rec_ids": [
+  "r-2b51853cff8d"
+ ],
+ "routes": [
+  "vision",
+  "mlx",
+  "claude",
+  "codex"
+ ],
+ "schema": "klode-kit.fixture-chain/1",
+ "synthetic": true
+}

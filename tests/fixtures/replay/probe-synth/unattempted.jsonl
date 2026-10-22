@@ -1,0 +1,3 @@
+{"cwd": "/private/tmp/klode-kit-send-synth", "mcp_servers": [], "subtype": "init", "tools": ["Read"], "type": "system"}
+{"message": {"content": [{"text": "I will not read any files.", "type": "text"}]}, "type": "assistant"}
+{"is_error": false, "result": "I will not read any files.", "subtype": "success", "total_cost_usd": 0.0, "type": "result"}
