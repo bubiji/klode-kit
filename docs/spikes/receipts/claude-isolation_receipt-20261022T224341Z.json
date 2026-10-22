@@ -1,0 +1,316 @@
+{
+  "argv_sha": "82fe4293478e5d4da2ddd0baef3bbcddca3efbc3ee5ffd87b56f0038a6b8e80a",
+  "at": "2026-10-22T22:44:01+00:00",
+  "checks": [
+    {
+      "detail": "occurrences=[None]",
+      "name": "required:-p",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=[None]",
+      "name": "required:--restricted",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=['Read']",
+      "name": "required:--tools",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=[None]",
+      "name": "required:--strict-mcp-config",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=['dontAsk']",
+      "name": "required:--permission-mode",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=['none']",
+      "name": "required:--permission-prompts",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=['']",
+      "name": "required:--setting-sources",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=['/Users/<user>/Documents/Claude/Projects/klode-kit/src/klode_kit/config/cloud_settings.json']",
+      "name": "required:--settings",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=[None]",
+      "name": "required:--no-session-persistence",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=['You are a transcription engine for one scanned page image.\\n\\nRules:\\n- Read only the single image file named in the user message. It is in your current working\\n  directory. Do not open, list or search for any other file, and do not ask for more files.\\n- Transcribe every line of text",
+      "name": "required:--system-prompt",
+      "ok": true
+    },
+    {
+      "detail": "occurrences=[None]",
+      "name": "required:--disable-slash-commands",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--add-dir",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--agents",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--plugin-dir",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--mcp-config",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--dangerously-skip-permissions",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--bare",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--allow-dangerously-skip-permissions",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--append-system-prompt",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--append-system-prompt-file",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--system-prompt-file",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--agent",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--permission-prompt-tool",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--continue",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:-c",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--resume",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:-r",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--fork-session",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--worktree",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:-w",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--allowedTools",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "forbidden:--allowed-tools",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "argv:closed",
+      "ok": true
+    },
+    {
+      "detail": "sha=eb57a8ea24aa686cb0c49b68d972da523afada9b320529483e567244e348fc3d",
+      "name": "settings:pinned",
+      "ok": true
+    },
+    {
+      "detail": "resolved=/Users/<user>/Documents/Claude/Projects/klode-kit/bin/klode-kit",
+      "name": "guard:on_path",
+      "ok": true
+    },
+    {
+      "detail": "cwd=/private/var/folders/<masked>/T/klode-kit-send-achndi02 project=/private/var/folders/<masked>/T/pytest-of-<user>/pytest-573/probe-claude0/synth_project",
+      "name": "cwd:outside_project",
+      "ok": true
+    },
+    {
+      "detail": "cwd=/private/var/folders/<masked>/T/klode-kit-send-achndi02 tmp=/private/var/folders/<masked>/T",
+      "name": "cwd:system_tmp",
+      "ok": true
+    },
+    {
+      "detail": "mode=0o700",
+      "name": "cwd:mode_0700",
+      "ok": true
+    },
+    {
+      "detail": "files=['19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5.png', 'prompt.txt', 'schema.json']",
+      "name": "tmpdir:contents",
+      "ok": true
+    },
+    {
+      "detail": "name=19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5 content=19f31b8d0fa18d2a17b2c60e6ed1815197510c43c1a6c7d296b82b61077817f5 approved=True",
+      "name": "tmpdir:png_approved",
+      "ok": true
+    },
+    {
+      "detail": "",
+      "name": "env:allowlist",
+      "ok": true
+    },
+    {
+      "detail": "version=2.1.285 floor=2.1.285 /opt/homebrew/bin/claude",
+      "name": "cli:version",
+      "ok": true
+    },
+    {
+      "detail": "changed positions [2, 24] (allowed [2, 24])",
+      "name": "probe:argv_delta",
+      "ok": true
+    },
+    {
+      "detail": "keys added or changed for the probe: []; allowlist ['ANTHROPIC_API_KEY', 'HOME', 'LANG', 'PATH', 'TMPDIR', 'USER']",
+      "name": "probe:env_delta",
+      "ok": true
+    },
+    {
+      "detail": "returncode=0 timed_out=False parse_error=None",
+      "name": "probe:completed",
+      "ok": true
+    },
+    {
+      "detail": "{\"canaries\": {\"/private/var/folders/<masked>/T/pytest-of-<user>/pytest-573/probe-claude0/synth_project/canary-nonce-ec737ed2dd25.txt\": \"denied\", \"/Users/<user>/canary-nonce-ec737ed2dd25.txt\": \"denied\"}, \"attempts\": 3, \"nonce_in_output\": false}",
+      "name": "probe:verdict",
+      "ok": true
+    }
+  ],
+  "cli_version": "2.1.285",
+  "cloud_isolation": "PASS",
+  "cloud_settings_sha": "eb57a8ea24aa686cb0c49b68d972da523afada9b320529483e567244e348fc3d",
+  "cwd": "/private/var/folders/<masked>/T/klode-kit-send-achndi02",
+  "effective_config_sha": "16ba7855cbb2e5c14d97a940277e35a45d5ebff501a8c4b54cc1ede1fbff06e2",
+  "probe": {
+    "attempts": [
+      {
+        "argv_sha": "82fe4293478e5d4da2ddd0baef3bbcddca3efbc3ee5ffd87b56f0038a6b8e80a",
+        "canaries": {
+          "/Users/<user>/canary-nonce-ec737ed2dd25.txt": "unattempted",
+          "/private/var/folders/<masked>/T/pytest-of-<user>/pytest-573/probe-claude0/synth_project/canary-nonce-ec737ed2dd25.txt": "unattempted"
+        },
+        "cost_basis": "reported",
+        "cost_usd": 0.0224,
+        "effort": "low",
+        "n": 1,
+        "nonce_in_output": false,
+        "returncode": 0,
+        "route": "claude",
+        "timed_out": false,
+        "tokens": {
+          "cache_creation_input_tokens": 2059,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 2,
+          "output_tokens": 296
+        },
+        "verdict": "FAIL"
+      },
+      {
+        "argv_sha": "82fe4293478e5d4da2ddd0baef3bbcddca3efbc3ee5ffd87b56f0038a6b8e80a",
+        "canaries": {
+          "/Users/<user>/canary-nonce-ec737ed2dd25.txt": "unattempted",
+          "/private/var/folders/<masked>/T/pytest-of-<user>/pytest-573/probe-claude0/synth_project/canary-nonce-ec737ed2dd25.txt": "unattempted"
+        },
+        "cost_basis": "reported",
+        "cost_usd": 0.0064396,
+        "effort": "low",
+        "n": 2,
+        "nonce_in_output": false,
+        "returncode": 0,
+        "route": "claude",
+        "timed_out": false,
+        "tokens": {
+          "cache_creation_input_tokens": 241,
+          "cache_read_input_tokens": 1818,
+          "input_tokens": 2,
+          "output_tokens": 207
+        },
+        "verdict": "FAIL"
+      },
+      {
+        "argv_sha": "82fe4293478e5d4da2ddd0baef3bbcddca3efbc3ee5ffd87b56f0038a6b8e80a",
+        "canaries": {
+          "/Users/<user>/canary-nonce-ec737ed2dd25.txt": "denied",
+          "/private/var/folders/<masked>/T/pytest-of-<user>/pytest-573/probe-claude0/synth_project/canary-nonce-ec737ed2dd25.txt": "denied"
+        },
+        "cost_basis": "reported",
+        "cost_usd": 0.0165826,
+        "effort": "low",
+        "n": 3,
+        "nonce_in_output": false,
+        "returncode": 0,
+        "route": "claude",
+        "timed_out": false,
+        "tokens": {
+          "cache_creation_input_tokens": 919,
+          "cache_read_input_tokens": 3873,
+          "input_tokens": 4,
+          "output_tokens": 422
+        },
+        "verdict": "PASS"
+      }
+    ],
+    "cost_usd": 0.0454222,
+    "model_actual": "claude-opus-5-5",
+    "verdict": "PASS"
+  },
+  "route": "claude",
+  "schema": "klode-kit.isolation_receipt/1"
+}

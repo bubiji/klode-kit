@@ -1,16 +1,21 @@
 """WI-00c2 real-host part: isolation probe on synthetic data with the real ``claude`` / ``codex``
 (matrix 00c2-06 .. 00c2-09, plus (12) / (14) evidence). Gate G2: every call uses only the
 synthetic fixture image registered in ``tests/fixtures/MANIFEST.json``, synthetic canaries and a
-synthetic project; claude calls carry ``--max-budget-usd 5``; the run stops when the ledger of this
-WI passes $15.
+synthetic project; claude calls carry ``--max-budget-usd 5``; no new call starts once the ledger
+total of the current WI (``WI``) has reached its cap (``WI_BUDGET_USD``: WI-00c2 $15, WI-00c1b $5).
+Probes are built lazily per route, so ``-k claude`` never calls codex.
 
 Run: ``KLODE_KIT_REAL=1 KLODE_KIT_GATE_ACK=G2-<yyyymmdd> .venv/bin/python -m pytest -m model_integration``.
 
 Evidence is kept under ``work/isolation/<UTC run id>/`` (gitignored); canaries and send
-directories are moved (never deleted) into ``_trash/wi-00c2-<UTC run id>/``.
+directories are moved (never deleted) into ``_trash/<wi>-<UTC run id>/``.
 
-Environment note: OAuth on macOS needs ``USER`` (keychain account); it is outside the r5 allowlist,
-so it is passed as ``extra_env`` and the receipt's ``probe:env_delta`` check records it (FAIL).
+Environment note: OAuth on macOS needs ``USER`` (keychain account). WI-00c2 passed it as
+``extra_env`` (outside the r5 allowlist, so ``probe:env_delta`` FAILed); since WI-00c1b it is in
+``CLOUD_ENV_ALLOWLIST`` and reaches the process through the production env builder - no extra_env.
+
+WI-00c1b adds ``test_claude_structured_output_allowed``: the production invocation (``--output-format
+json --json-schema``) must end with a schema-valid ``structured_output`` and no guard deny.
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from _support.flows import REPO
 from klode_kit.contract.schema import issues
@@ -33,10 +39,12 @@ from klode_kit.ocr import isolation_probe as IP
 pytestmark = [pytest.mark.model_integration, pytest.mark.gate_cloud]
 
 RUN_ID = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+WI = "WI-00c1b"
+WI_BUDGET_USD = {"WI-00c2": 15.0, "WI-00c1b": 5.0}
 WORK = REPO / "work" / "isolation" / RUN_ID
-TRASH = REPO / "_trash" / f"wi-00c2-{RUN_ID}"
+TRASH = REPO / "_trash" / f"{WI.lower()}-{RUN_ID}"
 LEDGER = REPO / "work" / "isolation" / "ledger.jsonl"
-BUDGET_CAP_USD = 15.0
+BUDGET_CAP_USD = WI_BUDGET_USD[WI]
 PNG = REPO / "tests" / "fixtures" / "fx-labs-1x" / "images" / "p001.png"
 SYNTH_PROJECT = REPO / "tests" / "fixtures" / "synth_project"
 MODELS = {"claude": ("opus", "low"), "codex": ("gpt-6-sol", "low")}
@@ -57,21 +65,23 @@ def _require_real() -> None:
 
 
 def _spent() -> float:
+    """Ledger total of the current WI (entries written before WI-00c1b carry no ``wi`` and are WI-00c2's)."""
     if not LEDGER.exists():
         return 0.0
-    return sum(float(json.loads(x).get("cost_usd") or 0.0) for x in LEDGER.read_text().splitlines() if x.strip())
+    rows = [json.loads(x) for x in LEDGER.read_text().splitlines() if x.strip()]
+    return sum(float(r.get("cost_usd") or 0.0) for r in rows if r.get("wi", "WI-00c2") == WI)
 
 
 def _book(label: str, route: str, usage: dict) -> None:
     LEDGER.parent.mkdir(parents=True, exist_ok=True)
     with LEDGER.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps({"run": RUN_ID, "label": label, "route": route, **usage}) + "\n")
+        fh.write(json.dumps({"run": RUN_ID, "wi": WI, "label": label, "route": route, **usage}) + "\n")
 
 
 def _check_budget() -> None:
     spent = _spent()
-    if spent > BUDGET_CAP_USD:
-        pytest.fail(f"WI-00c2 budget exhausted: ${spent:.2f} > ${BUDGET_CAP_USD} - stop and report (G2)")
+    if spent >= BUDGET_CAP_USD:
+        pytest.fail(f"{WI} budget exhausted: ${spent:.2f} >= ${BUDGET_CAP_USD} - stop and report (G2)")
 
 
 def _real_path_env() -> dict[str, str]:
@@ -82,29 +92,37 @@ def _real_path_env() -> dict[str, str]:
     return env
 
 
-@pytest.fixture(scope="module")
-def probes(tmp_path_factory):
-    """One real probe per route, shared by 00c2-06/07/09 (each call costs money)."""
-    _require_real()
-    runs = {}
-    source = _real_path_env()
-    for route in ("claude", "codex"):
+class _LazyProbes(dict):
+    """One real probe per route, run on first access and shared by 00c2-06/07/09 (each call costs money)."""
+
+    def __init__(self, tmp_path_factory):
+        super().__init__()
+        self._factory = tmp_path_factory
+
+    def __missing__(self, route):
         _check_budget()
-        project = tmp_path_factory.mktemp(f"probe-{route}") / "synth_project"
+        source = _real_path_env()
+        project = self._factory.mktemp(f"probe-{route}") / "synth_project"
         shutil.copytree(SYNTH_PROJECT, project)
         nonce = IP.new_nonce()
         canaries = [IP.plant_canary(project, nonce), IP.plant_canary(Path.home(), nonce)]
         model, effort = MODELS[route]
         run = IP.run_probe(
             route, project=project, canaries=canaries, nonce=nonce, png=PNG, model=model, effort=effort,
-            max_budget_usd=5.0, source_env=source, extra_env={"USER": os.environ["USER"]}, timeout_s=900,
+            max_budget_usd=5.0, source_env=source, timeout_s=900,
             trash_dir=TRASH / route, out_dir=WORK / route, max_attempts=MAX_ATTEMPTS,
         )
         probe = run.receipt.get("probe", {})
         _book("probe", route, {"cost_usd": probe.get("cost_usd", 0.0), "model_actual": probe.get("model_actual"),
                                "attempts": [a.get("tokens") for a in probe.get("attempts", [])]})
-        runs[route] = (run, canaries, nonce)
-    return runs
+        self[route] = (run, canaries, nonce)
+        return self[route]
+
+
+@pytest.fixture(scope="module")
+def probes(tmp_path_factory):
+    _require_real()
+    return _LazyProbes(tmp_path_factory)
 
 
 def _assert_all_denied(run, canaries, nonce):
@@ -138,9 +156,10 @@ def test_codex_probe_denials(probes):
     assert run.receipt["cloud_isolation"] == "PASS", [c for c in run.receipt["checks"] if not c["ok"]]
 
 
-def test_isolation_receipt_written_and_valid(probes):
+@pytest.mark.parametrize("route", ["claude", "codex"])
+def test_isolation_receipt_written_and_valid(probes, route):
     """00c2-09 L2·S1: receipts on disk pass the schema, bind the executed argv and carry the probe cost."""
-    for route, (run, _, _) in probes.items():
+    for route, (run, _, _) in [(route, probes[route])]:
         on_disk = json.loads((WORK / route / "isolation_receipt.json").read_text(encoding="utf-8"))
         assert on_disk == run.receipt
         assert issues("isolation_receipt", on_disk) == []
@@ -169,7 +188,7 @@ def _startup_run(tmp_root: Path, label: str, *, padded: bool, control: bool, pro
     review = IC.check(inv, project=project)
     assert review.ok, review.failed
     prompt = STARTUP_PROMPT or CA.user_prompt(IP.sha256_bytes(png))
-    probe = IP.probe_invocation(inv, prompt, extra_env={"USER": os.environ["USER"]})
+    probe = IP.probe_invocation(inv, prompt)
     argv = list(probe.argv)
     if control:  # positive control: the same run without the isolation flags must see the context
         argv.remove("--restricted")
@@ -232,3 +251,48 @@ def test_setting_sources_empty_is_honoured(tmp_path, monkeypatch):
     assert e0.returncode == 0 and e1.returncode == 0, (e0.stderr, e1.stderr)
     assert nonce not in e1.stdout
     assert abs(IP.prompt_tokens(e1.events) - IP.prompt_tokens(e0.events)) <= 100
+
+
+# --------------------------------------------------------------------------- WI-00c1b: structured output
+
+
+def test_claude_structured_output_allowed(tmp_path):
+    """WI-00c1b (F2): the unmodified production invocation (``--output-format json --json-schema``) on the
+    synthetic fixture image: the guard allows every StructuredOutput call and denies nothing, the result has
+    no permission_denials, and ``structured_output`` validates against ``ocr_cloud_output``."""
+    _require_real()
+    _check_budget()
+    project = tmp_path / "synth_project"
+    shutil.copytree(SYNTH_PROJECT, project)
+    png = PNG.read_bytes()
+    send = CA.prepare_send_dir(png, IP.sha256_bytes(png))
+    guard_path = Path(os.path.realpath(send) + ".guard.jsonl")
+    try:
+        inv = CA.claude(send, model="opus", effort="low", max_budget_usd=5.0, source_env=_real_path_env())
+        review = IC.check(inv, project=project)
+        assert review.ok, review.failed
+        assert "--json-schema" in inv.argv and inv.argv[inv.argv.index("--output-format") + 1] == "json"
+        assert "USER" in inv.env  # WI-00c1b: OAuth Keychain account through the allowlist, no extra_env
+        execution = IP.execute(inv, timeout_s=900)
+        guard = IP.read_guard_log(guard_path)
+    finally:
+        out = WORK / "structured"
+        out.mkdir(parents=True, exist_ok=True)
+        IP.move_to_trash([send, guard_path], TRASH / "structured")
+    (out / "argv.json").write_text(json.dumps(list(inv.argv), ensure_ascii=False, indent=1), encoding="utf-8")
+    (out / "result.json").write_text(execution.stdout, encoding="utf-8")
+    (out / "guard.jsonl").write_text("".join(json.dumps(e) + "\n" for e in guard), encoding="utf-8")
+    _book("structured", "claude", IP.usage("claude", execution.events))
+
+    assert execution.returncode == 0, execution.stderr
+    results = [e for e in execution.events if e.get("type") == "result"]
+    assert len(results) == 1, execution.stdout[:2000]
+    result = results[0]
+    assert result.get("permission_denials") == [], result.get("permission_denials")
+    so = result.get("structured_output")
+    assert so is not None, result.get("result")
+    schema = json.loads(CA.output_schema_text())  # the exact file passed as --json-schema
+    assert [e.message for e in Draft202012Validator(schema).iter_errors(so)] == []
+    assert len(so["lines"]) >= 1
+    assert [e for e in guard if e.get("decision") == "deny"] == []
+    assert any(e.get("tool_name") == "StructuredOutput" and e.get("decision") == "allow" for e in guard)

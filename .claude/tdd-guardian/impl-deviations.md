@@ -35,3 +35,6 @@
 | WI-00c2 | ⑫ `--setting-sources ""` 合法且不加载任何来源；⑭ `--restricted` 下 `--settings` 注入的 hook 会触发；R4-02 祖先/项目上下文不加载（输入 token Δ=0，阳性对照 Δ=+8841）；user memory 只有旁证（残余风险 RR-1） | 记录；详见 docs/spikes/WI-00c-isolation.md |
 | WI-00c2 | 费用：Claude ≈ $3.16（订阅计）；Codex 8 次 ≈ 20.2 万输入 token | 在授权内 |
 | WI-00c2 决定 | **用户 2026-10-23 AskUserQuestion**：① `USER` 加入 CLOUD_ENV_ALLOWLIST（只供本地 claude 读 Keychain）；② Codex 路先试更强沙箱（codex permissionProfile 受限读取 → 不行再 macOS sandbox-exec 只许读发送目录），期间保持关闭，仍不过再问用户；③ Claude 版本下限上调 2.1.285、cloud_settings 加 `autoMemoryEnabled:false`（允许修改 00c1-11 已记录边界断言与 CLOUD_SETTINGS_SHA256） | 新 WI-00c1b（修复+Claude 复测）、WI-00c2b（Codex 沙箱 spike） |
+| WI-00c1b | 按用户批准修改已记录断言：test_config 允许集加 USER（LOGNAME 仍拒）；test_cloud_isolation ALLOWLIST 加 USER；00c1-11 边界改为 2.1.284 FAIL / 2.1.285 PASS；test_cloud_settings_file_content 加 autoMemoryEnabled is False。矩阵 v8 的 00c1-08、00c1-11 文字以此为准 | **用户 2026-10-23 批准** |
+| WI-00c1b | guard 对 `tool_name == "StructuredOutput"` 放行（仍受 cwd/事件检查），其余无 file_path 工具仍 exit 2；Claude 复测 PASS（$0.29），routes_enabled.claude = true；isolation receipt 脱敏副本存 docs/spikes/receipts/ | 接受 |
+| WI-00c1b | autoMemoryEnabled:false 无独立阳性对照（只证明无回退）；model 测试按 WI 常量计预算，后续 WI 需更新 | 残余风险 RR-1 仍在 |

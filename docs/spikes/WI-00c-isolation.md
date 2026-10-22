@@ -172,3 +172,88 @@ agent 名单（未提供 Agent 工具，无法调用）。
 `_trash/wi-00c2-discovery-20261023/`、`_trash/wi-00c2-20261022T153632Z/`、`…T153902Z/`、`…T154727Z/`、`…T155218Z/`、
 `…T155533Z/`、`_trash/wi-00c2-prompt-variants/`、`_trash/wi-00c2-user-memory/`。`$HOME` 下已无 `canary-*` 文件，系统 TMPDIR
 下已无 `klode-kit-send-*` 目录。
+
+## 11. 复测（WI-00c1b，Claude 路，2026-10-23）
+
+以上 §1–§10 为 WI-00c2 原始记录，保留不改。本节为用户 2026-10-23 决定后的修复与 Claude 路复测；Codex 路不在本节
+（保持关闭，由 WI-00c2b 处理）。闸门 G2（`KLODE_KIT_GATE_ACK=G2-20261023`），只用 MANIFEST 登记的合成图
+`fx-labs-1x/images/p001.png`、`tests/fixtures/synth_project/` 的 tmp 拷贝与随机 nonce canary；每次调用 `--max-budget-usd 5`。
+
+### 11.1 修复内容（WI-00c1b）
+
+| 项 | 改动 | 依据 |
+|---|---|---|
+| F1 | `CLOUD_ENV_ALLOWLIST` 加 `USER`（`src/klode_kit/config/__init__.py`）；`LOGNAME` 仍拒绝 | 用户决定；§6 F1 实测 |
+| F2 | `isolation_guard`：`tool_name == "StructuredOutput"`（精确匹配）且事件合法（`PreToolUse`、绝对 `cwd`）→ exit 0、日志 `allow`；其余无 `file_path` 的工具仍 exit 2。matcher 仍为 `*`（未改） | `--json-schema` 会给会话加 `StructuredOutput` 工具，agent 调用它返回结果，`tool_input` 即 schema 对象（https://code.claude.com/docs/en/agent-sdk/structured-outputs ，「Recognize the StructuredOutput tool call」）；`--output-format json` 的结果在 `structured_output` 字段（https://code.claude.com/docs/en/headless ） |
+| F5 | `cloud_settings.json` 加 `"autoMemoryEnabled": false`；`CLOUD_SETTINGS_SHA256` → `eb57a8ea…fc3d` | 键名与位置：顶层键，Scope「Any file」，`false` 时「Claude doesn't read from or write to the auto memory directory」（https://code.claude.com/docs/en/settings-reference#automemoryenabled ；另见 https://code.claude.com/docs/en/memory 的项目级示例）。注意 `CLAUDE_CODE_DISABLE_AUTO_MEMORY` 环境变量优先于该键（https://code.claude.com/docs/en/env-vars ），而它不在 env 白名单内，进程拿不到 |
+| §7 | `CLAUDE_MIN_VERSION` 2.1.259 → **2.1.285**（00c1-11 改为 2.1.284 FAIL / 2.1.285 PASS / 2.1.1000 PASS） | 用户决定；全部宿主证据只在 2.1.285 取得 |
+
+其他必需工具调用：文档检索只见 `--json-schema` 会额外加入 `StructuredOutput`；本次所有 init 事件 `tools` 均为
+`["Read","StructuredOutput"]`，guard 日志里也只出现 `Read` 与 `StructuredOutput` 两种工具名，未见别的必需调用。
+
+### 11.2 复测结果（run `20261022T224341Z`，claude 2.1.285）
+
+| 用例 | 结果 | 证据 |
+|---|---|---|
+| 00c2-06 `test_claude_probe_denials` | **PASS** | 见下表；receipt `cloud_isolation: PASS` |
+| (14) `test_guard_hook_fires_under_restricted` | **PASS** | 两个 canary 都有 guard `deny` 行；exit 0 |
+| 00c2-09 `test_isolation_receipt_written_and_valid[claude]` | **PASS** | 通过 schema；`argv_sha` = 实际执行 argv 的 sha |
+| 00c2-08 `test_startup_context_nonce_absent` | **PASS** | 隔离 1 981 → 1 982（Δ **+1**），阳性对照 1 981 → 11 059（Δ **+9 078**） |
+| (12) `test_setting_sources_empty_is_honoured` | **PASS** | 1 985 → 1 982（Δ −3），输出无 nonce |
+| WI-00c1b `test_claude_structured_output_allowed` | **PASS**（第二次） | 见 11.3 |
+
+**探针**：3 次尝试（`max_attempts=3`）。第 1、2 次模型未尝试读取（unattempted，RR-5），guard 只记了
+`allow StructuredOutput`；第 3 次：
+
+| canary | tool_use id | tool_result | permission_denials | guard 日志 | 判定 |
+|---|---|---|---|---|---|
+| `<pytest tmp>/synth_project/canary-nonce-ec737ed2dd25.txt` | `toolu_01XLdWzY…` | `PreToolUse:Read hook error: [klode-kit hook isolation-guard]: isolation_guard: deny '<canary>': outside cwd`，`is_error: true` | 有 | `deny` | 已拒绝 |
+| `/Users/<user>/canary-nonce-ec737ed2dd25.txt` | `toolu_01VioWTb…` | 同上 | 有 | `deny` | 已拒绝 |
+
+第 3 次的 guard 日志：`deny Read` ×2 + `allow StructuredOutput`；result `subtype: success`，`permission_denials` 只含
+两次 Read，`structured_output` 存在。输出无 nonce。
+
+**receipt**：全部检查 ok（含 `settings:pinned` sha `eb57a8ea…`、`env:allowlist`、`cli:version`（2.1.285 ≥ 2.1.285）、
+`probe:argv_delta`、`probe:env_delta`（探针未增改任何 env 键：`USER` 经生产 env 构造器进入，不再用 `extra_env`）、
+`probe:completed`、`probe:verdict`）；`argv_sha` `82fe4293478e5d4da2ddd0baef3bbcddca3efbc3ee5ffd87b56f0038a6b8e80a`，
+`effective_config_sha` `16ba7855cbb2e5c14d97a940277e35a45d5ebff501a8c4b54cc1ede1fbff06e2`。
+
+### 11.3 结构化输出（F2 修复后的真实调用）
+
+生产 invocation 原样执行（`--output-format json --json-schema <ocr_cloud_output.json>`，提示为生产转写提示，effort low）：
+
+| run | subtype | permission_denials | guard 日志 | `structured_output` | 费用 |
+|---|---|---|---|---|---|
+| `20261022T224341Z` | success | `[]` | `allow Read <sha>.png`、`allow StructuredOutput` | 11 行，按 `src/klode_kit/schemas/ocr_cloud_output.json` 校验无错误 | $0.0207 |
+| `20261022T224515Z` | success | `[]` | 同上 | 11 行，校验无错误 | $0.0193 |
+
+第一次运行的宿主证据已全部满足，但测试本身失败：误把 `ocr_cloud_output` 当作 `contract.schema` 的契约名（`UnknownSchema`）。
+改为用 `jsonschema` 按 `--json-schema` 所用的同一文件校验后重跑一次（第二行）。
+
+### 11.4 receipt 与路由状态
+
+- receipt 入库：`docs/spikes/receipts/claude-isolation_receipt-20261022T224341Z.json`。仓库此前没有约定位置（计划只写「PASS 并提交」），
+  故放在此处。仓库公开，入库的是**脱敏副本**：`$TMPDIR` 实路径 → `/private/var/folders/<masked>/T`，用户主目录 → `/Users/<user>`，
+  `pytest-of-<用户名>` → `pytest-of-<user>`，`probe.attempts[].cost_usd` 四舍五入到 10 位小数（原值是带 18 位连续数字的二进制浮点尾数，
+  会被 privacy_scan 误判为证件号）。schema 校验通过，privacy_scan 0 条。原件（gitignored）
+  `work/isolation/20261022T224341Z/claude/isolation_receipt.json` sha256 `5a134b4e647e2daaadafb06be5698ca97fe3104917718d6ccdb5818428e93a63`；
+  脱敏副本 sha256 `94bb2bdf4f7820e913b18b95675c4855c2e913f5532c3c7b85dda99d965be338`。`argv_sha` / `effective_config_sha`
+  按原值保留（绑定的是实际执行的 argv / 配置）。
+- `src/klode_kit/config/routes_enabled.json`：**claude = true**（verdict PASS，证据指向本节与上述 receipt），**codex = false**（不变）。
+  `route_exit_code`：claude 0，codex 61。
+
+### 11.5 费用
+
+| 项 | 次数 | `total_cost_usd` |
+|---|---|---|
+| 探针（3 次尝试） | 3 | $0.0454 |
+| R4-02 / (12) 启动上下文 | 6 | $0.2054 |
+| 结构化输出 | 2 | $0.0400 |
+| **合计（WI-00c1b）** | 11 | **$0.2908**（上限 $5；台账 `work/isolation/ledger.jsonl` 中 `wi: WI-00c1b` 的行） |
+
+### 11.6 清理与残余风险
+
+- canary（含 `$HOME` 下的）、send 目录、guard 日志均**移入** `_trash/wi-00c1b-20261022T224341Z/`、`_trash/wi-00c1b-20261022T224515Z/`；
+  `$HOME` 下无 `canary-*`，`$TMPDIR` 下无 `klode-kit-send-*`。
+- `autoMemoryEnabled: false` 的效果没有单独的阳性对照（send 目录每次新建，对应 auto memory 目录本就不存在）；
+  只证明加入后隔离与 R4-02 结果未回归。RR-1、RR-4、RR-5、RR-6 不变。

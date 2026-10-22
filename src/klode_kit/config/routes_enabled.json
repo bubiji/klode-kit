@@ -1,9 +1,9 @@
 {
  "evidence": {
   "claude": {
-   "at": "2026-10-22T15:55:33+00:00",
-   "evidence": "WI-00c2 run 20261022T155533Z: probe PASS (both canaries host-denied, no nonce) but receipt FAIL: probe:env_delta (USER needed for macOS OAuth keychain, outside r5 allowlist). docs/spikes/WI-00c-isolation.md",
-   "verdict": "FAIL"
+   "at": "2026-10-22T22:43:41+00:00",
+   "evidence": "WI-00c1b retest run 20261022T224341Z (claude 2.1.285): isolation_receipt cloud_isolation PASS, all checks ok (probe:env_delta ok with USER allowlisted; both canaries host-denied via guard deny + permission_denials, no nonce; argv_sha 82fe4293478e5d4d...). Structured output: StructuredOutput allowed by guard, permission_denials [], structured_output valid against ocr_cloud_output (runs 20261022T224341Z, 20261022T224515Z). Receipt: docs/spikes/receipts/claude-isolation_receipt-20261022T224341Z.json; docs/spikes/WI-00c-isolation.md",
+   "verdict": "PASS"
   },
   "codex": {
    "at": "2026-10-22T15:55:33+00:00",
@@ -12,7 +12,7 @@
   }
  },
  "routes_enabled": {
-  "claude": false,
+  "claude": true,
   "codex": false
  },
  "schema": "klode-kit.routes_enabled/1"

@@ -14,7 +14,9 @@ Rules:
   accepts an integer literal and normalises it to ``float``, so ``2`` and ``2.0`` are the same
   effective configuration (fixed numeric representation for ``cfg_fp``).
 - ``CLOUD_ENV_ALLOWLIST`` (r5) is a constant on purpose: it is not a configuration key, so no
-  project file can widen the environment passed to cloud processes.
+  project file can widen the environment passed to cloud processes. ``USER`` was added in WI-00c1b
+  (user decision 2026-10-23): on macOS the claude.ai OAuth login reads its Keychain entry by it and
+  ``claude`` reports "Not logged in" without it (WI-00c2 finding F1); it only reaches the local process.
 
 CLI: ``klode-kit config show [--project DIR]`` prints the effective configuration as JSON
 (``{"config_version", "values", "config_sha256"}``); ``ConfigError`` is exit 40.
@@ -37,7 +39,7 @@ USAGE_EXIT = 2
 OVERRIDE_FILE = "klode-kit.toml"
 VERSION_KEY = "config_version"
 
-CLOUD_ENV_ALLOWLIST: frozenset[str] = frozenset({"PATH", "HOME", "TMPDIR", "LANG", "ANTHROPIC_API_KEY"})
+CLOUD_ENV_ALLOWLIST: frozenset[str] = frozenset({"PATH", "HOME", "TMPDIR", "LANG", "ANTHROPIC_API_KEY", "USER"})
 
 # dotted key -> type tag ("str", "int", "float", "list[str]") ; design 02 r2.6
 KEYS: dict[str, str] = {

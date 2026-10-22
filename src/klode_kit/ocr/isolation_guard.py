@@ -15,10 +15,18 @@ Decision:
 - ``realpath(file_path)`` (relative paths joined to ``cwd``) inside ``realpath(cwd)`` by path
   components -> exit 0, ``allow``;
 - outside -> exit 2, ``deny``;
+- ``tool_name == "StructuredOutput"`` (exact name) in an otherwise well-formed ``PreToolUse`` event
+  -> exit 0, ``allow`` (WI-00c1b, WI-00c2 finding F2). ``--json-schema`` adds this tool to the
+  session and the agent calls it to return its answer; its ``tool_input`` is the schema object, it
+  has no ``file_path`` and touches no file
+  (https://code.claude.com/docs/en/agent-sdk/structured-outputs, "Recognize the StructuredOutput
+  tool call"). Denying it rejected every structured result. MCP tools are named ``mcp__<server>__*``
+  and so never match the exact name;
 - anything that cannot be judged - unreadable / non-JSON / non-object stdin, a relative or missing
-  ``cwd``, an event other than ``PreToolUse``, ``tool_input`` without a string ``file_path``, a
-  path that cannot be resolved - -> exit 2, ``deny`` (fail closed). ``--tools Read`` leaves Read
-  as the only built-in tool, so denying path-less tool calls costs nothing.
+  ``cwd``, an event other than ``PreToolUse``, any other ``tool_input`` without a string
+  ``file_path``, a path that cannot be resolved - -> exit 2, ``deny`` (fail closed). ``--tools Read``
+  leaves Read as the only built-in tool besides ``StructuredOutput``, so denying the remaining
+  path-less tool calls costs nothing.
 
 Log: every decision appends exactly one JSON line to ``<realpath(cwd)>.guard.jsonl`` - next to
 the send directory, outside it, so the model cannot read it and the sender can copy it into the
@@ -40,6 +48,7 @@ from typing import Any
 ALLOW_EXIT = 0
 DENY_EXIT = 2
 LOG_SUFFIX = ".guard.jsonl"
+STRUCTURED_OUTPUT_TOOL = "StructuredOutput"
 
 
 def _decide(raw: bytes) -> tuple[bool, str, dict[str, Any]]:
@@ -58,6 +67,8 @@ def _decide(raw: bytes) -> tuple[bool, str, dict[str, Any]]:
     fields["cwd"] = cwd
     if data.get("hook_event_name") != "PreToolUse":
         return False, f"unexpected hook_event_name {data.get('hook_event_name')!r}", fields
+    if fields["tool_name"] == STRUCTURED_OUTPUT_TOOL:
+        return True, "structured output (no file access)", fields
     file_path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
     if not isinstance(file_path, str) or not file_path:
         return False, "tool_input.file_path missing", fields

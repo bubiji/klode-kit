@@ -20,8 +20,11 @@ Public surface under test:
   ``cli:version`` (others may exist; the builder output passes all of them);
 - ``binding(invocation) -> {"cli_version", "effective_config_sha", "argv_sha"}`` and
   ``receipt_still_valid(receipt, env)``;
-- ``CLAUDE_MIN_VERSION == "2.1.259"`` (docs: cli-reference ``--permission-prompts``),
+- ``CLAUDE_MIN_VERSION == "2.1.285"`` (WI-00c1b: raised from 2.1.259, the cli-reference
+  ``--permission-prompts`` floor, to the only version the WI-00c2 host evidence was taken on),
   ``CODEX_MIN_VERSION`` = the locked codex floor.
+- ``CLOUD_ENV_ALLOWLIST`` gains ``USER`` (WI-00c1b, user decision 2026-10-23: macOS claude.ai OAuth
+  reads the Keychain by it); the pinned settings also carry ``autoMemoryEnabled: false``.
 
 The CLI version is read by running ``<argv[0]> --version`` as resolved on the invocation's own
 PATH: the replay fakes in ``tests/fakes/bin`` answer it (paired real path: 00c2-06/07).
@@ -51,7 +54,7 @@ pytestmark = pytest.mark.unit
 
 FIXTURE_PNG = REPO / "tests" / "fixtures" / "fx-approx-only" / "images" / "p001.png"
 FIXTURE_PNG_SHA = "9540907a834d2dd136b20f1364b037871342ba418fca540b98aa88830140a682"
-ALLOWLIST = {"PATH", "HOME", "TMPDIR", "LANG", "ANTHROPIC_API_KEY"}
+ALLOWLIST = {"PATH", "HOME", "TMPDIR", "LANG", "ANTHROPIC_API_KEY", "USER"}
 
 # r4.3 (a), verbatim: Claude route must-have flags -> required value (None = flag without value,
 # ... = any value; checked elsewhere). "-p" is print mode, without which nothing is unattended.
@@ -203,6 +206,10 @@ def test_cloud_settings_file_content():
         {k: h.get(k) for k in ("type", "command", "args")} for h in hooks
     ]
     assert sha_file(Path(CA.CLOUD_SETTINGS)) == IC.CLOUD_SETTINGS_SHA256
+    # WI-00c1b: auto memory is not governed by --setting-sources (docs: agent-sdk/claude-code-features,
+    # "What settingSources does not control"); the key is "Any file" scope (docs: settings-reference
+    # #automemoryenabled), so the pinned --settings file turns it off.
+    assert data.get("autoMemoryEnabled") is False
 
 
 def test_codex_argv_contract(systmp, project, versions):
@@ -444,9 +451,10 @@ def test_cwd_sibling_prefix_not_inside(tmp_path, systmp, versions):
 
 
 @pytest.mark.parametrize("route", ["claude", "codex"])
-@pytest.mark.parametrize("key", ["CLAUDE_CONFIG_DIR", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "FOO", "CLAUDE_CODE_SIMPLE"])
+@pytest.mark.parametrize("key", ["CLAUDE_CONFIG_DIR", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "FOO", "CLAUDE_CODE_SIMPLE",
+                                 "LOGNAME"])
 def test_env_whitelist(systmp, project, versions, route, key):
-    """00c1-08: any key outside PATH HOME TMPDIR LANG ANTHROPIC_API_KEY fails; no ANTHROPIC_* wildcard."""
+    """00c1-08: any key outside PATH HOME TMPDIR LANG ANTHROPIC_API_KEY USER fails; no ANTHROPIC_* wildcard."""
     inv = build(route)
     assert set(inv.env) <= ALLOWLIST
     bad = dataclasses.replace(inv, env={**inv.env, key: "x"})
@@ -478,6 +486,24 @@ def test_env_builder_keeps_only_whitelist(systmp, project, versions, route):
     assert inv.env["LANG"] == "C.UTF-8"
     res = IC.check(inv, project=project)
     assert res.ok, failed(res)
+
+
+@pytest.mark.parametrize("route", ["claude", "codex"])
+def test_env_user_allowed(systmp, project, versions, route):
+    """00c1-08 (WI-00c1b): USER is an allowlisted key - the builder carries it over from the source env,
+    LOGNAME next to it is dropped, and an invocation carrying USER passes env:allowlist."""
+    source = {"PATH": os.environ["PATH"], "HOME": "/home/synthetic", "TMPDIR": str(systmp), "LANG": "C.UTF-8",
+              "USER": "synthetic-user", "LOGNAME": "synthetic-user"}
+    inv = build(route, source_env=source)
+
+    assert inv.env.get("USER") == "synthetic-user"
+    assert "LOGNAME" not in inv.env
+    res = IC.check(inv, project=project)
+    assert res.ok, failed(res)
+    assert results(res)["env:allowlist"] is True
+
+    changed = dataclasses.replace(inv, env={**inv.env, "USER": "someone-else"})
+    assert results(IC.check(changed, project=project))["env:allowlist"] is True
 
 
 # --------------------------------------------------------------------------- 00c1-09
@@ -588,17 +614,19 @@ def test_settings_symlink_to_pinned_file_passes(systmp, project, versions, tmp_p
 
 
 def test_cli_version_boundary(systmp, project, versions):
-    """00c1-11: claude 2.1.258 FAIL, 2.1.259 PASS, 2.1.1000 PASS (numeric, not lexicographic)."""
-    assert IC.CLAUDE_MIN_VERSION == "2.1.259"
+    """00c1-11 (floor raised to 2.1.285 in WI-00c1b, user decision 2026-10-23): claude 2.1.284 FAIL,
+    2.1.285 PASS, 2.1.1000 PASS (numeric, not lexicographic); the old floor 2.1.259 now FAILs."""
+    assert IC.CLAUDE_MIN_VERSION == "2.1.285"
     inv = build("claude")
     outcome = {}
-    for v in ("2.1.258", "2.1.259", "2.1.1000", "2.10.0", "10.0.0"):
+    for v in ("2.1.259", "2.1.284", "2.1.285", "2.1.1000", "2.10.0", "10.0.0"):
         versions("claude", f"{v} (Claude Code)\n")
         res = IC.check(inv, project=project)
         outcome[v] = (results(res)["cli:version"], res.ok, res.cli_version)
 
-    assert outcome["2.1.258"] == (False, False, "2.1.258")
-    assert outcome["2.1.259"] == (True, True, "2.1.259")
+    assert outcome["2.1.259"] == (False, False, "2.1.259")
+    assert outcome["2.1.284"] == (False, False, "2.1.284")
+    assert outcome["2.1.285"] == (True, True, "2.1.285")
     assert outcome["2.1.1000"] == (True, True, "2.1.1000")
     assert outcome["2.10.0"][0] is True
     assert outcome["10.0.0"][0] is True

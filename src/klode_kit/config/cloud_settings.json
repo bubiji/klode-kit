@@ -3,6 +3,7 @@
     "blockReadsOutsideWorkingDirectories": true,
     "deny": ["Bash", "WebFetch", "WebSearch", "Agent", "Edit", "Write", "NotebookEdit"]
   },
+  "autoMemoryEnabled": false,
   "hooks": {
     "PreToolUse": [
       {

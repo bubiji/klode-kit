@@ -226,9 +226,12 @@ def test_resolve_accepts_dotted_and_nested_overrides():
 
 
 def test_cloud_env_allowlist_is_explicit():
-    """r5: explicit keys only; ANTHROPIC_BASE_URL and friends are never allowed."""
-    assert config.CLOUD_ENV_ALLOWLIST == frozenset({"PATH", "HOME", "TMPDIR", "LANG", "ANTHROPIC_API_KEY"})
+    """r5: explicit keys only; ANTHROPIC_BASE_URL and friends are never allowed.
+    WI-00c1b (user decision 2026-10-23): USER joins - macOS claude.ai OAuth reads the Keychain by it;
+    LOGNAME was shown not to help (WI-00c2 F1) and stays out."""
+    assert config.CLOUD_ENV_ALLOWLIST == frozenset({"PATH", "HOME", "TMPDIR", "LANG", "ANTHROPIC_API_KEY", "USER"})
     assert "ANTHROPIC_BASE_URL" not in config.CLOUD_ENV_ALLOWLIST
+    assert "LOGNAME" not in config.CLOUD_ENV_ALLOWLIST
 
 
 # ---------------------------------------------------------------- added after red (guards; no recorded line changed)

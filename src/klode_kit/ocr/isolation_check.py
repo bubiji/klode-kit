@@ -30,10 +30,13 @@ Check names (stable; the receipt carries them):
 - ``cli:version``         ``<argv[0]> --version``, resolved on the invocation PATH, is numerically
                           >= the floor (matrix F2).
 
-Version floors: ``claude >= 2.1.259`` because ``--permission-prompts`` "Requires Claude Code
-v2.1.259 or later" (https://code.claude.com/docs/en/cli-reference); this also covers
-``--restricted`` (v2.1.248+) and ``permissions.blockReadsOutsideWorkingDirectories`` (v2.1.257+,
-https://code.claude.com/docs/en/settings-reference). ``codex >= 0.163.0`` is the version whose
+Version floors: ``claude >= 2.1.285`` (WI-00c1b, user decision 2026-10-23): every piece of host
+evidence for this route - hook firing under ``--restricted``, ``--setting-sources ""`` semantics,
+the denial shape, the ``USER`` requirement - was taken on 2.1.285 only (WI-00c2 spike). The
+documented minimum is lower: ``--permission-prompts`` "Requires Claude Code v2.1.259 or later"
+(https://code.claude.com/docs/en/cli-reference), ``--restricted`` v2.1.248+ and
+``permissions.blockReadsOutsideWorkingDirectories`` v2.1.257+
+(https://code.claude.com/docs/en/settings-reference). ``codex >= 0.163.0`` is the version whose
 ``codex exec --help`` the codex argv was verified against; the WI-00c2 spike may raise it.
 
 The receipt (``schemas/isolation_receipt.json``) binds ``cli_version``, ``effective_config_sha``
@@ -62,9 +65,9 @@ from klode_kit.config import CLOUD_ENV_ALLOWLIST
 from klode_kit.contract.schema import issues
 from klode_kit.ocr import cloud_argv as CA
 
-CLAUDE_MIN_VERSION = "2.1.259"
+CLAUDE_MIN_VERSION = "2.1.285"
 CODEX_MIN_VERSION = "0.163.0"
-CLOUD_SETTINGS_SHA256 = "0bc7e32a358036210ee0724f5ba78cb3a11dec1b4384d2491e43babafaf42664"
+CLOUD_SETTINGS_SHA256 = "eb57a8ea24aa686cb0c49b68d972da523afada9b320529483e567244e348fc3d"
 SETTINGS_MAX_BYTES = 2 * 1024 * 1024  # cli-reference --settings: "a regular file no larger than 2 MiB"
 RECEIPT_SCHEMA = "klode-kit.isolation_receipt/1"
 GUARD_COMMAND = "klode-kit"
