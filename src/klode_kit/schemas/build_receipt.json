@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/build_receipt.json",
+  "title": "Build receipt (builds/<build_id>/build_receipt.json)",
+  "description": "The 13 build steps in their fixed order (02 r3.2, K8); audit_bindings snapshot (r3.1); excluded / stale_candidates (r2.4, r4.1). status PASS requires all 13 steps PASS (04 U4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "build_id",
+    "kb_id",
+    "status",
+    "steps",
+    "audit_bindings",
+    "excluded"
+  ],
+  "properties": {
+    "schema": {
+      "const": "klode-kit.build_receipt/1"
+    },
+    "build_id": {
+      "type": "string",
+      "pattern": "^b-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "kb_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "started": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "ended": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "inputs_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "deident_mode": {
+      "enum": [
+        "pseudonym",
+        "dateshift"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "export"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "init_kb"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "ingest"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "split_manifest"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "klode_build"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "dispatch_writers"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "gate1"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "write_card"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "check_strict"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "desk_apply"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "desk_verify"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "gen_agent"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step",
+            "status"
+          ],
+          "properties": {
+            "step": {
+              "const": "self_check"
+            },
+            "status": {
+              "enum": [
+                "PASS",
+                "FAIL",
+                "SKIPPED",
+                "NOT_RUN"
+              ]
+            },
+            "receipt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "started": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "ended": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "items": false,
+      "minItems": 13
+    },
+    "audit_bindings": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^r-[0-9a-f]{12}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rev",
+          "audit_rev"
+        ],
+        "properties": {
+          "rev": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "audit_rev": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{12}/a[0-9]+$"
+          }
+        }
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rec_id",
+          "reason"
+        ],
+        "properties": {
+          "rec_id": {
+            "type": "string",
+            "pattern": "^r-[0-9a-f]{12}$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "stale_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rec_id",
+          "candidate_rev",
+          "reason"
+        ],
+        "properties": {
+          "rec_id": {
+            "type": "string",
+            "pattern": "^r-[0-9a-f]{12}$"
+          },
+          "candidate_rev": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "PASS"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "steps": {
+            "not": {
+              "contains": {
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "not": {
+                      "const": "PASS"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

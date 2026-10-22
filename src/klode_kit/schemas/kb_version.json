@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/kb_version.json",
+  "title": "kb_version tool result",
+  "description": "Returned by the MCP wrapper's kb_version tool; the only evidence for u5_ready (02 r4.2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kb_id",
+    "build_id",
+    "library_toml",
+    "published_at",
+    "wrapper_version",
+    "klode_version"
+  ],
+  "properties": {
+    "kb_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "build_id": {
+      "type": "string",
+      "pattern": "^b-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "library_toml": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "published_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "wrapper_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "klode_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

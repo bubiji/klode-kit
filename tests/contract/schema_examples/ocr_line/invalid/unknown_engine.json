@@ -1,0 +1,62 @@
+{
+  "error_path": "engine",
+  "instance": {
+    "bbox_px": [
+      40,
+      200,
+      400,
+      230
+    ],
+    "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "engine": "ocr-x",
+    "line_idx": 3,
+    "page_id": "d-a1b2c3d4a1b2/p001",
+    "run_id": "c9d0e1f2c9d0/vision/a1b2c3d4a1b2/t1",
+    "text": "白细胞 6.2 10^9/L",
+    "tokens": [
+      {
+        "bbox_px": [
+          40,
+          200,
+          120,
+          230
+        ],
+        "geometry": "exact",
+        "span": [
+          0,
+          3
+        ],
+        "text": "白细胞"
+      },
+      {
+        "bbox_px": [
+          150,
+          200,
+          190,
+          230
+        ],
+        "geometry": "approx",
+        "span": [
+          4,
+          7
+        ],
+        "text": "6.2"
+      },
+      {
+        "bbox_px": [
+          220,
+          200,
+          400,
+          230
+        ],
+        "geometry": "exact",
+        "span": [
+          8,
+          14
+        ],
+        "text": "10^9/L"
+      }
+    ]
+  },
+  "why": "engine 只能是已知路"
+}

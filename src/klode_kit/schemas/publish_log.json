@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/publish_log.json",
+  "title": "PUBLISH.log line",
+  "description": "kb/<id>/PUBLISH.log, one action per line (02 r4.2, R3-03).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "seq",
+    "target_build_id",
+    "prev_build_id",
+    "action",
+    "status",
+    "at"
+  ],
+  "properties": {
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "target_build_id": {
+      "type": "string",
+      "pattern": "^b-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "prev_build_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^b-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "action": {
+      "enum": [
+        "switch",
+        "mcp_json",
+        "registry",
+        "agent",
+        "approve",
+        "rollback",
+        "prune"
+      ]
+    },
+    "status": {
+      "enum": [
+        "done",
+        "failed",
+        "skipped_newer"
+      ]
+    },
+    "at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detail": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "error_path": "env_fingerprint.repo_root",
+  "instance": {
+    "bootstrap": false,
+    "command": [
+      "/home/ci/klode-kit/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-m",
+      "unit"
+    ],
+    "env_fingerprint": {
+      "platform": "linux-x86_64",
+      "python": "/usr/lib/python3.12/bin/python3.12",
+      "python_version": "3.12.14",
+      "release_sha": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+      "repo_root": "klode-kit"
+    },
+    "finished_at": "2026-10-22T12:59:13+00:00",
+    "lane": "unit",
+    "pytest_exit_code": 0,
+    "schema_version": 1,
+    "started_at": "2026-10-22T12:58:43+00:00",
+    "status": "PASS",
+    "tags": [
+      "not-release"
+    ],
+    "tests_discovered": 82,
+    "tests_failed": 0,
+    "tests_skipped": 1
+  },
+  "why": "V6：仓库根 realpath（绝对路径）"
+}

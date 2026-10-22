@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/choices.json",
+  "title": "Confirm-page export (choices.json)",
+  "description": "Human choices exported by the confirm page (02 r2.3, r3.3: no `partial`; r3.4: none + evidence.reason). A field_id appears at most once (F17, x-uniqueBy).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "batch_id",
+    "confirm_sha256",
+    "fingerprints",
+    "items"
+  ],
+  "properties": {
+    "schema": {
+      "const": "klode-kit.choices/1"
+    },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{12}$"
+    },
+    "audit_rev": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{12}/a[0-9]+$"
+    },
+    "confirm_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "fingerprints": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "vision",
+          "mlx",
+          "claude",
+          "codex",
+          "pdftext",
+          "tesseract"
+        ]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "x-uniqueBy": "field_id",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rec_id",
+          "rev_base",
+          "field_id",
+          "cell",
+          "choice",
+          "seen"
+        ],
+        "properties": {
+          "rec_id": {
+            "type": "string",
+            "pattern": "^r-[0-9a-f]{12}$"
+          },
+          "rev_base": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "field_id": {
+            "type": "string",
+            "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"
+          },
+          "cell": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "row",
+              "col"
+            ],
+            "properties": {
+              "row": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "col": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "choice": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "route",
+                  "manual",
+                  "none"
+                ]
+              },
+              "route": {
+                "enum": [
+                  "vision",
+                  "mlx",
+                  "claude",
+                  "codex",
+                  "pdftext",
+                  "tesseract"
+                ]
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "required": [
+                    "kind"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "route"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "route"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "required": [
+                    "kind"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "manual"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "seen": {
+            "type": "object",
+            "propertyNames": {
+              "enum": [
+                "vision",
+                "mlx",
+                "claude",
+                "codex",
+                "pdftext",
+                "tesseract"
+              ]
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reason"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

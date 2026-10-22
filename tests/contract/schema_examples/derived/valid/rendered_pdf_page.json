@@ -1,0 +1,17 @@
+{
+  "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+  "page_id": "d-a1b2c3d4a1b2/p001",
+  "parent": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+  "path": "derived_img/p001.m.png",
+  "transform": {
+    "crop": [
+      0,
+      0,
+      800,
+      1200
+    ],
+    "mask_boxes": [],
+    "render_dpi": 150,
+    "rotate": 90
+  }
+}

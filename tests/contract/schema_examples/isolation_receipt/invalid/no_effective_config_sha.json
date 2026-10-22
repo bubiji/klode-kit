@@ -1,0 +1,31 @@
+{
+  "error_path": "effective_config_sha",
+  "instance": {
+    "argv_sha": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "at": "2026-10-22T00:00:00Z",
+    "checks": [
+      {
+        "name": "argv_required_flags",
+        "ok": true
+      },
+      {
+        "name": "argv_forbidden_flags",
+        "ok": true
+      },
+      {
+        "name": "cwd_outside_project",
+        "ok": true
+      },
+      {
+        "name": "env_allowlist",
+        "ok": true
+      }
+    ],
+    "cli_version": "2.1.259",
+    "cloud_isolation": "PASS",
+    "cloud_settings_sha": "c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2",
+    "route": "claude",
+    "schema": "klode-kit.isolation_receipt/1"
+  },
+  "why": "r4.3：receipt 必须绑定 CLI 版本、生效配置与 argv"
+}

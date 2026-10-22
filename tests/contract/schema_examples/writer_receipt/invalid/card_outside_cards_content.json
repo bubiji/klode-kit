@@ -1,0 +1,13 @@
+{
+  "error_path": "card",
+  "instance": {
+    "aliases": 12,
+    "anchors_full": 6,
+    "card": "library/items/x.md",
+    "kind": "authored",
+    "notes": "anchors verified with klode verify",
+    "rounds": 1,
+    "status": "written"
+  },
+  "why": "R2-06：writer 只能写 cards_content/"
+}

@@ -1,0 +1,24 @@
+{
+  "candidates": [
+    {
+      "audit_rev": "c9d0e1f2c9d0/a1",
+      "created": "2026-10-22T00:00:00Z",
+      "rev": 1,
+      "status": "verified",
+      "uncertain": []
+    }
+  ],
+  "date": "2026-09-18",
+  "doc_id": "d-a1b2c3d4a1b2",
+  "effective": {
+    "audit_rev": "c9d0e1f2c9d0/a1",
+    "rev": 1,
+    "status": "verified",
+    "verified_by": "human"
+  },
+  "page_id": "d-a1b2c3d4a1b2/p001",
+  "rec_id": "r-e5f6a7b8e5f6",
+  "record_idx": 0,
+  "status": "verified",
+  "type": "lab"
+}

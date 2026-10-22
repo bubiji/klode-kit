@@ -1,0 +1,37 @@
+{
+  "error_path": "transforms",
+  "instance": {
+    "field_ids": [
+      "r-e5f6a7b8e5f6/labs[1].item",
+      "r-e5f6a7b8e5f6/labs[1].value",
+      "r-e5f6a7b8e5f6/labs[1].unit",
+      "r-e5f6a7b8e5f6/date"
+    ],
+    "kb_id": "fx-chain-klode",
+    "line_no": 1,
+    "positions": {
+      "r-e5f6a7b8e5f6/date": [
+        15,
+        25
+      ],
+      "r-e5f6a7b8e5f6/labs[1].item": [
+        0,
+        3
+      ],
+      "r-e5f6a7b8e5f6/labs[1].unit": [
+        8,
+        14
+      ],
+      "r-e5f6a7b8e5f6/labs[1].value": [
+        4,
+        7
+      ]
+    },
+    "rec_id": "r-e5f6a7b8e5f6",
+    "rev": 1,
+    "source_file": "library/items/wbc.txt",
+    "text": "白细胞 6.2 10^9/L 2026-10-02 ⟨r-e5f6a7b8e5f6⟩",
+    "value_audited": "6.2"
+  },
+  "why": "r3.1 段③：transforms[] 必有（可为空）"
+}

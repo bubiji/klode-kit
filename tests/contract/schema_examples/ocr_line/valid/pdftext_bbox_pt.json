@@ -1,0 +1,41 @@
+{
+  "bbox_pt": [
+    72.0,
+    60.5,
+    180.2,
+    72.5
+  ],
+  "bbox_px": [
+    150,
+    126,
+    375,
+    151
+  ],
+  "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+  "engine": "pdftext",
+  "line_idx": 0,
+  "page_id": "d-a1b2c3d4a1b2/p001",
+  "text": "血红蛋白 128 g/L",
+  "tokens": [
+    {
+      "bbox_pt": [
+        72.0,
+        60.5,
+        120.0,
+        72.5
+      ],
+      "bbox_px": [
+        150,
+        126,
+        250,
+        151
+      ],
+      "geometry": "exact",
+      "span": [
+        0,
+        4
+      ],
+      "text": "血红蛋白"
+    }
+  ]
+}

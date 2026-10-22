@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/ocr_line.json",
+  "title": "OCR line (contract N1 extension)",
+  "description": "One line of one route on one derived image: ocr/<engine>/<cfg_fp>.t<N>/<page>.jsonl (02 r2.2-A, r3.1, R2-08, R3-05). Cloud routes (claude, codex) carry no geometry: bbox_px and tokens are null. tokens[].geometry is exact|approx.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "engine",
+    "page_id",
+    "der_sha256",
+    "line_idx",
+    "text",
+    "bbox_px",
+    "tokens"
+  ],
+  "properties": {
+    "engine": {
+      "enum": [
+        "vision",
+        "mlx",
+        "claude",
+        "codex",
+        "pdftext",
+        "tesseract"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{12}/[a-z]+/[0-9a-f]{12}/t[0-9]+$"
+    },
+    "page_id": {
+      "type": "string",
+      "pattern": "^d-[0-9a-f]{12}/p[0-9]{3,}$"
+    },
+    "der_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "line_idx": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "text": {
+      "type": "string"
+    },
+    "bbox_px": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "bbox_pt": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "block_bbox": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "tokens": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "bbox_px",
+          "span",
+          "geometry"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "bbox_px": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "bbox_pt": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "span": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            "items": false,
+            "minItems": 2
+          },
+          "geometry": {
+            "enum": [
+              "exact",
+              "approx"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "engine"
+        ],
+        "properties": {
+          "engine": {
+            "enum": [
+              "claude",
+              "codex"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "bbox_px": {
+            "type": "null"
+          },
+          "tokens": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

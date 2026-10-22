@@ -13,3 +13,8 @@
 | WI-00a | 新增 gen_common/gen_chain/gen_project；fixture 各产物格式为暂定，WI-00b1/00b3/00c2 可调整后重生成 | 接受；对应 WI 派工时提醒 |
 | WI-00a | `repeat_ratio` 行级定义为自定，WI-04a 与 189 MLX 检测对齐 | 接受；WI-04a 派工时提醒 |
 | WI-00a | 新增 pyproject `[tool.pyright]`（主会话，消 IDE 误报） | — |
+| WI-00b1 | **SEPARATION-BROKEN**（unit）：00b1-12 往返性质测试把目标路径 `rt/<名>.json` 改为 `rt/<名>/<名>.json`（hypothesis 复用 tmp_path 致「目录只含目标文件」不可满足），断言行未改 | **用户 2026-10-22 AskUserQuestion 认可** |
+| WI-00b1 | schema 示例 `vision_tokens.json` 曾改名，已原名恢复 | 接受 |
+| WI-00b1 | 自定 13 步名：export, init_kb, ingest, split_manifest, klode_build, dispatch_writers, gate1, write_card, check_strict, desk_apply, desk_verify, gen_agent, self_check；writer_receipt 字段集；check/publish 状态枚举；fixes.manual 必含 evidence.region 等额外 schema 规则 | 接受；WI-09b 实现时以此为准 |
+| WI-00b1 | lane_receipt.release_sha 暂为非空字符串（git HEAD 或 unversioned），正式定义归 WI-15b | 接受 |
+| WI-00a（追认） | 00a-03 断言 `sorted(entries) == files` 改为 `sorted(entries) == sorted(files)`（主会话改，已记录行） | **用户 2026-10-22 AskUserQuestion 认可** |

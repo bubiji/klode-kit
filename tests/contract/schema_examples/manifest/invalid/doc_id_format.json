@@ -1,0 +1,10 @@
+{
+  "error_path": "doc_id",
+  "instance": {
+    "doc_id": "d-XYZ",
+    "img_sha256": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+    "kind": "image",
+    "path": "images/p001.png"
+  },
+  "why": "doc_id = d-<sha256[:12]>"
+}

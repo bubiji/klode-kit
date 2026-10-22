@@ -1,7 +1,10 @@
 """fx-chain (WI-00a): complete provenance-chain products plus legal and broken variants.
 
-Layout of every variant directory (02 r2.2-A, r3.1, r3.2, r4.1; field names provisional until
-WI-00b1/00b3 fix the schemas - this generator is the place to update them):
+Layout of every variant directory (02 r2.2-A, r3.1, r3.2, r4.1). Since WI-00b1 the manifest, derived,
+OCR-line, cells, fixes, record front matter and export_map rows of the legal variants conform to
+``src/klode_kit/schemas/*.json`` (checked by tests/unit/test_contract_schemas.py);
+``build/build_receipt.json`` stays a fixture-only partial (``klode-kit.fixture-build-receipt/1``:
+audit_bindings only, no 13 steps). WI-00b3 may still adjust the rest - this generator is the place:
 
     chain.json                       batch_id, rec_ids, routes, base_route, kb_id
     variant.json                     base variant, expected violations, mutated files
@@ -13,7 +16,8 @@ WI-00b1/00b3 fix the schemas - this generator is the place to update them):
     records/_by_id/<rec_id>.md       effective + candidates (JSON front matter)
     records/_rev/<rec_id>.r<N>.md    immutable revision bodies (fields by field_id)
     build/build_receipt.json         audit_bindings {rec_id: {rev, audit_rev}}
-    build/src/export_map.jsonl       one row per exported line: rev, text, positions, transforms
+    build/src/export_map.jsonl       one row per exported line: rev, text, positions, value_audited, transforms
+                                     (rows conform to klode_kit/schemas/export_map.json, WI-00b1)
     build/library/items/<slug>.txt   the exported lines
 
 Effective decision of a field = among its decisions with ``rev_new <= bound rev``, the one with
@@ -248,7 +252,7 @@ def build_model(opts: dict) -> dict:
         text += f" ⟨{rec}⟩"
         export.append({"kb_id": KB, "source_file": f"library/items/{r['slug']}.txt", "line_no": 1, "rec_id": rec,
                        "field_ids": [f for f, _ in parts], "rev": 1, "text": text, "positions": positions,
-                       "transforms": transforms})
+                       "value_audited": values_r1[value_fid], "transforms": transforms})
 
     build_id = "b-20261022T000000Z-" + C.sha256(f"{rec}:1|{KB}".encode())[:8]
     return {
@@ -337,9 +341,11 @@ def mutate(n: int, m: dict) -> None:
         d["value"] = "6.8"
         m["revs"][1]["fields"][fid] = "6.8"
         _set_export_text(m, "labs[1].value", "6.8")
+        _export_for(m, "labs[1].value")[0]["value_audited"] = "6.8"
     elif n == 9:
         m["revs"][1]["fields"][f"{rec}/labs[0].value"] = "129"
         _set_export_text(m, "labs[0].value", "129")
+        _export_for(m, "labs[0].value")[0]["value_audited"] = "129"
     elif n == 10:
         _set_export_text(m, "labs[0].value", "182")
     elif n == 11:

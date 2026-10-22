@@ -1,0 +1,8 @@
+{
+  "action": "switch",
+  "at": "2026-10-22T00:05:00Z",
+  "prev_build_id": "b-20261021T120000Z-e5f6a7b8",
+  "seq": 3,
+  "status": "done",
+  "target_build_id": "b-20261022T000000Z-a1b2c3d4"
+}

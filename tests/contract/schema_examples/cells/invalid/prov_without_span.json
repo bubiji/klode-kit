@@ -1,0 +1,75 @@
+{
+  "error_path": "prov.claude.span",
+  "instance": {
+    "candidates": {
+      "claude": {
+        "value": "6.8"
+      },
+      "codex": {
+        "value": "6.8"
+      },
+      "mlx": {
+        "value": "6.8"
+      },
+      "vision": {
+        "value": "6.2"
+      }
+    },
+    "cell": {
+      "col": "value",
+      "row": 0
+    },
+    "field_id": "r-e5f6a7b8e5f6/labs[0].value",
+    "prov": {
+      "claude": {
+        "bbox_px": null,
+        "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+        "line_idx": 3,
+        "run_id": "c9d0e1f2c9d0/claude/a1b2c3d4a1b2/t1"
+      },
+      "codex": {
+        "bbox_px": null,
+        "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+        "line_idx": 3,
+        "run_id": "c9d0e1f2c9d0/codex/a1b2c3d4a1b2/t1",
+        "span": [
+          4,
+          7
+        ]
+      },
+      "mlx": {
+        "bbox_px": [
+          38,
+          198,
+          402,
+          232
+        ],
+        "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+        "line_idx": 3,
+        "run_id": "c9d0e1f2c9d0/mlx/a1b2c3d4a1b2/t1",
+        "span": [
+          4,
+          7
+        ]
+      },
+      "vision": {
+        "bbox_px": [
+          150,
+          200,
+          190,
+          230
+        ],
+        "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+        "line_idx": 3,
+        "run_id": "c9d0e1f2c9d0/vision/a1b2c3d4a1b2/t1",
+        "span": [
+          4,
+          7
+        ]
+      }
+    },
+    "rec_id": "r-e5f6a7b8e5f6",
+    "slot": "labs[0].value"
+  },
+  "why": "r3.1 段①：每路 prov 必含 span"
+}

@@ -1,0 +1,21 @@
+{
+  "error_path": "parent",
+  "instance": {
+    "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "page_id": "d-a1b2c3d4a1b2/p001",
+    "path": "derived_img/p001.m.png",
+    "transform": {
+      "crop": null,
+      "mask_boxes": [
+        [
+          40,
+          60,
+          420,
+          110
+        ]
+      ],
+      "rotate": 0
+    }
+  },
+  "why": "parent = 原件 img_sha256，来源链必需"
+}

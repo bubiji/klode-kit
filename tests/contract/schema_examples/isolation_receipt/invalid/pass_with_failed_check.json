@@ -1,0 +1,32 @@
+{
+  "error_path": "cloud_isolation",
+  "instance": {
+    "argv_sha": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "at": "2026-10-22T00:00:00Z",
+    "checks": [
+      {
+        "name": "argv_required_flags",
+        "ok": true
+      },
+      {
+        "name": "argv_forbidden_flags",
+        "ok": true
+      },
+      {
+        "name": "cwd_outside_project",
+        "ok": false
+      },
+      {
+        "name": "env_allowlist",
+        "ok": true
+      }
+    ],
+    "cli_version": "2.1.259",
+    "cloud_isolation": "PASS",
+    "cloud_settings_sha": "c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2",
+    "effective_config_sha": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+    "route": "claude",
+    "schema": "klode-kit.isolation_receipt/1"
+  },
+  "why": "任一检查 FAIL → 该路不得 PASS"
+}

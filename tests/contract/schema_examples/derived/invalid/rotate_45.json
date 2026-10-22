@@ -1,0 +1,22 @@
+{
+  "error_path": "transform.rotate",
+  "instance": {
+    "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "page_id": "d-a1b2c3d4a1b2/p001",
+    "parent": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+    "path": "derived_img/p001.m.png",
+    "transform": {
+      "crop": null,
+      "mask_boxes": [
+        [
+          40,
+          60,
+          420,
+          110
+        ]
+      ],
+      "rotate": 45
+    }
+  },
+  "why": "rotate: 0|90|180|270"
+}

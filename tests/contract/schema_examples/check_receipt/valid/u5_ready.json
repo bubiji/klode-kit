@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-22T00:05:00Z",
+  "build_id": "b-20261022T000000Z-a1b2c3d4",
+  "checks": [
+    {
+      "name": "cards_complete",
+      "status": "PASS"
+    },
+    {
+      "name": "mcp_host_visible",
+      "status": "PASS"
+    }
+  ],
+  "kb_id": "fx-labs-3x-klode",
+  "mcp": {
+    "mcp_config_written": true,
+    "mcp_direct_smoke": true,
+    "mcp_host_visible": "connected"
+  },
+  "plugin": {
+    "entry": "skill:/klode-kit:kb-check",
+    "name": "klode-kit",
+    "root_sha": "c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2",
+    "version": "0.1.0"
+  },
+  "probe": {
+    "build_id": "b-20261022T000000Z-a1b2c3d4"
+  },
+  "schema": "klode-kit.check_receipt/1",
+  "status": "PASS",
+  "u5_ready": true
+}

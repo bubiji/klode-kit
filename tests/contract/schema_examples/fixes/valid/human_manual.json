@@ -1,0 +1,30 @@
+{
+  "at": "2026-10-22T00:00:00Z",
+  "audit_rev": "c9d0e1f2c9d0/a1",
+  "by": "human",
+  "choice": "manual",
+  "commit_id": "c9d0e1f2c9d0/a1/c0001",
+  "decision_id": "c9d0e1f2c9d0/a1/d0002",
+  "evidence": {
+    "region": {
+      "bbox_px": [
+        40,
+        300,
+        400,
+        330
+      ],
+      "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8"
+    },
+    "seen": {
+      "claude": "10.5",
+      "codex": "10.5",
+      "mlx": "10.5",
+      "vision": "10.5"
+    }
+  },
+  "field_id": "r-e5f6a7b8e5f6/labs[0].value",
+  "rev_base": 0,
+  "rev_new": 1,
+  "route": null,
+  "value": "1.05"
+}

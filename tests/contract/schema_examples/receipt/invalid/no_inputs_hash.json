@@ -1,0 +1,23 @@
+{
+  "error_path": "inputs_hash",
+  "instance": {
+    "config_hash": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "config_version": 1,
+    "cost_usd": 0.42,
+    "effort": "max",
+    "ended": "2026-10-22T00:05:00Z",
+    "exit_code": 0,
+    "model": "opus",
+    "outputs": [
+      {
+        "path": "ocr/vision/a1b2c3d4a1b2.t1/p001.jsonl",
+        "sha256": "c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2"
+      }
+    ],
+    "schema": "klode-kit.receipt/1",
+    "started": "2026-10-22T00:00:00Z",
+    "status": "done",
+    "step": "ocr"
+  },
+  "why": "r3.2：done 复用要三 hash"
+}

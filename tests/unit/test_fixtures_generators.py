@@ -167,7 +167,7 @@ def test_manifest_complete():
     entries = {e["path"]: e["sha256"] for e in manifest["files"]}
     files = tree_files(FIXTURES)
     assert len(files) >= 100, f"fixtures tree looks empty ({len(files)} files)"
-    assert sorted(entries) == files, {
+    assert sorted(entries) == sorted(files), {
         "not_in_manifest": sorted(set(files) - set(entries)),
         "missing_on_disk": sorted(set(entries) - set(files)),
     }

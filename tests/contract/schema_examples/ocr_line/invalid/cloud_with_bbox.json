@@ -1,0 +1,19 @@
+{
+  "error_path": "bbox_px",
+  "instance": {
+    "bbox_px": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "der_sha256": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+    "engine": "claude",
+    "line_idx": 3,
+    "page_id": "d-a1b2c3d4a1b2/p001",
+    "run_id": "c9d0e1f2c9d0/claude/a1b2c3d4a1b2/t1",
+    "text": "白细胞 6.8 10^9/L",
+    "tokens": null
+  },
+  "why": "r3.1: 云端路 bbox_px 必须为 null"
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/writer_receipt.json",
+  "title": "Card writer receipt",
+  "description": "JSON the card-writer agent returns via --json-schema (02 r2.5, R2-06): it may only write under cards_content/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "card",
+    "status",
+    "anchors_full",
+    "aliases"
+  ],
+  "properties": {
+    "card": {
+      "type": "string",
+      "pattern": "^cards_content/(?!.*\\.\\./).+\\.md$"
+    },
+    "status": {
+      "enum": [
+        "written",
+        "failed",
+        "skipped"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "deterministic",
+        "authored"
+      ]
+    },
+    "anchors_full": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "aliases": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rounds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

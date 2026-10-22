@@ -1,0 +1,77 @@
+{
+  "error_path": "items[1].choice.value",
+  "instance": {
+    "audit_rev": "c9d0e1f2c9d0/a1",
+    "batch_id": "c9d0e1f2c9d0",
+    "confirm_sha256": "c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2c9d0e1f2",
+    "fingerprints": {
+      "claude": "c9d0e1f2c9d0",
+      "codex": "a1b2c3d4e5f6",
+      "mlx": "e5f6a7b8e5f6",
+      "vision": "a1b2c3d4a1b2"
+    },
+    "items": [
+      {
+        "cell": {
+          "col": "value",
+          "row": 0
+        },
+        "choice": {
+          "kind": "route",
+          "route": "vision"
+        },
+        "field_id": "r-e5f6a7b8e5f6/labs[0].value",
+        "rec_id": "r-e5f6a7b8e5f6",
+        "rev_base": 0,
+        "seen": {
+          "claude": "6.8",
+          "codex": "6.8",
+          "mlx": "6.8",
+          "vision": "6.2"
+        }
+      },
+      {
+        "cell": {
+          "col": "value",
+          "row": 3
+        },
+        "choice": {
+          "kind": "manual",
+          "value": ""
+        },
+        "field_id": "r-e5f6a7b8e5f6/labs[3].value",
+        "rec_id": "r-e5f6a7b8e5f6",
+        "rev_base": 0,
+        "seen": {
+          "claude": "6.8",
+          "codex": "6.8",
+          "mlx": "6.8",
+          "vision": "6.2"
+        }
+      },
+      {
+        "cell": {
+          "col": "item",
+          "row": 4
+        },
+        "choice": {
+          "kind": "none"
+        },
+        "evidence": {
+          "reason": "not_a_field"
+        },
+        "field_id": "r-e5f6a7b8e5f6/labs[4].item",
+        "rec_id": "r-e5f6a7b8e5f6",
+        "rev_base": 0,
+        "seen": {
+          "claude": "6.8",
+          "codex": "6.8",
+          "mlx": "6.8",
+          "vision": "6.2"
+        }
+      }
+    ],
+    "schema": "klode-kit.choices/1"
+  },
+  "why": "r2.3：manual 的 value 不得为空串"
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/derived.json",
+  "title": "Derived image line",
+  "description": "work/<batch>/derived.jsonl: a rotated / cropped / masked / rendered image; bbox coordinates are in its pixels (02 r2.2-A).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "der_sha256",
+    "parent",
+    "page_id",
+    "transform"
+  ],
+  "properties": {
+    "der_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "parent": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "page_id": {
+      "type": "string",
+      "pattern": "^d-[0-9a-f]{12}/p[0-9]{3,}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rotate",
+        "crop",
+        "mask_boxes"
+      ],
+      "properties": {
+        "rotate": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "crop": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "mask_boxes": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minItems": 4,
+            "maxItems": 4
+          }
+        },
+        "render_dpi": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

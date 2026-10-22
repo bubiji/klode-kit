@@ -1,0 +1,100 @@
+{
+  "error_path": "steps",
+  "instance": {
+    "audit_bindings": {
+      "r-e5f6a7b8e5f6": {
+        "audit_rev": "c9d0e1f2c9d0/a1",
+        "rev": 1
+      }
+    },
+    "build_id": "b-20261022T000000Z-a1b2c3d4",
+    "deident_mode": "pseudonym",
+    "ended": "2026-10-22T00:05:00Z",
+    "excluded": [
+      {
+        "reason": "codex:route_missing_page",
+        "rec_id": "r-a1b2c3d4e5f6"
+      }
+    ],
+    "inputs_hash": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+    "kb_id": "fx-labs-3x-klode",
+    "schema": "klode-kit.build_receipt/1",
+    "stale_candidates": [
+      {
+        "candidate_rev": 2,
+        "reason": "codex:route_missing_page",
+        "rec_id": "r-e5f6a7b8e5f6"
+      }
+    ],
+    "started": "2026-10-22T00:00:00Z",
+    "status": "PASS",
+    "steps": [
+      {
+        "receipt": "receipts/export.json",
+        "status": "PASS",
+        "step": "export"
+      },
+      {
+        "receipt": "receipts/init_kb.json",
+        "status": "PASS",
+        "step": "init_kb"
+      },
+      {
+        "receipt": "receipts/ingest.json",
+        "status": "PASS",
+        "step": "ingest"
+      },
+      {
+        "receipt": "receipts/split_manifest.json",
+        "status": "PASS",
+        "step": "split_manifest"
+      },
+      {
+        "receipt": "receipts/klode_build.json",
+        "status": "PASS",
+        "step": "klode_build"
+      },
+      {
+        "receipt": "receipts/dispatch_writers.json",
+        "status": "PASS",
+        "step": "dispatch_writers"
+      },
+      {
+        "receipt": "receipts/gate1.json",
+        "status": "PASS",
+        "step": "gate1"
+      },
+      {
+        "receipt": "receipts/write_card.json",
+        "status": "PASS",
+        "step": "write_card"
+      },
+      {
+        "receipt": "receipts/check_strict.json",
+        "status": "PASS",
+        "step": "check_strict"
+      },
+      {
+        "receipt": "receipts/desk_apply.json",
+        "status": "FAIL",
+        "step": "desk_apply"
+      },
+      {
+        "receipt": "receipts/desk_verify.json",
+        "status": "PASS",
+        "step": "desk_verify"
+      },
+      {
+        "receipt": "receipts/gen_agent.json",
+        "status": "PASS",
+        "step": "gen_agent"
+      },
+      {
+        "receipt": "receipts/self_check.json",
+        "status": "PASS",
+        "step": "self_check"
+      }
+    ]
+  },
+  "why": "status PASS 要求 13 步全 PASS（U4）"
+}

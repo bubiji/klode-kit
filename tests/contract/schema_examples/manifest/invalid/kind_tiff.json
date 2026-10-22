@@ -1,0 +1,10 @@
+{
+  "error_path": "kind",
+  "instance": {
+    "doc_id": "d-a1b2c3d4a1b2",
+    "img_sha256": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+    "kind": "tiff",
+    "path": "images/p001.png"
+  },
+  "why": "kind: image|pdf"
+}

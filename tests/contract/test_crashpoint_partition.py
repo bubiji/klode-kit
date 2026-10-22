@@ -156,7 +156,13 @@ def test_hook_installed_for_package_main(tmp_path):
 @pytest.mark.parametrize(
     "flow_name",
     [
-        pytest.param(name, marks=pytest.mark.xfail(strict=True, reason=f"依赖 {flow.depends_on}（流程尚未实现，配对 {flow.paired_case}）"))
+        pytest.param(
+            name,
+            # removal flow designed in WI-00s: the xfail is dropped once the WI supplies runner + list
+            marks=()
+            if flow.runner is not None and flow.expected_crashpoints is not None
+            else pytest.mark.xfail(strict=True, reason=f"依赖 {flow.depends_on}（流程尚未实现，配对 {flow.paired_case}）"),
+        )
         for name, flow in REAL_FLOWS.items()
     ],
 )

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/manifest.json",
+  "title": "Batch manifest line",
+  "description": "work/<batch>/manifest.jsonl: one original document (02 r2.2-A); duplicate marks a repeated image (r5).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "doc_id",
+    "img_sha256",
+    "kind"
+  ],
+  "properties": {
+    "doc_id": {
+      "type": "string",
+      "pattern": "^d-[0-9a-f]{12}$"
+    },
+    "img_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "kind": {
+      "enum": [
+        "image",
+        "pdf"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "duplicate": {
+      "type": "boolean"
+    }
+  }
+}

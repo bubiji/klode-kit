@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/export_map.json",
+  "title": "Export map line (kb/<id>/src/export_map.jsonl)",
+  "description": "One exported line (02 r2.2-A, r3.1 segment 3, R3-07): value_audited is the audited value read from the bound revision; transforms[] (possibly empty) lists dateshift / alias / layout steps.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kb_id",
+    "source_file",
+    "line_no",
+    "rec_id",
+    "field_ids",
+    "rev",
+    "text",
+    "value_audited",
+    "transforms"
+  ],
+  "properties": {
+    "kb_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "line_no": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "rec_id": {
+      "type": "string",
+      "pattern": "^r-[0-9a-f]{12}$"
+    },
+    "field_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"
+      },
+      "uniqueItems": true
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "value_audited": {
+      "type": "string"
+    },
+    "positions": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "integer",
+            "minimum": 0
+          },
+          {
+            "type": "integer",
+            "minimum": 0
+          }
+        ],
+        "items": false,
+        "minItems": 2
+      }
+    },
+    "transforms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "from",
+          "to"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "dateshift",
+              "alias",
+              "layout"
+            ]
+          },
+          "field_id": {
+            "type": "string",
+            "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

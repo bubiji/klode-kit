@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/cells.json",
+  "title": "Aligned cell",
+  "description": "audit/<batch>/a<N>/cells.jsonl: one field with each route's candidate and provenance (02 r2.2-A, r3.1 segment 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "field_id",
+    "rec_id",
+    "slot",
+    "cell",
+    "candidates",
+    "prov"
+  ],
+  "properties": {
+    "field_id": {
+      "type": "string",
+      "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"
+    },
+    "rec_id": {
+      "type": "string",
+      "pattern": "^r-[0-9a-f]{12}$"
+    },
+    "slot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row",
+        "col"
+      ],
+      "properties": {
+        "row": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "col": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "candidates": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "vision",
+          "mlx",
+          "claude",
+          "codex",
+          "pdftext",
+          "tesseract"
+        ]
+      },
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prov": {
+      "type": "object",
+      "propertyNames": {
+        "enum": [
+          "vision",
+          "mlx",
+          "claude",
+          "codex",
+          "pdftext",
+          "tesseract"
+        ]
+      },
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_id",
+          "line_idx",
+          "span",
+          "bbox_px",
+          "der_sha256"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{12}/[a-z]+/[0-9a-f]{12}/t[0-9]+$"
+          },
+          "line_idx": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "span": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "integer",
+                "minimum": 0
+              }
+            ],
+            "items": false,
+            "minItems": 2
+          },
+          "bbox_px": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "der_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

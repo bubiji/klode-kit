@@ -1,0 +1,11 @@
+{
+  "config_hash": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+  "config_version": 1,
+  "inputs_hash": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+  "outputs": [],
+  "pid": 4242,
+  "schema": "klode-kit.receipt/1",
+  "started": "2026-10-22T00:00:00Z",
+  "status": "running",
+  "step": "audit"
+}

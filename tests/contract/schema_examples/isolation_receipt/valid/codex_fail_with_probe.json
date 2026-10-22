@@ -1,0 +1,23 @@
+{
+  "argv_sha": "e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8e5f6a7b8",
+  "at": "2026-10-22T00:00:00Z",
+  "checks": [
+    {
+      "detail": "missing --ephemeral",
+      "name": "argv_required_flags",
+      "ok": false
+    }
+  ],
+  "cli_version": "0.47.1",
+  "cloud_isolation": "FAIL",
+  "cloud_settings_sha": null,
+  "effective_config_sha": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4",
+  "probe": {
+    "attempts": [],
+    "cost_usd": 0.03,
+    "model_actual": "gpt-6-sol",
+    "verdict": "inconclusive"
+  },
+  "route": "codex",
+  "schema": "klode-kit.isolation_receipt/1"
+}

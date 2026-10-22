@@ -97,10 +97,34 @@ class RealFlow:
     expected_crashpoints: frozenset[str] | None = None
 
 
+# --- receipts (WI-00b1) ------------------------------------------------------------------
+# Enumeration list of 00b1-11 (tests/unit/test_receipts_write.py crashes at each point).
+RECEIPT_CRASHPOINTS = frozenset({"receipts.mkdir", "receipts.before_replace"})
+RECEIPT_EXAMPLE = REPO / "tests" / "contract" / "schema_examples" / "receipt" / "valid" / "step_done.json"
+
+
+def _receipts_runner(tmp_path: Path, env: Mapping[str, str]) -> list[Path]:
+    """Normal ``python -m klode_kit.receipts write`` into a data project whose receipts
+    directory does not exist yet (so every durable write kind of the flow happens)."""
+    root = tmp_path / "receipts-flow"
+    root.mkdir()
+    target = root / "work" / "b1" / "receipts" / "ocr.json"
+    res = subprocess.run(
+        [sys.executable, "-m", "klode_kit.receipts", "write", "--schema", "receipt", str(target)],
+        input=RECEIPT_EXAMPLE.read_bytes(),
+        env=dict(env),
+        capture_output=True,
+        timeout=60,
+    )
+    assert res.returncode == 0, res.stderr.decode()
+    assert target.is_file()
+    return [root]
+
+
 REAL_FLOWS: dict[str, RealFlow] = {
     "writeback": RealFlow("writeback", "08c-13", "WI-08c"),
     "publish": RealFlow("publish", "09d-02", "WI-09d"),
-    "receipts": RealFlow("receipts", "00b1-11", "WI-00b1"),
+    "receipts": RealFlow("receipts", "00b1-11", "WI-00b1", _receipts_runner, RECEIPT_CRASHPOINTS),
     "run_batch": RealFlow("run_batch", "04b-13", "WI-04b"),
 }
 
