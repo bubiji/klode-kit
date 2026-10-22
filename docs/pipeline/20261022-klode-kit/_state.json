@@ -23,19 +23,19 @@
    "status": "pass",
    "input_digest": "e3b0c44298fc1c14",
    "inputs": [],
-   "verdict": "user confirmed via AskUserQuestion",
+   "verdict": "user confirmed via AskUserQuestion (补充 9b：U2 对照图位置等，2026-10-22)",
    "artifact": "04-需求摘要与usercase.md",
    "note": "fable 起草，主会话问询",
-   "at": "2026-10-22T15:28"
+   "at": "2026-10-22T21:31"
   },
   "3": {
    "status": "pass",
    "rounds": 3,
-   "verdict": "READY TO BUILD (gpt-6-astra/high, 4 rounds, thread 01a1624c-3b40-7fd2-83cc-3afc54d4e859)",
+   "verdict": "READY TO BUILD (gpt-6-astra/high, r5 focused review after spec decisions, thread 01a1624c-3b40-7fd2-83cc-3afc54d4e859)",
    "note": "修订段 fable 写",
-   "at": "2026-10-22T16:25",
+   "at": "2026-10-22T21:32",
    "revisions": 3,
-   "input_digest": "3d736c582a576621",
+   "input_digest": "1a76ec19ebed9ce6",
    "inputs": [
     "02-概要设计.md",
     "04-需求摘要与usercase.md"
@@ -44,7 +44,7 @@
   },
   "4": {
    "status": "pass",
-   "input_digest": "17da502cb970387d",
+   "input_digest": "c8d6ffa9465b4f3e",
    "inputs": [
     "02-概要设计.md",
     "03-基线_OCR复用盘点.md",
@@ -53,8 +53,8 @@
     "06-评审记录.md"
    ],
    "artifact": "07-TDD计划.md",
-   "note": "opus (planner/test-designer/spec-adversary); adversary SURVIVED r6",
-   "at": "2026-10-22T18:31"
+   "note": "plan+matrix v8 已含 r5 定案；R5-01 适用范围在 09b-11 实现时按 r5 落实",
+   "at": "2026-10-22T21:32"
   },
   "5": {
    "status": "pending"

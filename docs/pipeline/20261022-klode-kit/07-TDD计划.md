@@ -7,6 +7,7 @@
 | 产物 | 路径 | 说明 |
 |---|---|---|
 | TDD 计划 | `.claude/tdd-guardian/plan-20261022-klode-kit.md` | 53 个 WI（含可选 WI-17、WI-19），M0 spike+契约 11 / M1 OCR+审计 15 / M2 build·check·发布·MCP 17 / M3 med-intake·workflow·打包·文档 10 |
+| venv 鲁棒性附录 | `.claude/tdd-guardian/plan-20261022-klode-kit_addendum-venv.md` | 用户 2026-10-22 追加：目录改名 / 移动后不得静默失效（前车之鉴 project-workflow#180），硬要求 V1–V7 + 7 条测试 |
 | 测试矩阵（定稿） | `.claude/tdd-guardian/test-matrix-20261022-klode-kit_v8.md` | 517 条：unit 261、contract_replay 172、cli_integration 60、model_integration 13、host_acceptance 9、manual 2 |
 | 矩阵历史版本 | 同目录 `_v2` … `_v7`、`_v6_full`（`_v6` + `_v6_part2` 是被截断后拆写的两半） | 每版相对上一版的未改行均经脚本逐字节比对，0 处不一致 |
 | 对抗评审报告 | 同目录 `spec-attack-20261022-r1.md` … `r6.md` | 缺口数 16 → 10 → 4 → 3 → 2 → 0 |
