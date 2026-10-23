@@ -203,6 +203,28 @@ def _write_meta(path: Path, data: bytes) -> None:
     _atomic(path, data, "run_batch.meta_tmp", "run_batch.meta_replaced")
 
 
+def _masked_lines(path: Path, planned: list[dict]) -> list[dict]:
+    """Lines ``mask.mask_batch`` registered for masked images (``path`` under ``_masked/``, WI-05b), in file order,
+    so that a rerun keeps them after the planned lines. An unreadable file keeps nothing (it is rewritten)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    have = {r["der_sha256"] for r in planned}
+    kept = []
+    for raw in text.splitlines():
+        try:
+            row = json.loads(raw)
+        except ValueError:
+            continue
+        rel = row.get("path") if isinstance(row, dict) else None
+        if (isinstance(rel, str) and not os.path.isabs(rel) and Path(rel).parts[:1] == ("_masked",)
+                and row.get("der_sha256") not in have):
+            have.add(row.get("der_sha256"))
+            kept.append(row)
+    return kept
+
+
 def _write_receipt(path: Path, data: dict) -> None:
     receipts.write(path, data, "receipt")
     crashpoint("run_batch.receipt_written")
@@ -667,7 +689,8 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
             if page.derived_bytes is not None:
                 _write_meta(page.derived_path, page.derived_bytes)
         _write_meta(batch_dir / "manifest.jsonl", dumps_jsonl(batch.manifest))
-        _write_meta(batch_dir / "derived.jsonl", dumps_jsonl(batch.derived))
+        _write_meta(batch_dir / "derived.jsonl",
+                    dumps_jsonl([*batch.derived, *_masked_lines(batch_dir / "derived.jsonl", batch.derived)]))
         text_files = _text_outputs(batch, project, batch_dir)
         started = _now()
         runs = {name: _run_route(specs[name], routed, batch_dir, cfg, redo, out) for name in names} if routed else {}

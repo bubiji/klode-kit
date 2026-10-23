@@ -80,7 +80,6 @@ def test_pause_dir_must_exist(tmp_path, fake_log):
     assert log_entries(fake_log) == []
 
 
-@pytest.mark.xfail(strict=True, reason="依赖 WI-05b（真实 send 尚未实现）")
 def test_pause_at_requires_pause_dir_real_send(tmp_path, fake_log):
     """00s-15 on the real ``send`` entry point."""
     entry = REAL_ENTRIES["send"]

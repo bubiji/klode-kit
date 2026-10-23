@@ -190,3 +190,50 @@ def _run_batch_runner(tmp_path: Path, env: Mapping[str, str]) -> list[Path]:
 
 
 REAL_FLOWS["run_batch"] = RealFlow("run_batch", "04b-13", "WI-04b", _run_batch_runner, RUN_BATCH_CRASHPOINTS)
+
+
+# --- send (WI-05b) ------------------------------------------------------------------------
+# 00s-14 / 00s-15 on the real sender: ``python -m klode_kit.ocr.send`` of a masked fx-rx-stamp page to a fake
+# claude (tests/_support/send_fake.py). Artifacts: the CLI stdout, what the fake received (image sha per model
+# call) and the receipt without its time fields and without the sha of the stored isolation receipt (each runner
+# call prepares its own, with its own timestamp), so two runs compare equal.
+def _send_runner(tmp_path: Path, env: Mapping[str, str], timeout: float):
+    import json
+    import tempfile
+
+    from _support.send_fake import FakeCloud, isolation_receipt, masked_project, routes_state, source_env
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    systmp = tmp_path / "systmp"
+    systmp.mkdir(exist_ok=True)
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    fake = FakeCloud(tmp_path / "fake", mirror_log=env.get("KLODE_KIT_FAKE_LOG"))
+    saved = tempfile.tempdir
+    try:
+        tempfile.tempdir = str(systmp)
+        project, row = masked_project(tmp_path / "project")
+        other = FakeCloud(tmp_path / "fake-iso")
+        iso = isolation_receipt("claude", other, home, tmp_path / "iso", tmp_path / "iso.json")
+    finally:
+        tempfile.tempdir = saved
+    state = routes_state(tmp_path / "routes.json")
+    receipts = tmp_path / "receipts"
+    cloud = source_env(fake, home, systmp)
+    run_env = dict(env)
+    run_env.update({"PATH": cloud["PATH"], "HOME": cloud["HOME"], "TMPDIR": cloud["TMPDIR"]})
+    res = run_module("klode_kit.ocr.send", ["--route", "claude", "--project", str(project), "--receipt-dir",
+                                            str(receipts), "--isolation-receipt", str(iso), "--routes-state",
+                                            str(state), str(project / "_masked" / row["path"]), row["der_sha256"]],
+                     run_env, timeout=timeout)
+    artifacts: dict[str, bytes] = {"stdout": res.stdout,
+                                   "received": json.dumps([sorted(c["pngs"].values()) for c in fake.model_calls()])
+                                   .encode()}
+    for p in sorted(receipts.glob("*.json")) if receipts.is_dir() else []:
+        rec = {k: v for k, v in json.loads(p.read_text(encoding="utf-8")).items()
+               if k not in ("started", "ended", "duration_s", "isolation_receipt_sha")}
+        artifacts[f"receipts/{p.name}"] = json.dumps(rec, sort_keys=True).encode()
+    return res, artifacts
+
+
+REAL_ENTRIES["send"] = RealEntry("send", "WI-05b", _send_runner)

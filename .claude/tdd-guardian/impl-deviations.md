@@ -69,3 +69,6 @@
 | WI-05a | 打码规则：页顶 header_band 8% 恒涂黑 + 关键词行（CJK 去空格子串、ASCII 整词）+ 标识符模式（`[A-Za-z]{1,3}-?\d{6,}`、`\d{9,}`、0 开头带横线电话）；padding max(4px, 0.3×行高)，full_width；「日期」不作关键词；MANIFEST 多 `path` 字段；对 MANIFEST 文件本身加排他锁；规则变更后旧行 sha 仍在白名单（文件已不在） | 接受 |
 | WI-05a | **待接线**：打码图尚未登记进 `work/<batch>/derived.jsonl`（provenance 需要）；kb-ocr 尚未调用 mask_batch；无 `klode-kit mask` 子命令 | WI-05b/06a 派工时写明：云端路只发打码图，打码图须登记为 derived（transform.mask_boxes） |
 | WI-05a | WI-05b 白名单 = `{r["der_sha256"] for r in mask.read_manifest(project)}`，并拒绝 `_mask_review/` 下任何路径 | WI-05b 派工时写明 |
+| WI-05b | 发送器：路由开关 → `_mask_review` 拒绝 → 源文件读一次进内存 → sha==expect 且在白名单（打码 MANIFEST ∪ fixtures MANIFEST）→ 副本重算 → 审查（effort==配置、项目不在 /tmp）+ 存档 isolation receipt 核对 → 原样执行；exit 60/61 零模型调用；send receipt 不含路径/像素；privacy_guard hook（hooks/hooks.json，PreToolUse Bash，`if` Bash(claude *)/Bash(codex *)）；打码图登记进 derived.jsonl；CI 设 TMPDIR=runner.temp | 接受 |
+| WI-05b 决定（主会话） | `isolation_check.check()` 的 `expected_effort` / `refuse_shared_tmp` 默认关、发送器恒开（默认开会翻红 00c1 已记录用例且 Linux CI 的 pytest tmp 在 /tmp）——接受；**send 补 G2 真实调用闸门**（同 bridge）→ 并入 WI-06a | 主会话裁定 |
+| WI-05b | 改 WI-00s 已结算测试文件的 xfail 标记（send 已实现，XPASS 强制移除）；05b-07 加严：字节换成另一张已登记图也拒（来源链） | 接受 |

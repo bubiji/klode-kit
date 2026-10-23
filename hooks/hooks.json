@@ -1,0 +1,26 @@
+{
+  "description": "klode-kit privacy gate (WI-05b): before Claude runs claude or codex through Bash, every image the command names must be a registered masked image (sha in _masked/MANIFEST.jsonl or the synthetic fixtures MANIFEST). Second gate only; the sender (ocr/send.py) enforces the same rule without it.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(claude *)",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/klode-kit",
+            "args": ["hook", "privacy-guard"],
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "if": "Bash(codex *)",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/klode-kit",
+            "args": ["hook", "privacy-guard"],
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

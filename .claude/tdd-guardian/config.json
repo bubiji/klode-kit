@@ -104,6 +104,13 @@
         "branches": 95
       },
       "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/ocr/send.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S4"
     }
   ],
   "coverageMode": "absolute",

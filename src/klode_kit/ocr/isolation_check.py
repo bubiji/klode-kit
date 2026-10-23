@@ -37,6 +37,15 @@ Check names (stable; the receipt carries them):
                           (``lstat``/``stat``); anything unreadable, non-empty, a directory or a dangling
                           symlink fails closed (user decision 2026-10-23).
 
+Send-time checks (WI-05b; added only when the caller asks, so the 00c1 review is unchanged without them -
+the sender always asks):
+
+- ``effort:configured``   (``expected_effort=``) the argv's effort - claude ``--effort``, codex
+                          ``-c model_reasoning_effort=`` - occurs exactly once and equals the configured value
+                          (WI-00c3 hardening: membership in the closed set is not enough);
+- ``project:outside_shared_tmp`` (``refuse_shared_tmp=True``) realpath(project) is not ``/tmp`` /
+                          ``/private/tmp`` or below (RR-7: the codex ``:minimal`` profile can read /tmp, WI-00c2c spike).
+
 Codex route since WI-00c2c (user decision 2026-10-23, plan A): the permission profile from
 ``cloud_argv.CODEX_PROFILE_CONFIG`` is required ``-c`` by ``-c`` with its exact value; ``-s`` /
 ``--sandbox`` are forbidden in every spelling (a legacy sandbox flag makes Codex ignore
@@ -87,6 +96,7 @@ GUARD_COMMAND = "klode-kit"
 VERSION_TIMEOUT_S = 30
 UNKNOWN_VERSION = "0.0.0"
 FIXTURES_MANIFEST = CA.PLUGIN_ROOT / "tests" / "fixtures" / "MANIFEST.json"
+SHARED_TMP_ROOTS = ("/tmp", "/private/tmp")
 BINDING_KEYS = ("cli_version", "effective_config_sha", "argv_sha")
 
 _VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
@@ -346,6 +356,22 @@ def _parse(spec: RouteSpec, tokens: list[str]) -> _Parsed:
     return out
 
 
+def fixture_shas() -> frozenset[str]:
+    """sha256 of every png listed in the synthetic ``tests/fixtures/MANIFEST.json`` (empty when unreadable)."""
+    found: set[str] = set()
+    try:
+        manifest = json.loads(FIXTURES_MANIFEST.read_text(encoding="utf-8"))
+        files = manifest.get("files", []) if isinstance(manifest, dict) else []
+    except (OSError, UnicodeDecodeError, ValueError):
+        files = []
+    for entry in files:
+        if isinstance(entry, dict) and str(entry.get("path", "")).endswith(".png"):
+            sha = entry.get("sha256")
+            if isinstance(sha, str) and _SHA_RE.fullmatch(sha):
+                found.add(sha)
+    return frozenset(found)
+
+
 def manifest_shas(project: str | os.PathLike) -> frozenset[str]:
     """der_sha256 of ``<project>/_masked/MANIFEST.jsonl`` plus png shas of the synthetic fixtures."""
     found: set[str] = set()
@@ -362,17 +388,7 @@ def manifest_shas(project: str | os.PathLike) -> frozenset[str]:
         sha = entry.get("der_sha256") if isinstance(entry, dict) else None
         if isinstance(sha, str) and _SHA_RE.fullmatch(sha):
             found.add(sha)
-    try:
-        manifest = json.loads(FIXTURES_MANIFEST.read_text(encoding="utf-8"))
-        files = manifest.get("files", []) if isinstance(manifest, dict) else []
-    except (OSError, UnicodeDecodeError, ValueError):
-        files = []
-    for entry in files:
-        if isinstance(entry, dict) and str(entry.get("path", "")).endswith(".png"):
-            sha = entry.get("sha256")
-            if isinstance(sha, str) and _SHA_RE.fullmatch(sha):
-                found.add(sha)
-    return frozenset(found)
+    return frozenset(found) | fixture_shas()
 
 
 def read_cli_version(argv0: str, path_env: str) -> tuple[str | None, str]:
@@ -575,9 +591,33 @@ def codex_agents_check(env: Mapping[str, str]) -> Check:
     return Check(name, not problems, detail[:300])
 
 
+def _efforts(spec: RouteSpec, parsed: _Parsed) -> list[str | None]:
+    if spec is CLAUDE:
+        return [v for f, v in parsed.occurrences if f == "--effort"]
+    configs = [v or "" for f, v in parsed.occurrences if f == "-c"]
+    return [v.partition("=")[2] for v in configs if v.partition("=")[0] == "model_reasoning_effort"]
+
+
+def effort_check(spec: RouteSpec, parsed: _Parsed, expected: str) -> Check:
+    """``effort:configured``: exactly one effort in the argv, equal to the configured value."""
+    found = _efforts(spec, parsed)
+    return Check("effort:configured", found == [expected], f"effort={found!r} configured={expected!r}")
+
+
+def shared_tmp_check(project: str | os.PathLike) -> Check:
+    """``project:outside_shared_tmp``: realpath(project) is not in ``/tmp`` / ``/private/tmp`` (RR-7)."""
+    real = _realpath(project)
+    roots = {Path(r) for r in SHARED_TMP_ROOTS} | {_realpath(r) for r in SHARED_TMP_ROOTS}
+    hits = sorted(str(r) for r in roots if real == r or real.is_relative_to(r))
+    return Check("project:outside_shared_tmp", not hits, f"project={real} shared_tmp={hits!r}" if hits else "")
+
+
 def check(inv: CA.Invocation, *, project: str | os.PathLike,
-          approved_shas: frozenset[str] | None = None) -> Result:
-    """Review ``inv`` against r4.3 (a). Never raises for a malformed invocation: it fails instead."""
+          approved_shas: frozenset[str] | None = None, expected_effort: str | None = None,
+          refuse_shared_tmp: bool = False) -> Result:
+    """Review ``inv`` against r4.3 (a). Never raises for a malformed invocation: it fails instead.
+
+    ``expected_effort`` / ``refuse_shared_tmp`` add the send-time checks (WI-05b, module docstring)."""
     spec = _spec(inv.route)
     argv = [str(t) for t in inv.argv] or [""]
     cwd = _realpath(inv.cwd)
@@ -596,6 +636,10 @@ def check(inv: CA.Invocation, *, project: str | os.PathLike,
     if spec is CODEX:
         checks.append(codex_agents_check(inv.env))
     checks += _cwd_checks(cwd, proj, approved)
+    if expected_effort is not None:
+        checks.append(effort_check(spec, parsed, expected_effort))
+    if refuse_shared_tmp:
+        checks.append(shared_tmp_check(project))
 
     extra = sorted(set(inv.env) - CLOUD_ENV_ALLOWLIST)
     checks.append(Check("env:allowlist", not extra, f"not allowed: {extra!r}" if extra else ""))

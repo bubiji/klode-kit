@@ -28,6 +28,18 @@ MANIFEST row (the whitelist WI-05b's sender checks a file's recomputed sha256 ag
 to the image. ``tool_version`` carries this module's version and the fingerprint of the rules, so a page masked
 under other rules is told apart. ``read_manifest`` validates every row (``MaskError`` otherwise).
 
+Derived registration (WI-05b): ``mask_batch`` appends to ``work/<batch>/derived.jsonl`` one line per masked page
+(contract ``derived``), so the cloud-route OCR lines - whose ``der_sha256`` is the masked image - trace back::
+
+    {"der_sha256": <.m.png sha>, "parent": <original image sha>, "page_id": ..., "path": "_masked/<doc>/<page>.m.png",
+     "transform": {"rotate": <the upright line's rotate>, "crop": null, "mask_boxes": <MANIFEST boxes>
+                   [, "render_dpi": <the upright line's, for rendered PDF pages>]}}
+
+The masked image has the upright image's pixel grid, hence its rotate (and render dpi). Lines are appended once
+(none for a der_sha256 already listed: reruns change no byte) under the batch lock ``work/.lock`` that kb-ocr
+also takes; kb-ocr keeps these lines when it rewrites the file. Lines under ``_masked/`` are never masked again.
+Like the MANIFEST, registration is append-only: a page masked again under other rules gets a new line.
+
 Durability and concurrency: all writes of a page happen while holding an exclusive ``flock`` on
 ``_masked/MANIFEST.jsonl`` (no extra lock file, so ``_masked/`` holds only images and the MANIFEST). Under the
 lock a run first removes temporary files a killed run left (``.<name>.<hex>.tmp``) and cuts a torn last MANIFEST
@@ -66,7 +78,7 @@ RULES_FILE = "mask_rules.toml"
 TOOL = "mask/1"
 CRASHPOINTS = (
     "mask.mkdir", "mask.cleanup", "mask.manifest_repaired", "mask.image_written", "mask.review_written",
-    "mask.manifest_appended",
+    "mask.manifest_appended", "mask.derived_registered",
 )
 ROW_FIELDS = ("der_sha256", "parent", "page_id", "mask_boxes", "tool_version", "path")
 MODES = ("L", "RGB", "RGBA")
@@ -453,7 +465,7 @@ def mask_batch(project: str | os.PathLike, batch_id: str, *, engine: Any = None,
 
     Every derived image is checked against its ``der_sha256`` before anything is written."""
     project = Path(project)
-    rows = _derived_rows(project, batch_id)
+    rows = [der for der in _derived_rows(project, batch_id) if not _is_masked_line(der)]
     pages = []
     for der in rows:
         src = Path(der.get("path", ""))
@@ -470,5 +482,50 @@ def mask_batch(project: str | os.PathLike, batch_id: str, *, engine: Any = None,
 
         engine = OcrMacEngine()
     rules = rules or load_rules()
-    return [mask_page(project, src, parent=der["parent"], page_id=der["page_id"], der_sha256=der["der_sha256"],
-                      engine=engine, rules=rules) for src, der in pages]
+    masked = [mask_page(project, src, parent=der["parent"], page_id=der["page_id"], der_sha256=der["der_sha256"],
+                        engine=engine, rules=rules) for src, der in pages]
+    register_derived(project, batch_id, [(der, row) for (_src, der), row in zip(pages, masked)])
+    return masked
+
+
+def _is_masked_line(der: Any) -> bool:
+    path = der.get("path") if isinstance(der, dict) else None
+    return isinstance(path, str) and not os.path.isabs(path) and Path(path).parts[:1] == (MASKED_DIR,)
+
+
+def masked_line(upright: dict, row: dict) -> dict:
+    """The derived line of a masked image (module docstring, "Derived registration")."""
+    up = upright.get("transform") if isinstance(upright.get("transform"), dict) else {}
+    transform: dict[str, Any] = {"rotate": up.get("rotate", 0), "crop": None, "mask_boxes": row["mask_boxes"]}
+    if "render_dpi" in up:
+        transform["render_dpi"] = up["render_dpi"]
+    return {"der_sha256": row["der_sha256"], "parent": row["parent"], "page_id": row["page_id"],
+            "path": f"{MASKED_DIR}/{row['path']}", "transform": transform}
+
+
+def register_derived(project: str | os.PathLike, batch_id: str, pairs: Sequence[tuple[dict, dict]]) -> list[dict]:
+    """Append the derived lines of masked pages (``(upright line, MANIFEST row)`` pairs) that are not listed yet,
+    under the batch lock ``work/.lock``; returns the lines added."""
+    from klode_kit.ocr.manifest import dumps_jsonl
+    from klode_kit.ocr.run_batch import LOCK_NAME
+
+    project = Path(project)
+    work = project / "work"
+    path = work / batch_id / "derived.jsonl"
+    fd = os.open(work / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        data = path.read_bytes()
+        listed = {line["der_sha256"] for line in _derived_rows(project, batch_id) if isinstance(line, dict)}
+        added: list[dict] = []
+        for upright, row in pairs:
+            if row["der_sha256"] not in listed:
+                listed.add(row["der_sha256"])
+                added.append(masked_line(upright, row))
+        if added:
+            if data and not data.endswith(b"\n"):
+                data += b"\n"
+            _atomic(path, data + dumps_jsonl(added), "mask.derived_registered")
+        return added
+    finally:
+        os.close(fd)

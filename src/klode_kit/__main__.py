@@ -21,6 +21,10 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "dev coverage-gate": ("klode_kit.devtools.coverage_gate:main", "judge a coverage.py JSON report"),
     "config": ("klode_kit.config:main", "config show [--project DIR]: effective configuration as JSON"),
     "hook isolation-guard": ("klode_kit.ocr.isolation_guard:main", "PreToolUse hook: deny file reads outside cwd"),
+    "hook privacy-guard": ("klode_kit.ocr.privacy_guard:main",
+                           "PreToolUse hook (hooks/hooks.json): claude/codex via Bash only with registered images"),
+    "ocr send": ("klode_kit.ocr.send:main", "ocr send --route R --project P --receipt-dir D --isolation-receipt F "
+                 "PATH SHA: send one registered image (exit 60/61 on refusal)"),
     "check-cards": ("klode_kit.devtools.spike_check_card:main", "check one card (WI-00d2 spike gate; WI-02a replaces)"),
     "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block"),
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
