@@ -85,6 +85,13 @@
       "requireSpecLevel": "S5"
     },
     {
+      "glob": "src/klode_kit/audit/align.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S6"
+    },
+    {
       "glob": "src/klode_kit/contract/ids.py",
       "thresholds": {
         "branches": 95

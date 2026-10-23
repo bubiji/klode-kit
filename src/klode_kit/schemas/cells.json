@@ -99,7 +99,7 @@
         "properties": {
           "run_id": {
             "type": "string",
-            "pattern": "^[0-9a-f]{12}/[a-z]+/[0-9a-f]{12}/t[0-9]+$"
+            "pattern": "^(?:[0-9a-f]{12}/[a-z]+/[0-9a-f]{12}/t[0-9]+|text/[^/\\s]+)$"
           },
           "line_idx": {
             "type": "integer",

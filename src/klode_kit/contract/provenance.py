@@ -34,6 +34,12 @@ are the record's verified candidates, its effective revision when verified, and 
 build binds. Export values come from the bound revision (``audit_bindings``), never the current
 one (r3.1 version binding; R3-07).
 
+Text-layer rows (WI-04c): a text-layer page's pdftext rows live in ``text/<key>.jsonl`` without a run_id
+(``Layout.text_dirs``). Such a line is traced by ``run_id = "text/<key>"`` + ``der_sha256`` + ``line_idx``; a
+cell's pdftext prov carries that key, and ``runs.json`` (which freezes OCR attempts) is not consulted for it.
+Only pdftext rows may live there (otherwise ``run_id_mismatch``); the dpi check applies as under
+``ocr/pdftext``. Both locations are scanned (transition: fx-chain still keeps pdftext under ``ocr/``).
+
 Transforms (r3.1 segment 3): ``apply`` runs ``{kind, field_id, from, to}`` in order, each requiring
 the current value to equal ``from``; ``unapply`` runs them backwards. A transform without
 ``field_id`` is line-level (layout) and leaves field values alone. ``alias`` may only touch item
@@ -62,6 +68,7 @@ CODES: frozenset[str] = frozenset({
 })
 
 CLOUD_ROUTES = frozenset({"claude", "codex"})
+TEXT_KEY_PREFIX = "text/"
 NUMERIC_KINDS = frozenset({"value", "unit"})
 DPI_TOLERANCE_PX = 1.0
 
@@ -93,14 +100,20 @@ class Layout:
     records_dir: Path | None = None
     build_dir: Path | None = None
     artifact_base: Path | None = None
+    text_dirs: list[Path] = field(default_factory=list)
 
     @classmethod
     def for_products(cls, root: str | os.PathLike) -> "Layout":
+        """``text/`` is scanned when present; ``ocr/`` unless the products are text-layer only (``text/`` and no
+        ``ocr/``), so a missing ``ocr/`` is still reported for OCR products."""
         r = Path(root)
         page_map = r / "page_map.jsonl"
+        text, ocr = r / "text", r / "ocr"
         return cls(root=r, manifest=[r / "manifest.jsonl"], derived=[r / "derived.jsonl"],
-                   page_map=[page_map] if page_map.exists() else [], ocr_dirs=[r / "ocr"],
-                   audit_dir=r / "audit", records_dir=r / "records", build_dir=r / "build", artifact_base=r)
+                   page_map=[page_map] if page_map.exists() else [],
+                   ocr_dirs=[ocr] if ocr.exists() or not text.is_dir() else [],
+                   audit_dir=r / "audit", records_dir=r / "records", build_dir=r / "build", artifact_base=r,
+                   text_dirs=[text] if text.is_dir() else [])
 
 
 # --------------------------------------------------------------------------- transforms
@@ -304,6 +317,22 @@ class _Chain:
                 fp, _, attempt = run_dir.rpartition(".")
                 for where, line in self.ctx.jsonl(page):
                     self.ctx.guarded(where, self._ocr_line, where, line, engine, f"/{engine}/{fp}/{attempt}")
+        for root in self.lay.text_dirs:
+            if not root.is_dir():
+                self.ctx.missing(root)
+                continue
+            for page in sorted(root.glob("*.jsonl")):
+                for where, line in self.ctx.jsonl(page):
+                    self.ctx.guarded(where, self._text_line, where, line, f"{TEXT_KEY_PREFIX}{page.stem}")
+
+    def _text_line(self, where: str, line: dict, key: str) -> None:
+        """A text-layer row of ``text/<key>.jsonl`` (WI-04c): traced by ``key`` instead of a run_id."""
+        if line.get("engine") != "pdftext":
+            self.ctx.add("run_id_mismatch", where, engine=line.get("engine"),
+                         detail=f"{key}.jsonl holds pdftext rows only")
+            return
+        self.lines[(key, line["der_sha256"], int(line["line_idx"]))] = line
+        self._pdftext_dpi(where, line)
 
     def _ocr_line(self, where: str, line: dict, engine: str, suffix: str) -> None:
         run_id = line["run_id"]
@@ -358,7 +387,7 @@ class _Chain:
 
     def _prov(self, where: str, key: str, fid: str, engine: str, p: dict, value: str) -> None:
         ctx = self.ctx
-        if self.runs[key].get(engine) != p["run_id"]:
+        if not p["run_id"].startswith(TEXT_KEY_PREFIX) and self.runs[key].get(engine) != p["run_id"]:
             ctx.add("run_id_mismatch", where, fid=fid, engine=engine, detail=f"prov run_id {p['run_id']} != runs.json")
         if p["der_sha256"] not in self.derived:
             ctx.add("der_parent_mismatch", where, fid=fid, engine=engine, detail="prov der_sha256 not in derived.jsonl")

@@ -83,3 +83,7 @@
 | WI-07a | 字段抽取：value 恒为原文（`line[s:e]==value`），norm 用于比较（NFKC 保长、日期 ISO、幂次 `10^N/L`）；单位粘在数值上作为同一 number 字段（rx 场景）；`10^×9/L` 与 `×10^9/L` 归一为 `10^9/L`，Vision 的 `10~9/L` 误读**不**归一（不让误读算一致）；13 处已知误读逐字钉死 | 接受 |
 | WI-07a | test_fields_recordings.py:126 取单元格把 truth 的表格行号误当「第 n 次出现」→ 改为按同名项目出现次序取（断言不变，测试更严）；该文件 contract receipt 会报 SEPARATION-BROKEN | **用户 2026-10-23 批准** |
 | WI-04c 待定项建议 | 保持 `work/<batch>/text/<key>.jsonl`；provenance.Layout 增 `text_dirs`（批布局含 `text/`，for_products 存在则扫）；pdftext 追溯键 = `text/<key>` + der_sha256；fx-chain legal-pdftext_dpi 迁到 `text/` 或过渡期双扫 | 派 WI-07b 时一并实施 |
+| WI-07b | 对齐：基准路按 ENGINE_ORDER 取首个有 exact token 的路（录制页 vision 全 approx → 基准 tesseract）；行按种子框不增长分组、竖排列单独成行；配对用单调 DP（有框按竖直重叠、无框按 difflib 文本相似度）；MLX 多行块只配 block_bbox 内的行；配不上的行进 `extra`；cell 键 `(row, kind, k)`；item_label 取最左无数字片段（遇冒号截断，名字不入 receipt）；items.yaml 用自写严格 YAML 子集解析（不新增 pyyaml 依赖） | 接受 |
+| WI-07b | **SEPARATION-BROKEN（unit）**：07b-12 的 unaligned 断言改为文本多重集 `Counter(texts[r] for r in unaligned) == Counter(texts[d] for d in deleted)`（行/段位置在删除位置歧义时不可满足，反例 A M A M A→A M A）；docstring 第 342 行仍写 same-value runs，待下次批量修 | **用户 2026-10-23 批准（两次）** |
+| WI-04c 落实 | provenance.Layout 增 `text_dirs`（过渡期双扫 `ocr/` 与 `text/`），pdftext 追溯键 `text/<key>`+der_sha256+line_idx；`cells.json` 的 `prov.run_id` 正则放宽接受 `text/<key>`（契约改动） | 接受 |
+| WI-07b 风险 | 只在 `extra` 里出现的含数值行没有 cell → WI-08a 决定是否记 uncertain；按种类序号放 cell，一个误读会让同类后续字段前移（结果为分歧，不会误判一致） | WI-08a 派工时写明 |

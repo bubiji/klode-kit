@@ -1,0 +1,39 @@
+# klode-kit item table (design 02 r2.2-C): item_slug <- aliases. Parsed by klode_kit.items (a strict YAML
+# subset: "<slug>:" then indented "category: <text>" / "aliases: [a, b, ...]"). Aliases compare after NFKC,
+# casefold and whitespace removal; one alias may belong to one item only. Values and units are never
+# normalised. A data project may ship its own table; unknown items are reported as new_items, never guessed.
+# Drug names here are synthetic only (public repository).
+
+hemoglobin:
+  category: 血常规
+  aliases: [血红蛋白, HGB, Hb]
+wbc:
+  category: 血常规
+  aliases: [白细胞, 白细胞计数, WBC]
+rbc:
+  category: 血常规
+  aliases: [红细胞, 红细胞计数, RBC]
+platelet:
+  category: 血常规
+  aliases: [血小板, 血小板计数, PLT]
+neutrophil-pct:
+  category: 血常规
+  aliases: [中性粒细胞百分比, 中性粒细胞%, NEUT%]
+lymphocyte-pct:
+  category: 血常规
+  aliases: [淋巴细胞百分比, 淋巴细胞%, LYMPH%]
+urea:
+  category: 肝肾
+  aliases: [尿素, 尿素氮, BUN]
+creatinine:
+  category: 肝肾
+  aliases: [肌酐, CREA, Cr]
+alt:
+  category: 肝肾
+  aliases: [谷丙转氨酶, 丙氨酸氨基转移酶, ALT]
+sample-index:
+  category: 其他
+  aliases: [示例指标]
+sample-tablet:
+  category: 用药
+  aliases: [示例片]
