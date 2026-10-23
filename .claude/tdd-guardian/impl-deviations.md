@@ -87,3 +87,5 @@
 | WI-07b | **SEPARATION-BROKEN（unit）**：07b-12 的 unaligned 断言改为文本多重集 `Counter(texts[r] for r in unaligned) == Counter(texts[d] for d in deleted)`（行/段位置在删除位置歧义时不可满足，反例 A M A M A→A M A）；docstring 第 342 行仍写 same-value runs，待下次批量修 | **用户 2026-10-23 批准（两次）** |
 | WI-04c 落实 | provenance.Layout 增 `text_dirs`（过渡期双扫 `ocr/` 与 `text/`），pdftext 追溯键 `text/<key>`+der_sha256+line_idx；`cells.json` 的 `prov.run_id` 正则放宽接受 `text/<key>`（契约改动） | 接受 |
 | WI-07b 风险 | 只在 `extra` 里出现的含数值行没有 cell → WI-08a 决定是否记 uncertain；按种类序号放 cell，一个误读会让同类后续字段前移（结果为分歧，不会误判一致） | WI-08a 派工时写明 |
+| WI-07c | 票型：agree=唯一组且全部投票路在场且无 uncertain；majority 推荐值仅作建议、读数不改写；tie/all_differ 无推荐；投票路 = 配置 routes 减已关闭路（tesseract 只作几何不投票）；新增 uncertain 码 `ordinal_shift:<e>`、`extra_values:<e>`（WI-08a 加入原因表）、`swap_suspect:<e>`；页内任一投票路有未落位的数值行 → 全页 extra_values；白名单只作用于文本类且拒含数字规则（默认只有 vision 小假名） | 接受 |
+| WI-07c 待评估 | ordinal_shift 也算「只有 tesseract 读到的格」，录制页 69 个真值字段中 47 agree、22 进确认页（错误自动通过 0）；可选优化「判错位时忽略无投票候选的格」约省 10 个字段人工确认，但要改 law_agree 已记录行 | 主会话决定暂不改；阶段 6 真实试点后按人工量数据再问用户 |

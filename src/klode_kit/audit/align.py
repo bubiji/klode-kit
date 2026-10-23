@@ -26,7 +26,8 @@ row of its own. A monotone dynamic programme then pairs route rows with rows:
   to either row alone may pair with both (score 2 x (1 + similarity)): ``merged_rows``; its fields are split
   between the two rows at the whitespace boundary that best matches each row's text;
 - anything else is skipped: a row without a route row is ``unaligned:<engine>``, a route row without a row is
-  listed in ``Alignment.extra[engine]`` (stamps, footers - kept out of the cells).
+  listed in ``Alignment.extra[engine]`` (stamps, footers - kept out of the cells); those holding a number, date
+  or drug are also in ``Alignment.extra_values[engine]`` (WI-07c makes them page-level uncertain).
 
 **Cells.** ``audit.fields.extract`` runs on each paired route row; the ``k``-th field of a kind on a row is
 cell ``(row, kind, k)`` (cloud routes have no columns, so in-row order places them - R2-08). Each candidate keeps
@@ -64,6 +65,7 @@ ROW_OVERLAP = 0.5
 LINE_SIM_TAU = 0.6
 COL_GAP_PX = 20
 NO_GEOMETRY = "no_geometry"
+VALUE_KINDS = ("number", "date", "drug")
 
 _WS = re.compile(r"\s+")
 _COLON = re.compile(r"[:：]")
@@ -132,6 +134,7 @@ class Alignment:
     uncertain: tuple[tuple[str, int], ...]
     extra: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
     new_items: tuple[str, ...] = ()
+    extra_values: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -439,6 +442,7 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
 
     pairs: dict[str, tuple[Pair, ...]] = {}
     extra: dict[str, tuple[int, ...]] = {}
+    extra_values: dict[str, tuple[int, ...]] = {}
     found: dict[tuple[int, str, int], dict[str, Candidate]] = {}
     labels: dict[int, list[tuple[str, str]]] = {}
     uncertain: set[tuple[str, int]] = set()
@@ -450,6 +454,10 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
         unpaired = tuple(rr.seq for rr in rrows if rr.seq not in used)
         if unpaired:
             extra[engine] = unpaired
+            valued = tuple(rr.seq for rr in rrows if rr.seq in unpaired
+                           and any(f.kind in VALUE_KINDS for f in F.extract(rr.text)))
+            if valued:
+                extra_values[engine] = valued
         covered = {r for rows, _ in got for r in rows}
         uncertain |= {(f"unaligned:{engine}", r) for r in range(len(srows)) if r not in covered}
         for rows, j in got:
@@ -521,4 +529,4 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
         lines = tuple((e, tuple(sorted(ln["line_idx"] for ln in srow.lines[e]))) for e in _ordered(srow.lines))
         out_rows.append(Row(r, bbox, exact[r], row_label[r][0], row_label[r][1], lines))
     return Alignment(base, tuple(out_rows), pairs, tuple(cells),
-                     tuple(sorted(uncertain, key=lambda u: (u[1], u[0]))), extra, tuple(new_items))
+                     tuple(sorted(uncertain, key=lambda u: (u[1], u[0]))), extra, tuple(new_items), extra_values)

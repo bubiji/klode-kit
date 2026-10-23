@@ -118,6 +118,13 @@
         "branches": 95
       },
       "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/audit/compare.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S6"
     }
   ],
   "coverageMode": "absolute",

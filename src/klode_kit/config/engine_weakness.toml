@@ -1,0 +1,19 @@
+# klode-kit engine weakness whitelist (design 03 N4; WI-07c). Loaded by klode_kit.audit.whitelist.
+#
+# Each [[weakness]] names an engine and the character pairs [variant, canonical] that engine is known not to
+# tell apart. On a text cell (unit / flag / drug) that engine voted on, a difference lying only in such a pair is
+# not a disagreement. The whitelist never applies to number or date cells, and no pair may contain a digit.
+#
+# Only differences that are engine noise belong here. A systematic misread that changes meaning (E14: the same
+# wrong bracket throughout a book; vision's 10~9/L for 10^9/L) must stay visible and is deliberately absent.
+
+# 189 diff_engines SMALL_KANA: ocrmac/Vision does not reliably distinguish small from full-size kana.
+[[weakness]]
+engine = "vision"
+class = "small-kana"
+pairs = [
+  ["ァ", "ア"], ["ィ", "イ"], ["ゥ", "ウ"], ["ェ", "エ"], ["ォ", "オ"],
+  ["ッ", "ツ"], ["ャ", "ヤ"], ["ュ", "ユ"], ["ョ", "ヨ"], ["ヮ", "ワ"],
+  ["ぁ", "あ"], ["ぃ", "い"], ["ぅ", "う"], ["ぇ", "え"], ["ぉ", "お"],
+  ["っ", "つ"], ["ゃ", "や"], ["ゅ", "ゆ"], ["ょ", "よ"], ["ゎ", "わ"],
+]
