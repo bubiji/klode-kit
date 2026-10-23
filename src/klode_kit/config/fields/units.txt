@@ -1,0 +1,35 @@
+# WI-07a: units recognised by klode_kit.audit.fields (one per line, '#' starts a comment).
+# Powers of ten (10^9/L, ×10^9/L, 10^×9/L, 10⁹/L ...) are a pattern in fields.py, not listed here.
+# Matching is on the NFKC-folded line, so full-width forms (ｇ／Ｌ) need no entry of their own.
+g/L
+g/dL
+mg/L
+mg/dL
+μg/L
+ng/mL
+pg/mL
+mmol/L
+μmol/L
+umol/L
+nmol/L
+pmol/L
+U/L
+IU/L
+mU/L
+mIU/L
+μIU/mL
+uIU/mL
+fL
+pg
+%
+mmHg
+mm/h
+mg
+g
+μg
+ug
+kg
+mL
+ml
+IU
+U

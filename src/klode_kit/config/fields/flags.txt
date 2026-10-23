@@ -1,0 +1,7 @@
+# WI-07a: abnormal-result flags (one per line, '#' starts a comment).
+# Letter flags only count when no ASCII letter or digit touches them (the H in HGB is not a flag).
+H
+L
+↑
+↓
+*

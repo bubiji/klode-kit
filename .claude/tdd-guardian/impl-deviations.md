@@ -80,3 +80,6 @@
 | WI-06b | Codex 适配器：按 token 估价记账（input/cache_write $10/MTok、output/reasoning $60/MTok，保守估计非官方价；无用量按预留计）与 claude 共用账本与 exit 50 规则；`EFFORT_LOCK="max"`，项目覆盖成其他值 → EffortLocked（exit 40 / kb-ocr route_failed 0 调用）；答案取最后一个 agent_message，error/turn.failed 视为失败；receipt `read-codex-<sha>.<n>.json` 带 tokens 与 cost_estimated | 接受 |
 | WI-06b | 06-08 断言改为「带 `--json`/`--output-schema`/effort=max，不带 `-o`」（矩阵原文写 `-o out.json`）——延续 WI-00c1 决定（答案取自事件流）；06-09 codex 0.163.0 事件流无模型名，真实流 model_actual = null | 主会话接受；矩阵 06-08 文字以此为准 |
 | 待 G2 真实运行清单 | 06-12 `tests/model/test_adapter_codex_live.py::test_live_vs_replay_shape_codex`（1 次 codex 调用，账本上限 $2） | 验收阶段一次性请用户授权 |
+| WI-07a | 字段抽取：value 恒为原文（`line[s:e]==value`），norm 用于比较（NFKC 保长、日期 ISO、幂次 `10^N/L`）；单位粘在数值上作为同一 number 字段（rx 场景）；`10^×9/L` 与 `×10^9/L` 归一为 `10^9/L`，Vision 的 `10~9/L` 误读**不**归一（不让误读算一致）；13 处已知误读逐字钉死 | 接受 |
+| WI-07a | test_fields_recordings.py:126 取单元格把 truth 的表格行号误当「第 n 次出现」→ 改为按同名项目出现次序取（断言不变，测试更严）；该文件 contract receipt 会报 SEPARATION-BROKEN | **用户 2026-10-23 批准** |
+| WI-04c 待定项建议 | 保持 `work/<batch>/text/<key>.jsonl`；provenance.Layout 增 `text_dirs`（批布局含 `text/`，for_products 存在则扫）；pdftext 追溯键 = `text/<key>` + der_sha256；fx-chain legal-pdftext_dpi 迁到 `text/` 或过渡期双扫 | 派 WI-07b 时一并实施 |

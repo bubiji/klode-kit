@@ -1,0 +1,6 @@
+# WI-07a: drug names (one per line, '#' starts a comment).
+# Repository is public: SYNTHETIC names only, never a real product.
+示例片
+示例胶囊
+示例注射液
+示例颗粒
