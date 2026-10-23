@@ -66,3 +66,6 @@
 | WI-04b | 已记录测试 test_apply_rejects_non_right_angles 在 `-W error` 下有 ResourceWarning（图像未关闭）；常规 lane 不受影响 | 记录，不改 |
 | WI-04c | 文字层分流：乱码字符集面向中日文（Latin-1 字母算乱码 → 走 OCR，安全方向）；渲染 dpi 为代码常量 300（不进 config 以免改 cfg_fp）；所有 PDF 页都渲染（使 pdftext 行的 der_sha256 是已登记衍生图）；PDF 页不转正；坏 PDF 整批 exit 2；批次 receipt 恒带 text_layer / routes_skipped | 接受 |
 | WI-04c | **待定**：pdftext 行写在 `work/<batch>/text/<key>.jsonl`（r2.4 / 04c-06），而 fx-chain `legal-pdftext_dpi` 放 `ocr/pdftext/<fp>.t1/`、provenance.Layout 只扫 `ocr/`；pdftext 行无 run_id | WI-07a 派工时决定：provenance Layout 增扫 `text/`（推荐，保持 04c 落盘位置） |
+| WI-05a | 打码规则：页顶 header_band 8% 恒涂黑 + 关键词行（CJK 去空格子串、ASCII 整词）+ 标识符模式（`[A-Za-z]{1,3}-?\d{6,}`、`\d{9,}`、0 开头带横线电话）；padding max(4px, 0.3×行高)，full_width；「日期」不作关键词；MANIFEST 多 `path` 字段；对 MANIFEST 文件本身加排他锁；规则变更后旧行 sha 仍在白名单（文件已不在） | 接受 |
+| WI-05a | **待接线**：打码图尚未登记进 `work/<batch>/derived.jsonl`（provenance 需要）；kb-ocr 尚未调用 mask_batch；无 `klode-kit mask` 子命令 | WI-05b/06a 派工时写明：云端路只发打码图，打码图须登记为 derived（transform.mask_boxes） |
+| WI-05a | WI-05b 白名单 = `{r["der_sha256"] for r in mask.read_manifest(project)}`，并拒绝 `_mask_review/` 下任何路径 | WI-05b 派工时写明 |
