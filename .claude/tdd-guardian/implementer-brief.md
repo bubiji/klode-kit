@@ -28,6 +28,10 @@
 - 仓库公开：任何入库文件不得出现真实个人 / 医疗信息、本机用户名或绝对家目录路径；完成前跑 `bin/klode-kit dev privacy-scan`（0 命中）与 `.venv/bin/python -m klode_kit.devtools.fixture_manifest verify`。
 - 真实云端调用（闸门 G2）只在派工明确授权时进行，只用 MANIFEST 登记的合成图，`KLODE_KIT_REAL=1 KLODE_KIT_GATE_ACK=G2-<yyyymmdd>`，遵守派工给出的费用上限。
 
+## 完工前必须
+
+- **完整**跑 unit 与 contract_replay 两条 lane（不是只跑改动文件），确认 `0 failed`；hypothesis 用例连跑 3 次无失败。改动涉及 cli 用例时也完整跑 cli_integration。
+
 ## 回报格式
 
 文件清单；red / verify 原文；各 lane 实跑结果；本 WI 矩阵行对应表；自定的设计细节；偏离（改了已记录断言的标 SEPARATION 问题）。
