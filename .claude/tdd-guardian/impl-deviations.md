@@ -91,3 +91,5 @@
 | WI-07c 待评估 | ordinal_shift 也算「只有 tesseract 读到的格」，录制页 69 个真值字段中 47 agree、22 进确认页（错误自动通过 0）；可选优化「判错位时忽略无投票候选的格」约省 10 个字段人工确认，但要改 law_agree 已记录行 | 主会话决定暂不改；阶段 6 真实试点后按人工量数据再问用户 |
 | WI-07d | 裁图：变换链 original→(render_dpi 缩放)→逆时针 rotate→crop，mask_boxes 不移动几何；模式 rows（r±1 行并集+候选框，pad 8px）/ row（无 geom：r±1 整宽带）/ half_page（行无框）后两者记 `no_bbox_crop`；有打码衍生图时优先从打码图裁（07d-06），否则从 upright 图；只写 `work/<b>/audit/a<N>/crops/`，PNG 带 klode-kit 文本块确保 sha 永不与白名单撞；a<N> 不可改写 | 接受 |
 | WI-07d → 08a/08b | 08a/08b 须传入 audit_rev、读 `crops/<doc>_<page>.jsonl`，把记录里的 `no_bbox_crop` 并入 cell 的 uncertain；MLX block_bbox 未进 Candidate，MLX 块行按无 geom 处理 | WI-08a/08b 派工时写明 |
+| WI-06a 修复补全（主会话） | gate-law ACK 生成器再排除代理字符类别 Cs（上次改用 st.characters 后会产生 `\ud800`，env 同样不可编码）——同一处已批准修复的补全，断言不变；5 个随机种子通过 | 属用户 2026-10-23 已批准范围 |
+| 主会话流程（第二次） | 8e6fc98 再次在 `1 failed` 时与测试同一命令链里提交；**此后测试与提交分两次工具调用，见到 `0 failed`/无 `failed` 字样才提交** | 教训记录 |

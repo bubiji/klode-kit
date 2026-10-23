@@ -184,7 +184,7 @@ def test_cli_exit_61_zero_calls(pseudo, monkeypatch):
 
 
 ACKS = st.one_of(
-    st.text(alphabet=st.characters(blacklist_characters="\x00"), max_size=14),  # env values cannot hold NUL (user-approved 2026-10-23)
+    st.text(alphabet=st.characters(blacklist_characters="\x00", blacklist_categories=("Cs",)), max_size=14),  # env values cannot hold NUL (user-approved 2026-10-23)
     st.builds(lambda d: f"G2-{d}", st.text(alphabet="0123456789", min_size=0, max_size=10)),
     st.sampled_from([VALID_ACK, "G2-20260229", "G2-20240229"]),
 )
