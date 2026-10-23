@@ -24,3 +24,11 @@ def repeat_ratio(lines: Iterable[str]) -> float:
 
 def is_degenerate(ratio: float, max_ratio: float = DEFAULT_MAX_RATIO) -> bool:
     return ratio > max_ratio
+
+
+def ngram_repeat_ratio(text: str, n: int = 6) -> float:
+    """189 ``engines.repeat_ratio`` (MLX degenerate check, threshold ``> 0.5`` there): the share of repeated
+    character ``n``-grams, ``1 - distinct / total``. It catches the single line that loops on a phrase, which the
+    line-level ratio above cannot see (WI-04a alignment). The window bound is 189's, kept as is."""
+    grams = [text[i:i + n] for i in range(0, max(0, len(text) - n))]
+    return 0.0 if not grams else 1 - len(set(grams)) / len(grams)
