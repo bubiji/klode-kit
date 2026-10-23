@@ -1,7 +1,7 @@
 ---
 name: klode-card-writer
 description: Writes exactly one klode card under cards_content/ for a single card task dispatched by the klode-kit execution bridge. Placeholder; the final agent text belongs to WI-12.
-tools: Read, Grep, Glob, Edit, Bash
+tools: Read, Grep, Glob, Edit, Bash, StructuredOutput
 model: opus
 ---
 

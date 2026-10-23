@@ -53,7 +53,9 @@ def test_argv_contract(tmp_path):
     assert _value(argv, "--allowedTools") == "Read,Grep,Glob,Edit(cards_content/**),Bash(*/bin/klode-kit *)"
     assert _value(argv, "--disallowedTools") == "Edit(library/**),Edit(src/**),Edit(.claude/**)"
     assert _value(argv, "--output-format") == "json"
-    assert json.loads(_value(argv, "--json-schema")) == contract.load("writer_receipt")
+    # approved change 2026-10-23 (WI-00d2 F-1): the CLI rejects the draft 2020-12 declaration, so $schema/$id are dropped
+    assert json.loads(_value(argv, "--json-schema")) == {k: v for k, v in contract.load("writer_receipt").items()
+                                                         if k not in ("$schema", "$id")}
     budget = float(_value(argv, "--max-budget-usd"))
     assert budget > 0
     assert argv.count("--no-session-persistence") == 1

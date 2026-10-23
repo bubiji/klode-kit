@@ -1,0 +1,5 @@
+{
+  "name": "klode-kit",
+  "version": "0.1.0-dev",
+  "description": "Scanned documents to a citable klode knowledge base. Minimal manifest from the WI-00d2 host spike."
+}

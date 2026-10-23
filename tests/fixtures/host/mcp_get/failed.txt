@@ -1,0 +1,11 @@
+spike-klode:
+  Scope: Project config (shared via .mcp.json)
+  Status: ✘ Failed to connect
+  Issue: ENOENT: ENOENT: no such file or directory, posix_spawn '/Users/<user>/Documents/Claude/Projects/klode-kit/tests/host/_lab/does-not-exist'
+  Type: stdio
+  Command: /Users/<user>/Documents/Claude/Projects/klode-kit/tests/host/_lab/does-not-exist
+  Args:
+  Environment:
+    KLODE_KIT_BUILD=b-20261023T000000Z-0123abcd
+
+To remove this server, run: claude mcp remove spike-klode -s project

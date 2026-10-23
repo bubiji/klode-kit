@@ -1,6 +1,6 @@
 """Execution bridge: dispatch card-writer agents through the ``claude -p`` CLI (WI-00d1, design 02 r2.5 + R2-06).
 
-Deterministic part only - no model is called here unless the caller's PATH resolves ``claude`` to the real CLI.
+No model is called unless ``claude`` resolves to the real CLI AND the G2 real-call gate is open (see below).
 
 argv (``build_argv``), one process per attempt, cwd = ``builds/<build_id>/``::
 
@@ -29,12 +29,19 @@ Run (``run``):
   are retried, at most ``max_rounds`` attempts in total. ``timeout`` and ``cancelled`` are final;
 - a card left behind by an attempt that did not finish ``done`` is moved to ``<build>/_quarantine/`` and any earlier
   content of the card restored, so no half-written card stays under ``cards_content/``;
+- every attempt record carries the ``permission_denials`` the CLI reported (``[]`` when none or no JSON); the task
+  record carries them all in attempt order (evidence for the R2-06 path rules, WI-00d2);
 - ``cost_usd`` is always a number: the sum of the costs the CLI reported; ``cost_complete`` is false when an attempt
   reported none (a malformed output, a kill).
 
 CLI: ``python -m klode_kit.bridge run --tasks <json> --receipt <path> [--project DIR] [--concurrency N]
 [--timeout-s S] [--max-rounds N] [--max-budget-usd X]``. Exit 0 all done; 20 some task not done; 130 cancelled
-(SIGINT/SIGTERM); 2 usage; 40 configuration.
+(SIGINT/SIGTERM); 2 usage; 40 configuration; 61 real-call gate closed.
+
+Real-call gate (G2, WI-00d2): unless ``claude`` resolves (real path) to the replay fake in this repository's
+``tests/fakes/bin``, ``run`` starts nothing and raises ``BridgeGateClosed`` (CLI exit 61) when
+``KLODE_KIT_REAL != "1"`` or ``KLODE_KIT_GATE_ACK`` is not ``G2-<yyyymmdd>``. The vetted absolute path is what
+gets executed.
 """
 
 from __future__ import annotations
@@ -45,6 +52,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import signal
 import subprocess
 import sys
@@ -67,6 +75,8 @@ DISALLOWED_TOOLS = "Edit(library/**),Edit(src/**),Edit(.claude/**)"
 DEFAULT_MAX_BUDGET_USD = 5.0
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 RECEIPT_SCHEMA = "klode-kit.bridge_run/1"
+FAKES_BIN = PLUGIN_ROOT / "tests" / "fakes" / "bin"
+GATE_ACK_RE = re.compile(r"\AG2-([0-9]{8})\Z")  # ASCII digits; the date must also be a calendar date
 
 CARD_RE = re.compile(r"^cards_content/(?!.*\.\./).+\.md$")  # writer_receipt.json "card" pattern
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -74,10 +84,15 @@ AGENT_FIELDS = {"description": "str", "tools": "list", "disallowedTools": "list"
 
 FINAL = ("done", "timeout", "cancelled")
 EXIT_OK, EXIT_NOT_DONE, EXIT_CANCELLED, EXIT_USAGE, EXIT_CONFIG = 0, 20, 130, 2, 40
+EXIT_GATE = 61
 
 
 class BridgeUsageError(ValueError):
     """Invalid task, options or agent definitions (usage error, exit 2)."""
+
+
+class BridgeGateClosed(RuntimeError):
+    """A non-fake claude would be started without KLODE_KIT_REAL=1 and a G2 ack (exit 61, zero calls)."""
 
 
 class BridgeCancelled(Exception):
@@ -203,10 +218,22 @@ def task_prompt(task: Task, options: Options) -> str:
     ])
 
 
+CLI_SCHEMA_DROP = ("$schema", "$id")
+
+
+def cli_schema(name: str) -> dict:
+    """The contract schema as ``--json-schema`` accepts it: top-level ``$schema``/``$id`` removed.
+
+    Claude Code 2.1.285 rejects a document declaring draft 2020-12 ("no schema with key or ref", exit 1 before any
+    API call; WI-00d2 finding F-1). The repository schema file keeps its declaration for local validation.
+    """
+    return {k: v for k, v in contract.load(name).items() if k not in CLI_SCHEMA_DROP}
+
+
 def build_argv(task: Task, options: Options) -> tuple[list[str], Path]:
     """The ``claude -p`` argv for one attempt of ``task`` and its cwd (``builds/<build_id>/``)."""
     agents = json.dumps(agents_json(options.agents_dir), ensure_ascii=False, separators=(",", ":"))
-    schema = json.dumps(contract.load("writer_receipt"), ensure_ascii=False, separators=(",", ":"))
+    schema = json.dumps(cli_schema("writer_receipt"), ensure_ascii=False, separators=(",", ":"))
     argv = [
         options.claude, "-p",
         "--agents", agents,
@@ -223,6 +250,48 @@ def build_argv(task: Task, options: Options) -> tuple[list[str], Path]:
     return argv, task.build_dir
 
 
+# --------------------------------------------------------------------------- real-call gate (G2)
+
+
+def _resolve_claude(claude: str) -> Path | None:
+    """Absolute real path of the executable ``claude`` names (PATH lookup as Popen does), or None."""
+    found = shutil.which(claude)
+    return Path(os.path.realpath(found)) if found else None
+
+
+def _gate_ack_valid(ack: str) -> bool:
+    match = GATE_ACK_RE.match(ack)
+    if not match:
+        return False
+    try:
+        datetime.strptime(match.group(1), "%Y%m%d")
+    except ValueError:
+        return False
+    return True
+
+
+def gate(claude: str, env: Any = None) -> str:
+    """The executable to start for ``claude``; raises ``BridgeGateClosed`` before any process is started.
+
+    The repository replay fake (``tests/fakes/bin``, compared by real path, not by name) is always allowed.
+    Anything else - a real CLI, a look-alike directory, an unresolvable name - needs ``KLODE_KIT_REAL == "1"``
+    and ``KLODE_KIT_GATE_ACK == G2-<yyyymmdd>`` (gate G2 of the plan).
+    """
+    env = os.environ if env is None else env
+    resolved = _resolve_claude(claude)
+    if resolved is not None and resolved.parent == Path(os.path.realpath(FAKES_BIN)):
+        return str(resolved)
+    real = env.get("KLODE_KIT_REAL")
+    ack = env.get("KLODE_KIT_GATE_ACK", "")
+    if real != "1" or not _gate_ack_valid(ack):
+        raise BridgeGateClosed(
+            f"refusing to start {resolved or claude!r}: not the replay fake, and the real-call gate G2 is closed "
+            f"(needs KLODE_KIT_REAL=1 and KLODE_KIT_GATE_ACK=G2-<yyyymmdd>; got REAL={real!r}, ACK={ack!r})")
+    if resolved is None:
+        raise BridgeUsageError(f"claude executable not found: {claude!r}")
+    return str(resolved)
+
+
 # --------------------------------------------------------------------------- process groups
 
 
@@ -233,6 +302,16 @@ def _signal_group(pgid: int, sig: int) -> None:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _denials(stdout: bytes) -> list:
+    """``permission_denials`` the CLI reported in its JSON result (``[]`` when absent, malformed or not JSON)."""
+    try:
+        obj = json.loads(stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return []
+    value = obj.get("permission_denials") if isinstance(obj, dict) else None
+    return value if isinstance(value, list) else []
 
 
 def _classify(task: Task, returncode: int, stdout: bytes) -> tuple[str, float | None, dict | None, str | None]:
@@ -269,8 +348,9 @@ def _classify(task: Task, returncode: int, stdout: bytes) -> tuple[str, float | 
 
 
 class _Run:
-    def __init__(self, options: Options):
+    def __init__(self, options: Options, executable: str | None = None):
         self.options = options
+        self.executable = executable
         self.lock = threading.Lock()
         self.active: dict[str, subprocess.Popen] = {}
         self.cancel = threading.Event()
@@ -279,13 +359,16 @@ class _Run:
 
     def _attempt(self, task: Task, n: int) -> dict:
         argv, cwd = build_argv(task, self.options)
+        if self.executable:
+            argv[0] = self.executable  # exactly the executable the gate vetted, no second PATH lookup
         card_path = task.build_dir / task.card
         before = card_path.read_bytes() if card_path.is_file() else None
         t0 = time.monotonic()
         with self.lock:
             if self.cancel.is_set():
                 return {"attempt": n, "status": "cancelled", "exit_code": None, "cost_usd": None,
-                        "duration_s": 0.0, "error": "cancelled before start", "writer": None, "started": False}
+                        "duration_s": 0.0, "error": "cancelled before start", "writer": None, "started": False,
+                        "permission_denials": []}
             proc = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, start_new_session=True)
             self.active[task.task_id] = proc
@@ -317,6 +400,7 @@ class _Run:
             self._quarantine(task, n, before)
         return {"attempt": n, "status": status, "exit_code": rc if rc is not None and rc >= 0 else None,
                 "cost_usd": cost, "duration_s": round(time.monotonic() - t0, 3), "error": error,
+                "permission_denials": _denials(out or b""),
                 "stderr_tail": err.decode("utf-8", "replace")[-500:], "writer": writer, "started": True}
 
     @staticmethod
@@ -359,6 +443,7 @@ class _Run:
             "cost_complete": len(known) == len(log),
             "writer": last["writer"] if last["status"] == "done" else None,
             "error": last["error"],
+            "permission_denials": [d for a in log for d in a["permission_denials"]],
             "started": started,
             "ended": _now(),
             "attempts_log": [{k: v for k, v in a.items() if k != "writer"} for a in log],
@@ -396,8 +481,9 @@ def run(tasks: list[Task], options: Options, *, receipt_path: Path | None = None
     ids = [t.task_id for t in tasks]
     if len(set(ids)) != len(ids):
         raise BridgeUsageError("duplicate task_id in one run")
+    executable = gate(options.claude) if tasks else None  # BridgeGateClosed: nothing started, no receipt
     started = now()
-    state = _Run(options)
+    state = _Run(options, executable)
     results: dict[str, dict] = {}
     cancelled = False
     if tasks:
@@ -491,6 +577,9 @@ def main(argv: list[str] | None = None) -> int:
     except BridgeCancelled:
         print("klode-kit bridge: cancelled; running writers terminated", file=sys.stderr)
         return EXIT_CANCELLED
+    except BridgeGateClosed as exc:
+        print(f"klode-kit bridge: gate G2 closed: {exc}", file=sys.stderr)
+        return EXIT_GATE
     except BridgeUsageError as exc:
         print(f"klode-kit bridge: usage error: {exc}", file=sys.stderr)
         return EXIT_USAGE

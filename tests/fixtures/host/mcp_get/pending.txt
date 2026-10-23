@@ -1,0 +1,10 @@
+spike-klode:
+  Scope: Project config (shared via .mcp.json)
+  Status: ⏸ Pending approval (run `claude` to approve)
+  Type: stdio
+  Command: /Users/<user>/Documents/Claude/Projects/klode-kit/.venv/bin/python
+  Args: /Users/<user>/Documents/Claude/Projects/klode-kit/tests/fixtures/host/mini_mcp_server.py
+  Environment:
+    KLODE_KIT_BUILD=b-20261023T000000Z-0123abcd
+
+To remove this server, run: claude mcp remove spike-klode -s project

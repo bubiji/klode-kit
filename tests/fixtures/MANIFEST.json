@@ -2731,6 +2731,36 @@
    "sha256": "79c630d95f7dcb6acb3689ae3b05aa704d7d6e10441afe210225d4c61a72c39c"
   },
   {
+   "bytes": 755,
+   "path": "host/mcp_get/README.md",
+   "sha256": "fe0bc7fcaf4dbfa40f0a901d2842f9c6818fbd922293302b5fa82facad19041b"
+  },
+  {
+   "bytes": 406,
+   "path": "host/mcp_get/connected.txt",
+   "sha256": "44cf3118076fcaa3d907624882647400a46e8d5e10af3c87cac1a8f703f27e63"
+  },
+  {
+   "bytes": 486,
+   "path": "host/mcp_get/failed.txt",
+   "sha256": "9bf9bb6390c33b7c9e722b975f8860b06f2ac5dfc64ed57dbd75a131455ce4f1"
+  },
+  {
+   "bytes": 226,
+   "path": "host/mcp_get/missing.txt",
+   "sha256": "a5713f996f3dbfdbe160b86bb0018c65553612c3898c683ee83c8a1419610cfa"
+  },
+  {
+   "bytes": 439,
+   "path": "host/mcp_get/pending.txt",
+   "sha256": "0e9d8b1009e64992620c8b4f819936181fcf7b0bf0593765bdfd4bac9e27a074"
+  },
+  {
+   "bytes": 1484,
+   "path": "host/mini_mcp_server.py",
+   "sha256": "73bfc5c8b72667fd26c634db25f6bc9a62b7d293cf363377e39339e23843591b"
+  },
+  {
    "bytes": 1623,
    "path": "replay/probe-synth/codex-denied.jsonl",
    "sha256": "e98bbc9a2b8505058bf5f7c598ff3708460e593371693848ee74584ab0d4236f"

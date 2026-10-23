@@ -53,3 +53,8 @@
 | WI-00d1 | **桥本身无 KLODE_KIT_REAL / G2 闸门**（PATH 上若是真实 claude 就会真调） | **必须补**：WI-00d2 加闸门（非 REAL 或缺 GATE_ACK 时拒绝调用真实 claude，exit 61）并带测试 |
 | WI-00d1 | 待 WI-00d2 实测：macOS 默认工具集不含 Glob/Grep（`--allowedTools` 不添加工具）；writer_receipt 的 `(?!...)` 能否被 `--json-schema` 接受；`--agents` 内联过长时改文件形式；提示词里的 `check-cards` 子命令待 WI-09/12 | 记录 |
 | WI-00d1 | contract red 首次被判 runner-missing，在有效 red 前把 3 处日志读取改为 `log_entries`（断言含义不变）；edges/agents 测试为实现后补充覆盖，未先跑红 | 接受 |
+| WI-00d2 | 补桥的真实调用闸门（非 REAL 或 ACK 不符 → BridgeGateClosed / exit 61，零调用）；宿主实测：写卡 PASS、library Edit 被 permission_denials 拒、两段式 Workflow headless 可行（⑪）、信任探测读 ~/.claude.json hasTrustDialogAccepted（⑬）、`claude mcp get` env 键不影响 connected（⑮）、`/klode-kit:kb-check` receipt 插件字段断言 PASS（R2-11）；费用 $1.50 | 接受 |
+| WI-00d2 | Claude Code 2.1.285 的 `--json-schema` 拒绝声明 2020-12 的 schema → 桥传参前去掉顶层 `$schema/$id`（仓库 schema 不变），改已记录断言 00d1-01 | **用户 2026-10-23 批准** |
+| WI-00d2 | writer agent tools 补 `StructuredOutput`（`--agent` 下工具受 agent tools 限制）；Glob/Grep 实测存在（与 00d1 记录相反） | 接受 |
+| WI-00d2 | 风险 R-1：writer 会话加载用户全局 CLAUDE.md 与用户级 agents/plugins | 交 WI-12（writer argv 加 `--setting-sources`/隔离评估） |
+| WI-00d2 | 临时替身命令 `check-cards`（WI-02a 替换）、`kb-check`（WI-13a 补全）、`dev spike-pipeline`；新增顶层 `.claude-plugin/ skills/ workflows/` 尚未写进目录说明 | WI-30 文档补齐 |
