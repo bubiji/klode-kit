@@ -43,3 +43,8 @@
 | WI-00c2c | Codex 改用 permission profile（去 `-s`，加 3 个 profile 项 + 7 个关闭项），isolation_check 禁 `-s/--sandbox/danger-full-access`，新增 `codex_home:agents_md` fail-closed；宿主检查（`codex sandbox -P`，两 canary exit 1 `Operation not permitted`，阳性对照 exit 0）PASS；生产 argv OCR 1 次通过；routes_enabled.codex = true | 用户 2026-10-23 决定的落实 |
 | WI-00c2c | 改已记录断言：00c1-02（删 `-s read-only`、加 profile/关闭项/禁 `-s`）、CODEX_REQUIRED 删 `-s`、CODEX_BAD_VALUES 改为 `-C` 值；00c2-07 改为 skip（主会话改）、00c2-09 只参数化 claude | 视为用户「改用宿主检查、不再要求模型探针」决定的直接后果 |
 | WI-00c2c | 残余风险 RR-7 `:minimal` 允许读 /tmp（数据项目放 /tmp 下会被读到）→ 待在 isolation_check 对 /tmp 下项目判 FAIL；RR-8 `codex sandbox` 读 ~/.codex/config.toml；RR-9 若干关闭项在 config-reference 快照中查不到，靠 spike 捕获证明，codex 升级需复测；RR-10 `features.shell_snapshot` 未关 | 记录；RR-7 并入 WI-05b（发送器）派工 |
+| WI-00c3 | 四路实跑（7 页合成最难页）：CER vision 0.021 / mlx 0.107 / claude 0.005 / codex 0.005 / tesseract 0.110；错误自动通过 0/64；四路一致 64 ≥ 20；R3-05：表格单元格 69/69 exact（ocrmac observation 框≠词，抬头「标签：值」行跨段） | 记录；docs/spikes/WI-00c-4routes.md |
+| WI-00c3 决定（主会话） | ① 录制改放 `tests/recordings/<engine>/`（独立 MANIFEST），不进生成目录，免改 00a-05/00a-02；② Codex effort 锁定 `max`（落实已确认的「最高档不降级」），连带改已记录断言：test_cloud_isolation_edges（max→ultra 作为非法样例）、test_cloud_isolation:280、test_config:42、test_ids:335；③ RR-12：r2.7 前三项阈值按人工确认后的值判定，确认前合并值仅作人工工作量参考（本次 77 字段中 6 个需人工） | 主会话依已确认需求裁定 |
+| WI-00c3 | codex effort 闭集仍允许 `minimal`（默认已钉 max，无实际降级）；后续加固：isolation_check 要求 effort == 配置值 | 待 WI-05b/06b 处理 |
+| WI-00c3 | 发现 F-1（189 strip_layout_tags 把表压成一行，spike 适配器已修）、F-2 MLX 单位写成 LaTeX、F-3 MLX 印章页按列输出、F-4 Vision 印章压字处误读 | WI-04a 搬 MLX 适配器时带上 F-1 修正 |
+| WI-00c3 | 本地 OCR 依赖在独立依赖组 `ocr-local`；不带 `--group ocr-local` 的 `uv sync` 会卸掉它们 | WI-15a install.sh 必须带该组（macOS） |

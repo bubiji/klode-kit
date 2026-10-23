@@ -152,7 +152,7 @@ def test_codex_effort_config_twice_or_bad_fails(systmp, project, versions):
     twice = dataclasses.replace(inv, argv=(*inv.argv[:-1], "-c", "model_reasoning_effort=low", inv.argv[-1]))
     assert results(IC.check(twice, project=project))["argv:closed"] is False
     bad = set_arg(inv, "-m", "gpt-6-sol")
-    argv = [("model_reasoning_effort=max" if t.startswith("model_reasoning_effort=") else t) for t in bad.argv]
+    argv = [("model_reasoning_effort=ultra" if t.startswith("model_reasoning_effort=") else t) for t in bad.argv]
     assert results(IC.check(dataclasses.replace(inv, argv=tuple(argv)), project=project))["argv:closed"] is False
 
 
@@ -352,3 +352,15 @@ def test_guard_unwritable_log_refuses_even_inside(tmp_path, monkeypatch):
                        "tool_input": {"file_path": str(cwd / "a.png")}}).encode()
     monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(data)))
     assert IG.main([]) == 2
+
+
+def test_codex_effort_max_accepted_ultra_rejected(systmp, project, versions):
+    """WI-00c3 (5'): `max` is the highest pure-reasoning level of gpt-6-sol and passes the review; `ultra` (automatic
+    task delegation) and anything else stays outside the closed set, in the builder and in the review."""
+    inv = CA.codex(build("codex").cwd, model="gpt-6-sol", effort="max")
+    assert "model_reasoning_effort=max" in inv.argv
+    assert IC.check(inv, project=project).ok
+    with pytest.raises(ValueError):
+        CA.codex(inv.cwd, model="gpt-6-sol", effort="ultra")
+    argv = [("model_reasoning_effort=ultra" if t.startswith("model_reasoning_effort=") else t) for t in inv.argv]
+    assert results(IC.check(dataclasses.replace(inv, argv=tuple(argv)), project=project))["argv:closed"] is False

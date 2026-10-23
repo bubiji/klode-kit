@@ -39,7 +39,7 @@ R26_DEFAULTS = {
     "claude.model": "opus",
     "claude.effort": "max",
     "codex.model": "gpt-6-sol",
-    "codex.effort": "xhigh",
+    "codex.effort": "max",
     "cloud.timeout_s": 180,
     "cloud.max_cost_usd_per_batch": 5.0,
     "route_retry": 2,

@@ -20,6 +20,10 @@ dev = [
     "reportlab>=4.2",
     "pillow>=13.0",
 ]
+ocr-local = [
+    "mlx-vlm==0.7.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "ocrmac==1.0.1 ; sys_platform == 'darwin'",
+]
 
 [build-system]
 requires = ["hatchling>=1.25"]

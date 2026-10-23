@@ -332,7 +332,7 @@ max_cost_usd_per_batch = 5.0
 timeout_s = 180
 
 [codex]
-effort = "xhigh"
+effort = "max"
 model = "gpt-6-sol"
 
 [claude]

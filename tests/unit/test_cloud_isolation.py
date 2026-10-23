@@ -277,7 +277,7 @@ def test_builder_rejects_flag_like_model(systmp, versions, bad):
         build("codex", model=bad)
 
 
-@pytest.mark.parametrize("route,bad", [("claude", "ultracode"), ("claude", "minimal"), ("codex", "max"), ("codex", "x")])
+@pytest.mark.parametrize("route,bad", [("claude", "ultracode"), ("claude", "minimal"), ("codex", "ultra"), ("codex", "x")])
 def test_builder_rejects_unknown_effort(systmp, versions, route, bad):
     with pytest.raises(ValueError):
         build(route, effort=bad)

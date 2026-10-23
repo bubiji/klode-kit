@@ -15,7 +15,7 @@ effort = "max"
 
 [codex]
 model = "gpt-6-sol"
-effort = "xhigh"
+effort = "max"
 
 [cloud]
 timeout_s = 180

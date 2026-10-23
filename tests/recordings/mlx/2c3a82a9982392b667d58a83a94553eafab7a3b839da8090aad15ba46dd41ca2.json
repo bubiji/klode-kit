@@ -1,0 +1,41 @@
+{
+ "schema": "klode-kit.replay_recording/1",
+ "recorded": true,
+ "engine": "mlx",
+ "der_sha256": "2c3a82a9982392b667d58a83a94553eafab7a3b839da8090aad15ba46dd41ca2",
+ "image": "fx-u1-3labs/images/p001.png",
+ "at": "2026-10-23T00:10:32+00:00",
+ "params": {
+  "model": "mlx-community/Unlimited-OCR-8bit",
+  "snapshot": "6d2a0677ec509c87b16eb18be4b761e6fb2830c6",
+  "mlx_vlm": "0.7.1",
+  "prompt": "document parsing.",
+  "max_tokens": 3072,
+  "temperature": 0.0,
+  "offline": true
+ },
+ "meta": {
+  "sec": 2.09,
+  "generation_tokens": 268,
+  "truncated": false,
+  "repeat_ratio": 0.0,
+  "degenerate": false
+ },
+ "error": null,
+ "raw": "<|det|>title [37, 38, 335, 94]<|/det|>示例医院 检验报告单\n<|det|>text [37, 146, 243, 193]<|/det|>姓名：测试患者甲\n<|det|>text [38, 208, 256, 253]<|/det|>编号：T-0000001\n<|det|>text [40, 274, 270, 319]<|/det|>日期：2026-10-22\n<|det|>table [34, 362, 830, 881]<|/det|><table><tr><td>项目</td><td>结果</td><td>单位</td><td>提示</td><td>参考范围</td></tr><tr><td>血红蛋白</td><td>128</td><td>g/L</td><td></td><td>115-150</td></tr><tr><td>白细胞</td><td>6.2</td><td>10^9/L</td><td></td><td>3.5-9.5</td></tr><tr><td>红细胞</td><td>4.35</td><td>10^12/L</td><td></td><td>3.8-5.1</td></tr><tr><td>血小板</td><td>210</td><td>10^9/L</td><td></td><td>125-350</td></tr><tr><td>中性粒细胞百分比</td><td>78.5</td><td>%</td><td>H</td><td>40-75</td></tr><tr><td>淋巴细胞百分比</td><td>15.2</td><td>%</td><td>L</td><td>20-50</td></tr></table>",
+ "fallback": null,
+ "lines": [
+  "示例医院 检验报告单",
+  "姓名：测试患者甲",
+  "编号：T-0000001",
+  "日期：2026-10-22",
+  "项目 结果 单位 提示 参考范围",
+  "血红蛋白 128 g/L  115-150",
+  "白细胞 6.2 10^9/L  3.5-9.5",
+  "红细胞 4.35 10^12/L  3.8-5.1",
+  "血小板 210 10^9/L  125-350",
+  "中性粒细胞百分比 78.5 % H 40-75",
+  "淋巴细胞百分比 15.2 % L 20-50"
+ ],
+ "lines_rederived_at": "2026-10-23T00:15:24+00:00"
+}

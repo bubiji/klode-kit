@@ -1,0 +1,45 @@
+{
+ "schema": "klode-kit.replay_recording/1",
+ "recorded": true,
+ "engine": "mlx",
+ "der_sha256": "3e68e97d5936c3c9df501b6009171de839302556c1ad08fe5200834240d46f80",
+ "image": "fx-rx-stamp/images/p001.png",
+ "at": "2026-10-23T00:07:33+00:00",
+ "params": {
+  "model": "mlx-community/Unlimited-OCR-8bit",
+  "snapshot": "6d2a0677ec509c87b16eb18be4b761e6fb2830c6",
+  "mlx_vlm": "0.7.1",
+  "prompt": "document parsing.",
+  "max_tokens": 3072,
+  "temperature": 0.0,
+  "offline": true
+ },
+ "meta": {
+  "sec": 1.93,
+  "generation_tokens": 308,
+  "truncated": false,
+  "repeat_ratio": 0.125,
+  "degenerate": false
+ },
+ "error": null,
+ "raw": "<|det|>title [37, 48, 273, 117]<|/det|>示例医院 处方笺\n<|det|>text [34, 186, 243, 243]<|/det|>姓名：测试患者甲\n<|det|>text [38, 268, 254, 323]<|/det|>编号：T-0000001\n<|det|>text [40, 351, 268, 407]<|/det|>日期：2026-09-19\n<|det|>text [34, 480, 94, 536]<|/det|>药品\n<|det|>text [38, 580, 117, 636]<|/det|>示例片\n<|det|>text [38, 676, 116, 731]<|/det|>示例片\n<|det|>text [38, 771, 116, 826]<|/det|>示例片\n<|det|>text [340, 480, 396, 536]<|/det|>规格\n<|det|>text [340, 580, 418, 641]<|/det|>10mg\n<|det|>text [340, 676, 441, 731]<|/det|>5mg 用章\n<|det|>text [340, 771, 416, 826]<|/det|>0.25g\n<|det|>text [716, 480, 770, 536]<|/det|>用法\n<|det|>text [716, 580, 813, 636]<|/det|>每日1次\n<|det|>text [716, 676, 813, 731]<|/det|>每日2次\n<|det|>text [716, 771, 795, 826]<|/det|>必要时",
+ "fallback": null,
+ "lines": [
+  "示例医院 处方笺",
+  "姓名：测试患者甲",
+  "编号：T-0000001",
+  "日期：2026-09-19",
+  "药品",
+  "示例片",
+  "示例片",
+  "示例片",
+  "规格",
+  "10mg",
+  "5mg 用章",
+  "0.25g",
+  "用法",
+  "每日1次",
+  "每日2次",
+  "必要时"
+ ]
+}

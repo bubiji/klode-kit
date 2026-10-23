@@ -112,7 +112,9 @@ PROMPT_FILE = "prompt.txt"
 SCHEMA_FILE = "schema.json"
 
 CLAUDE_EFFORTS = frozenset({"low", "medium", "high", "xhigh", "max"})
-CODEX_EFFORTS = frozenset({"minimal", "low", "medium", "high", "xhigh"})
+# gpt-6-sol levels per `codex debug models` 0.163.0; "ultra" (= max + automatic task delegation) is excluded on
+# purpose: it needs multi-agent tools, which the isolation profile switches off (agents.enabled=false). WI-00c3 (5').
+CODEX_EFFORTS = frozenset({"minimal", "low", "medium", "high", "xhigh", "max"})
 MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:\[\]-]{0,127}")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
 
