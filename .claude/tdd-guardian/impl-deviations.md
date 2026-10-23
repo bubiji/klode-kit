@@ -75,3 +75,5 @@
 | WI-06a | 共用 G2 闸门 `gate.vet()`（bridge 与 send 共用；send 在一切读取与 `--version` 之前先判）；云端预算账本 `cloud_budget`（每次预留 $1，≤ 批上限；未知费用按预留计；花费 == 上限不算超但不再放行，剩页 exit 50；账本按批持久化）；生产 argv 的 `--max-budget-usd` 改为 1.0；kb-ocr 云端路只发 `_masked/` 登记的打码图，未打码页 route_failed（提示先打码），61 拒绝 → route_failed、60 → exit 60；`uncertain_lines` 记在 receipt | 接受 |
 | WI-06a | 假可执行文件识别依赖标记行（防误调，不防篡改） | 残余风险，记录 |
 | 待 G2 真实运行清单 | 06-11 `tests/model/test_adapter_claude_live.py::test_live_vs_replay_shape_claude`（1 次 claude 调用，ledger 上限 $2） | 验收阶段一次性请用户授权 |
+| WI-06a 修复（主会话） | test_gate_law_zero_calls_unless_open 的 hypothesis ACK 生成器排除 `\x00`（环境变量不能含 NUL，测试在 setenv 处崩溃，非闸门缺陷）；断言不变 | **用户 2026-10-23 批准** |
+| 主会话流程 | WI-06a 提交 57cb9b4 前未核对 lane 汇总里的 `1 failed` 就提交了；后续提交前一律检查 `failed` 为 0 | 教训记录 |
