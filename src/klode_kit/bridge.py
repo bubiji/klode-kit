@@ -52,7 +52,6 @@ import json
 import os
 import re
 import secrets
-import shutil
 import signal
 import subprocess
 import sys
@@ -64,6 +63,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from klode_kit import gate as G
 from klode_kit.contract import schema as contract
 from klode_kit.receipts import dumps
 from klode_kit.seams import startup
@@ -75,8 +75,8 @@ DISALLOWED_TOOLS = "Edit(library/**),Edit(src/**),Edit(.claude/**)"
 DEFAULT_MAX_BUDGET_USD = 5.0
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 RECEIPT_SCHEMA = "klode-kit.bridge_run/1"
-FAKES_BIN = PLUGIN_ROOT / "tests" / "fakes" / "bin"
-GATE_ACK_RE = re.compile(r"\AG2-([0-9]{8})\Z")  # ASCII digits; the date must also be a calendar date
+FAKES_BIN = G.FAKES_BIN
+GATE_ACK_RE = G.GATE_ACK_RE
 
 CARD_RE = re.compile(r"^cards_content/(?!.*\.\./).+\.md$")  # writer_receipt.json "card" pattern
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -84,14 +84,14 @@ AGENT_FIELDS = {"description": "str", "tools": "list", "disallowedTools": "list"
 
 FINAL = ("done", "timeout", "cancelled")
 EXIT_OK, EXIT_NOT_DONE, EXIT_CANCELLED, EXIT_USAGE, EXIT_CONFIG = 0, 20, 130, 2, 40
-EXIT_GATE = 61
+EXIT_GATE = G.GATE_EXIT
 
 
 class BridgeUsageError(ValueError):
     """Invalid task, options or agent definitions (usage error, exit 2)."""
 
 
-class BridgeGateClosed(RuntimeError):
+class BridgeGateClosed(G.GateClosed):
     """A non-fake claude would be started without KLODE_KIT_REAL=1 and a G2 ack (exit 61, zero calls)."""
 
 
@@ -253,40 +253,15 @@ def build_argv(task: Task, options: Options) -> tuple[list[str], Path]:
 # --------------------------------------------------------------------------- real-call gate (G2)
 
 
-def _resolve_claude(claude: str) -> Path | None:
-    """Absolute real path of the executable ``claude`` names (PATH lookup as Popen does), or None."""
-    found = shutil.which(claude)
-    return Path(os.path.realpath(found)) if found else None
-
-
-def _gate_ack_valid(ack: str) -> bool:
-    match = GATE_ACK_RE.match(ack)
-    if not match:
-        return False
-    try:
-        datetime.strptime(match.group(1), "%Y%m%d")
-    except ValueError:
-        return False
-    return True
-
-
 def gate(claude: str, env: Any = None) -> str:
     """The executable to start for ``claude``; raises ``BridgeGateClosed`` before any process is started.
 
     The repository replay fake (``tests/fakes/bin``, compared by real path, not by name) is always allowed.
-    Anything else - a real CLI, a look-alike directory, an unresolvable name - needs ``KLODE_KIT_REAL == "1"``
-    and ``KLODE_KIT_GATE_ACK == G2-<yyyymmdd>`` (gate G2 of the plan).
+    Anything else - a real CLI, a look-alike directory, a generated test fake, an unresolvable name - needs
+    ``KLODE_KIT_REAL == "1"`` and ``KLODE_KIT_GATE_ACK == G2-<yyyymmdd>`` (gate G2 of the plan). The rule is
+    ``klode_kit.gate.vet`` (shared with the cloud sender, WI-06a) without generated fakes.
     """
-    env = os.environ if env is None else env
-    resolved = _resolve_claude(claude)
-    if resolved is not None and resolved.parent == Path(os.path.realpath(FAKES_BIN)):
-        return str(resolved)
-    real = env.get("KLODE_KIT_REAL")
-    ack = env.get("KLODE_KIT_GATE_ACK", "")
-    if real != "1" or not _gate_ack_valid(ack):
-        raise BridgeGateClosed(
-            f"refusing to start {resolved or claude!r}: not the replay fake, and the real-call gate G2 is closed "
-            f"(needs KLODE_KIT_REAL=1 and KLODE_KIT_GATE_ACK=G2-<yyyymmdd>; got REAL={real!r}, ACK={ack!r})")
+    resolved = G.vet(claude, env=env, error=BridgeGateClosed)
     if resolved is None:
         raise BridgeUsageError(f"claude executable not found: {claude!r}")
     return str(resolved)

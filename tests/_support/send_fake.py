@@ -14,7 +14,10 @@ named ``claude`` and ``codex`` into ``<dir>/bin``:
   ``versions`` ({tool: "x.y.z"} for ``--version``), ``stdout``, ``exit_code``, ``sleep_s``, ``started`` (touch
   ``started.<pid>`` before sleeping), ``guard`` (run the real ``klode-kit hook isolation-guard`` on a Read of the
   image, as a real Claude session would), ``write_extra`` (leave a file of that name in the cwd), ``move_cwd``
-  (move the cwd away into the fake's directory).
+  (move the cwd away into the fake's directory), ``stdout_seq`` (WI-06a: the n-th model call prints the n-th
+  entry, the last one repeats; overrides ``stdout``).
+- The front carries ``klode_kit.gate.TEST_FAKE_MARKER`` so the G2 real-call gate (WI-06a) knows it for a test
+  fake; ``FakeCloud(dir, pseudo_real=True)`` leaves the marker out and so behaves as a real CLI to the gate.
 
 Paired real paths: the model lane runs the same sender against the real CLIs (06-11/12, 00c2-06/07).
 """
@@ -33,6 +36,7 @@ from typing import Any, Iterator
 from _support.flows import REPO
 from _support.mask_replay import FIXTURES, ReplayVision, make_batch
 from klode_kit.audit import mask
+from klode_kit.gate import TEST_FAKE_MARKER
 from klode_kit.ocr import cloud_argv as CA
 from klode_kit.ocr import isolation_check as IC
 
@@ -43,6 +47,7 @@ MODEL_STDOUT = '{"type": "result", "result": "ok"}\n'
 
 _PERL = r"""#!/usr/bin/perl
 # WI-05b test fake front (tests/_support/send_fake.py): record the environment exactly as received.
+@MARKER@
 use strict;
 use warnings;
 my $dir = $0;
@@ -111,7 +116,18 @@ if state.get("move_cwd"):
 if state.get("started"):
     open(os.path.join(here, "started.%d" % os.getpid()), "w").close()
 time.sleep(float(state.get("sleep_s", 0)))
-sys.stdout.write(state.get("stdout", ""))
+out = state.get("stdout", "")
+if state.get("stdout_seq"):
+    with open(os.path.join(here, "seq.count"), "a+", encoding="utf-8") as counter:
+        fcntl.flock(counter.fileno(), fcntl.LOCK_EX)
+        counter.seek(0)
+        n = int(counter.read() or 0)
+        counter.seek(0)
+        counter.truncate()
+        counter.write(str(n + 1))
+    seq = state["stdout_seq"]
+    out = seq[min(n, len(seq) - 1)]
+sys.stdout.write(out)
 sys.stdout.flush()
 sys.exit(int(state.get("exit_code", 0)))
 '''
@@ -120,12 +136,15 @@ sys.exit(int(state.get("exit_code", 0)))
 class FakeCloud:
     """``<root>/bin/{claude,codex}`` plus their state and call log (see module docstring)."""
 
-    def __init__(self, root: Path, **state: Any):
+    def __init__(self, root: Path, *, pseudo_real: bool = False, **state: Any):
         self.root = Path(root)
         self.bin = self.root / "bin"
         self.bin.mkdir(parents=True, exist_ok=True)
         (self.root / "fake_impl.py").write_text(_IMPL, encoding="utf-8")
         front = _PERL.replace("@PYTHON@", sys.executable.replace("\\", "\\\\").replace("'", "\\'"))
+        # The G2 gate (klode_kit.gate) lets a generated fake run without an ack only when it carries the marker;
+        # ``pseudo_real`` leaves it out, so the same recording executable stands in for a real CLI.
+        front = front.replace("@MARKER@", "" if pseudo_real else "# " + TEST_FAKE_MARKER)
         for tool in ("claude", "codex"):
             exe = self.bin / tool
             exe.write_text(front, encoding="utf-8")

@@ -72,3 +72,6 @@
 | WI-05b | 发送器：路由开关 → `_mask_review` 拒绝 → 源文件读一次进内存 → sha==expect 且在白名单（打码 MANIFEST ∪ fixtures MANIFEST）→ 副本重算 → 审查（effort==配置、项目不在 /tmp）+ 存档 isolation receipt 核对 → 原样执行；exit 60/61 零模型调用；send receipt 不含路径/像素；privacy_guard hook（hooks/hooks.json，PreToolUse Bash，`if` Bash(claude *)/Bash(codex *)）；打码图登记进 derived.jsonl；CI 设 TMPDIR=runner.temp | 接受 |
 | WI-05b 决定（主会话） | `isolation_check.check()` 的 `expected_effort` / `refuse_shared_tmp` 默认关、发送器恒开（默认开会翻红 00c1 已记录用例且 Linux CI 的 pytest tmp 在 /tmp）——接受；**send 补 G2 真实调用闸门**（同 bridge）→ 并入 WI-06a | 主会话裁定 |
 | WI-05b | 改 WI-00s 已结算测试文件的 xfail 标记（send 已实现，XPASS 强制移除）；05b-07 加严：字节换成另一张已登记图也拒（来源链） | 接受 |
+| WI-06a | 共用 G2 闸门 `gate.vet()`（bridge 与 send 共用；send 在一切读取与 `--version` 之前先判）；云端预算账本 `cloud_budget`（每次预留 $1，≤ 批上限；未知费用按预留计；花费 == 上限不算超但不再放行，剩页 exit 50；账本按批持久化）；生产 argv 的 `--max-budget-usd` 改为 1.0；kb-ocr 云端路只发 `_masked/` 登记的打码图，未打码页 route_failed（提示先打码），61 拒绝 → route_failed、60 → exit 60；`uncertain_lines` 记在 receipt | 接受 |
+| WI-06a | 假可执行文件识别依赖标记行（防误调，不防篡改） | 残余风险，记录 |
+| 待 G2 真实运行清单 | 06-11 `tests/model/test_adapter_claude_live.py::test_live_vs_replay_shape_claude`（1 次 claude 调用，ledger 上限 $2） | 验收阶段一次性请用户授权 |

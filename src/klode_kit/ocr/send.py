@@ -11,13 +11,16 @@ exit   refusal (``SendRefused.exit_code``; nothing is started for it except, for
        ``der_sha256`` of ``mask.read_manifest(project)`` (WI-05a) or a png sha of the synthetic
        ``tests/fixtures/MANIFEST.json``; an unreadable / corrupt MANIFEST registers nothing; the copy in the send
        directory does not hash to the same registered sha
-61     isolation: the route is not enabled in the routes state (``isolation_probe.route_exit_code``); the layer (a)
+61     G2 gate (WI-06a): the CLI the invocation PATH resolves is neither the repository replay fake nor a
+       generated test fake and ``KLODE_KIT_REAL=1`` + ``KLODE_KIT_GATE_ACK=G2-<yyyymmdd>`` are not both set
+       (``klode_kit.gate.vet``; checked first, so not even ``--version`` runs);
+       isolation: the route is not enabled in the routes state (``isolation_probe.route_exit_code``); the layer (a)
        review of the exact invocation fails (``isolation_check.check`` with the configured effort and RR-7's
        ``/tmp`` rule); the stored isolation receipt is not a schema-valid PASS of this route taken on the CLI
        version now on PATH (claude: also with the pinned ``cloud_settings.json`` sha)
 =====  ===========================================================================================================
 
-Order (matrix section 0.3, 05b-16): route state -> ``_mask_review`` rule -> the source is opened ONCE and read into
+Order (matrix section 0.3, 05b-16): G2 gate -> route state -> ``_mask_review`` rule -> the source is opened ONCE and read into
 memory (``send.after_source_read``) -> sha == ``expect_sha`` and registered (``send.after_source_check``) -> those
 in-memory bytes are written into a fresh send directory (``cloud_argv.prepare_send_dir``: system TMPDIR, 0700,
 exactly ``<sha>.png`` + ``prompt.txt`` + ``schema.json``; ``send.after_copy``) -> the copy is hashed again
@@ -64,6 +67,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from klode_kit import config as config_mod
+from klode_kit import gate as G
 from klode_kit.audit import mask
 from klode_kit.contract.schema import issues
 from klode_kit.ocr import cloud_argv as CA
@@ -307,6 +311,10 @@ def send(path: str | os.PathLike, expect_sha: str, *, route: str, project: str |
 def _send(st: _State, path, project: Path, receipt_dir: Path, isolation_receipt, routes_state, cfg, source_env,
           timeout_s, max_budget_usd) -> tuple[str, str, int | None, bool]:
     route = st.route
+    try:  # G2 first: with the gate closed nothing but a test fake is ever started, not even --version
+        G.vet(route, path=CA.cloud_env(source_env)["PATH"], allow_generated_fakes=True)
+    except G.GateClosed as exc:
+        raise SendRefused(ISOLATION_EXIT, "gate_closed", str(exc)) from None
     if route_exit_code(routes_state if routes_state is not None else ROUTES_STATE, route) != 0:
         raise SendRefused(ISOLATION_EXIT, "route_disabled")
     if in_review_dir(path):
