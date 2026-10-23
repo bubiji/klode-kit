@@ -48,3 +48,8 @@
 | WI-00c3 | codex effort 闭集仍允许 `minimal`（默认已钉 max，无实际降级）；后续加固：isolation_check 要求 effort == 配置值 | 待 WI-05b/06b 处理 |
 | WI-00c3 | 发现 F-1（189 strip_layout_tags 把表压成一行，spike 适配器已修）、F-2 MLX 单位写成 LaTeX、F-3 MLX 印章页按列输出、F-4 Vision 印章压字处误读 | WI-04a 搬 MLX 适配器时带上 F-1 修正 |
 | WI-00c3 | 本地 OCR 依赖在独立依赖组 `ocr-local`；不带 `--group ocr-local` 的 `uv sync` 会卸掉它们 | WI-15a install.sh 必须带该组（macOS） |
+| WI-00d1 | 桥运行 receipt 外层 `klode-kit.bridge_run/1` 只在代码定义（contract NAMES 被钉死 16 个）；writer 结构化输出过 writer_receipt schema；writer 预算为常量 DEFAULT_MAX_BUDGET_USD=5.0（可覆盖） | 接受 |
+| WI-00d1 | 自定：只重试 parse_error/failed；超时 SIGTERM→宽限 2s→SIGKILL；失败尝试的半成品卡移入 `builds/<id>/_quarantine/` 并恢复原内容 | 接受 |
+| WI-00d1 | **桥本身无 KLODE_KIT_REAL / G2 闸门**（PATH 上若是真实 claude 就会真调） | **必须补**：WI-00d2 加闸门（非 REAL 或缺 GATE_ACK 时拒绝调用真实 claude，exit 61）并带测试 |
+| WI-00d1 | 待 WI-00d2 实测：macOS 默认工具集不含 Glob/Grep（`--allowedTools` 不添加工具）；writer_receipt 的 `(?!...)` 能否被 `--json-schema` 接受；`--agents` 内联过长时改文件形式；提示词里的 `check-cards` 子命令待 WI-09/12 | 记录 |
+| WI-00d1 | contract red 首次被判 runner-missing，在有效 red 前把 3 处日志读取改为 `log_entries`（断言含义不变）；edges/agents 测试为实现后补充覆盖，未先跑红 | 接受 |
