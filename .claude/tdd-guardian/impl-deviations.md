@@ -77,3 +77,6 @@
 | 待 G2 真实运行清单 | 06-11 `tests/model/test_adapter_claude_live.py::test_live_vs_replay_shape_claude`（1 次 claude 调用，ledger 上限 $2） | 验收阶段一次性请用户授权 |
 | WI-06a 修复（主会话） | test_gate_law_zero_calls_unless_open 的 hypothesis ACK 生成器排除 `\x00`（环境变量不能含 NUL，测试在 setenv 处崩溃，非闸门缺陷）；断言不变 | **用户 2026-10-23 批准** |
 | 主会话流程 | WI-06a 提交 57cb9b4 前未核对 lane 汇总里的 `1 failed` 就提交了；后续提交前一律检查 `failed` 为 0 | 教训记录 |
+| WI-06b | Codex 适配器：按 token 估价记账（input/cache_write $10/MTok、output/reasoning $60/MTok，保守估计非官方价；无用量按预留计）与 claude 共用账本与 exit 50 规则；`EFFORT_LOCK="max"`，项目覆盖成其他值 → EffortLocked（exit 40 / kb-ocr route_failed 0 调用）；答案取最后一个 agent_message，error/turn.failed 视为失败；receipt `read-codex-<sha>.<n>.json` 带 tokens 与 cost_estimated | 接受 |
+| WI-06b | 06-08 断言改为「带 `--json`/`--output-schema`/effort=max，不带 `-o`」（矩阵原文写 `-o out.json`）——延续 WI-00c1 决定（答案取自事件流）；06-09 codex 0.163.0 事件流无模型名，真实流 model_actual = null | 主会话接受；矩阵 06-08 文字以此为准 |
+| 待 G2 真实运行清单 | 06-12 `tests/model/test_adapter_codex_live.py::test_live_vs_replay_shape_codex`（1 次 codex 调用，账本上限 $2） | 验收阶段一次性请用户授权 |

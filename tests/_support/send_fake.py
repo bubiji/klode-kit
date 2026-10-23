@@ -15,7 +15,8 @@ named ``claude`` and ``codex`` into ``<dir>/bin``:
   ``started.<pid>`` before sleeping), ``guard`` (run the real ``klode-kit hook isolation-guard`` on a Read of the
   image, as a real Claude session would), ``write_extra`` (leave a file of that name in the cwd), ``move_cwd``
   (move the cwd away into the fake's directory), ``stdout_seq`` (WI-06a: the n-th model call prints the n-th
-  entry, the last one repeats; overrides ``stdout``).
+  entry, the last one repeats; overrides ``stdout``), ``stdout_by_tool`` (WI-06b: {tool: stdout}, overrides
+  ``stdout`` for that tool so one fake serves claude and codex in the same run).
 - The front carries ``klode_kit.gate.TEST_FAKE_MARKER`` so the G2 real-call gate (WI-06a) knows it for a test
   fake; ``FakeCloud(dir, pseudo_real=True)`` leaves the marker out and so behaves as a real CLI to the gate.
 
@@ -117,6 +118,7 @@ if state.get("started"):
     open(os.path.join(here, "started.%d" % os.getpid()), "w").close()
 time.sleep(float(state.get("sleep_s", 0)))
 out = state.get("stdout", "")
+out = state.get("stdout_by_tool", {}).get(tool, out)
 if state.get("stdout_seq"):
     with open(os.path.join(here, "seq.count"), "a+", encoding="utf-8") as counter:
         fcntl.flock(counter.fileno(), fcntl.LOCK_EX)

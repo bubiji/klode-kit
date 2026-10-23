@@ -36,16 +36,18 @@ Rules
   ``line_idx`` 0..n-1).
 - Routes: ``vision`` and ``mlx`` (MLX -> alt prompt -> tesseract) are the WI-04a engines. ``claude`` and
   ``codex`` read ``config/routes_enabled.json``: disabled -> ``route_failed`` (``route_disabled``) with zero
-  calls (r3.3). ``codex`` is WI-06b: until then ``route_failed`` (``route_unavailable``) with zero calls. A
+  calls (r3.3). A
   local engine that is not installed is likewise ``route_unavailable``. Exit 0 means the run finished; the
   receipt tells which pairs are not done.
-- Claude route (WI-06a, ``adapters_claude.read_page`` through ``send``): only WI-05a masked images are sent -
+- Cloud routes (claude: WI-06a ``adapters_claude.read_page``; codex: WI-06b ``adapters_codex.read_page``; both
+  through ``send``): only WI-05a masked images are sent -
   for each page the last ``_masked/`` line of ``derived.jsonl`` whose sha is in ``_masked/MANIFEST.jsonl``; a page
   without one is ``route_failed`` (``route_unavailable``) with zero calls, and so is the whole route when the batch
   has none. Its rows carry the masked image's ``der_sha256``. ``parse_error`` (malformed output twice) is a page
   state of its own and is not retried again. A sender refusal stops the route: 61 (G2 gate, isolation) ->
   the page and every later page ``route_failed`` (``isolation_refused: <reason>``); 60 (privacy) -> also every
-  later cloud route, and kb-ocr exits 60.
+  later cloud route, and kb-ocr exits 60. A project that lowers ``codex.effort`` below the lock (``max``) makes the
+  codex route ``route_failed`` (``effort_locked: ...``) with zero calls.
 - Cloud budget (r2.6): one ``cloud_budget.Ledger`` per batch with ``cloud.max_cost_usd_per_batch``, persisted in
   ``receipts/cloud_ledger.json`` so reruns of the batch keep counting. Every call is reserved before dispatch;
   once a reservation is refused, no cloud call follows in this batch: unsent pages are ``route_failed``
@@ -115,7 +117,7 @@ from klode_kit import __version__, receipts
 from klode_kit import config as config_mod
 from klode_kit.audit import mask
 from klode_kit.contract import ids, schema
-from klode_kit.ocr import adapters_claude
+from klode_kit.ocr import adapters_claude, adapters_codex
 from klode_kit.ocr import engines as E
 from klode_kit.ocr import textlayer
 from klode_kit.ocr.cloud_budget import CALL_RESERVE_USD, BudgetExceeded, Ledger
@@ -388,10 +390,8 @@ def build_routes(names: list[str], cfg: config_mod.Config, enabled: Mapping[str,
             route.problem = f"route_disabled: {name} is disabled in config/routes_enabled.json"
         elif replay is not None:
             route.call = replay.caller(name)
-        elif name == "claude":
+        elif name in CLOUD_ROUTES:
             route.cloud = True
-        elif name == "codex":
-            route.problem = "route_unavailable: the codex adapter is not implemented yet (WI-06b)"
         else:
             route.problem = _local_problem(name)
             if route.problem is None:
@@ -583,6 +583,9 @@ def _uncertain(page: Page, engine: str, result: dict) -> dict:
     elif error.startswith("budget_exceeded"):
         fix = ("raise cloud.max_cost_usd_per_batch in klode-kit.toml and rerun kb-ocr, or choose 'continue with "
                "the other routes' on the confirm page")
+    elif error.startswith("effort_locked"):
+        fix = (f"remove the codex.effort override from klode-kit.toml (it is locked to "
+               f"{adapters_codex.EFFORT_LOCK!r}), then rerun kb-ocr")
     elif error.startswith(("route_disabled", "route_unavailable")):
         fix = f"{error}; enable or install the route, then rerun kb-ocr"
     return {"id": f"{page.page_id}:{engine}:{state}", "reason": state, "scope": "page", "engine": engine,
@@ -741,8 +744,12 @@ def _load_ledger(batch_dir: Path, cfg: config_mod.Config, cloud: CloudOptions) -
                   reserve_usd=reserve, on_change=persist)
 
 
-def _attach_claude(route: Route, project: Path, batch_dir: Path, cfg: config_mod.Config, cloud: CloudOptions,
-                   ledger: Ledger) -> None:
+def _attach_cloud(route: Route, project: Path, batch_dir: Path, cfg: config_mod.Config, cloud: CloudOptions,
+                  ledger: Ledger) -> None:
+    if route.name == "codex" and cfg["codex.effort"] != adapters_codex.EFFORT_LOCK:
+        route.problem = f"effort_locked: {adapters_codex.EffortLocked(cfg['codex.effort'])}"
+        return
+    adapter = adapters_claude if route.name == "claude" else adapters_codex
     masked = _masked_images(project, batch_dir)
     if not masked:
         route.problem = f"route_unavailable: no masked image for this batch; {NOT_MASKED}"
@@ -755,9 +762,9 @@ def _attach_claude(route: Route, project: Path, batch_dir: Path, cfg: config_mod
         if page.page_id not in masked:
             raise NotMasked(f"route_unavailable: page {page.key} is not masked; {NOT_MASKED}")
         sha, path = masked[page.page_id]
-        return adapters_claude.read_page(path, sha, page_id=page.page_id, project=project, receipt_dir=receipts_dir,
-                                         isolation_receipt=isolation, ledger=ledger, routes_state=cloud.routes_state,
-                                         config=cfg, source_env=cloud.source_env, timeout_s=cloud.timeout_s).rows
+        return adapter.read_page(path, sha, page_id=page.page_id, project=project, receipt_dir=receipts_dir,
+                                 isolation_receipt=isolation, ledger=ledger, routes_state=cloud.routes_state,
+                                 config=cfg, source_env=cloud.source_env, timeout_s=cloud.timeout_s).rows
 
     route.call = call
 
@@ -843,8 +850,8 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
         if routed and any(specs[n].cloud for n in names):
             ledger = _load_ledger(batch_dir, cfg, cloud_opts)
             for name in names:
-                if specs[name].cloud and specs[name].name == "claude":
-                    _attach_claude(specs[name], project, batch_dir, cfg, cloud_opts, ledger)
+                if specs[name].cloud:
+                    _attach_cloud(specs[name], project, batch_dir, cfg, cloud_opts, ledger)
         runs: dict[str, RouteRun] = {}
         stop: str | None = None
         for name in names if routed else []:
