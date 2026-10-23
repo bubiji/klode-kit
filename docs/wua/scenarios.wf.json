@@ -1,0 +1,32 @@
+{
+  "title": "klode-kit 常用场景（通用版）",
+  "title_en": "klode-kit common scenarios (generic)",
+  "source": "04-需求摘要与usercase.md 拍板 2：就是 6 个场景（U1–U6；U7/U8 是使用面，不是新场景）。全部为通用、合成说法。",
+  "roles": [
+    {"id": "family_ward", "zh": "家属（住院期）", "en": "Family (inpatient)"},
+    {"id": "family_clinic", "zh": "家属（门诊）", "en": "Family (outpatient)"},
+    {"id": "remote", "zh": "异地家人", "en": "Remote family"},
+    {"id": "user", "zh": "用户", "en": "User"}
+  ],
+  "artifacts": [
+    {"id": "shots", "kind": "data", "zh": "当天截图", "en": "Screenshots"},
+    {"id": "photos", "kind": "data", "zh": "纸质单照片", "en": "Slip photos"},
+    {"id": "synced", "kind": "data", "zh": "_inbox 新图", "en": "_inbox images"},
+    {"id": "records", "kind": "data", "zh": "记录", "en": "Records"},
+    {"id": "pdf", "kind": "artifact", "zh": "指南 PDF", "en": "Guide PDF"},
+    {"id": "kb", "kind": "data", "zh": "知识库", "en": "Knowledge base"},
+    {"id": "question", "kind": "artifact", "zh": "问题", "en": "Question"},
+    {"id": "answer", "kind": "report", "zh": "带锚点回答", "en": "Anchored answer"},
+    {"id": "archive", "kind": "data", "zh": "历史批次", "en": "Archived batch"},
+    {"id": "redo", "kind": "data", "zh": "候选修订", "en": "Candidate revs"}
+  ],
+  "steps": [
+    {"id": "sc1", "scenario": 1, "zh": "住院期截图当天入库", "en": "Inpatient same-day", "role": "family_ward", "in": ["shots"], "out": ["records"]},
+    {"id": "sc2", "scenario": 2, "zh": "门诊纸质单拍照", "en": "Outpatient photos", "role": "family_clinic", "in": ["photos"], "out": ["records"]},
+    {"id": "sc3", "scenario": 3, "zh": "家人远程放 _inbox", "en": "Remote _inbox", "role": "remote", "in": ["synced"], "out": ["records"]},
+    {"id": "sc4", "scenario": 4, "zh": "指南 PDF 入库", "en": "Guide PDF", "role": "user", "in": ["pdf"], "out": ["kb"]},
+    {"id": "sc5", "scenario": 5, "zh": "查询问答", "en": "Q&A", "role": "user", "in": ["question"], "refers_to": ["kb", "records"], "out": ["answer"]},
+    {"id": "sc6", "scenario": 6, "zh": "历史资料重做 OCR", "en": "Redo OCR", "role": "user", "in": ["archive"], "out": ["redo"]}
+  ],
+  "loops": []
+}

@@ -1,6 +1,6 @@
 """WI-00d2: ``hostenv.mcp_get_status`` through the replay fake (child-process boundary; paired real path 00d2-06).
 
-The fake ``claude`` replays the recorded ``claude mcp get`` texts (tests/fixtures/host/mcp_get/), so this checks the
+The fake ``claude`` replays the recorded ``claude mcp get`` texts (tests/recordings/host/mcp_get/), so this checks the
 runner half - argv ``[claude, "mcp", "get", <name>]``, cwd, stdout+stderr joined - and that the parse is applied.
 """
 
@@ -14,7 +14,7 @@ from klode_kit import hostenv
 
 pytestmark = pytest.mark.contract_replay
 
-REC = REPO / "tests" / "fixtures" / "host" / "mcp_get"
+REC = REPO / "tests" / "recordings" / "host" / "mcp_get"
 
 
 @pytest.mark.parametrize("name, expected, rc", [("connected", "connected", 0), ("pending", "pending", 0),

@@ -2,7 +2,7 @@
 
 ``hostenv.parse_mcp_get(text)`` maps the text of ``claude mcp get <name>`` to one of
 ``connected | pending | failed | missing | unknown``. Inputs are real recordings (Claude Code 2.1.285,
-tests/fixtures/host/mcp_get/); the paired real path is 00d2-06 (host_acceptance).
+tests/recordings/host/mcp_get/); the paired real path is 00d2-06 (host_acceptance).
 
 ``hostenv.trusted(path, claude_json=..., home=..., env=...)`` answers question ⑬ from the documented trust store
 (docs: permissions "Project allow rules and workspace trust"; errors "workspace has not been trusted"):
@@ -31,7 +31,7 @@ from klode_kit import hostenv
 
 pytestmark = pytest.mark.unit
 
-REC = REPO / "tests" / "fixtures" / "host" / "mcp_get"
+REC = REPO / "tests" / "recordings" / "host" / "mcp_get"
 
 
 def _rec(name: str) -> str:

@@ -1,0 +1,40 @@
+{
+  "title": "klode-kit 用户用例 U1–U8（通用版）",
+  "title_en": "klode-kit user cases U1-U8 (generic)",
+  "source": "04-需求摘要与usercase.md §6。示例全部合成（假名、假编号、假药「示例片」）。",
+  "roles": [
+    {"id": "family", "zh": "家属", "en": "Family"},
+    {"id": "remote", "zh": "异地家人", "en": "Remote family"},
+    {"id": "user", "zh": "用户", "en": "User"}
+  ],
+  "artifacts": [
+    {"id": "shots", "kind": "data", "zh": "当天截图", "en": "Screenshots"},
+    {"id": "ocr_receipt", "kind": "report", "zh": "OCR receipt", "en": "OCR receipt"},
+    {"id": "confirm_page", "kind": "artifact", "zh": "确认页", "en": "Confirm page"},
+    {"id": "photos", "kind": "data", "zh": "歪斜照片", "en": "Skewed photos"},
+    {"id": "masked", "kind": "data", "zh": "打码图", "en": "Masked images"},
+    {"id": "synced", "kind": "data", "zh": "同步新图", "en": "Synced images"},
+    {"id": "records", "kind": "data", "zh": "待确认记录", "en": "Pending records"},
+    {"id": "pdf", "kind": "artifact", "zh": "指南 PDF", "en": "Guide PDF"},
+    {"id": "kb", "kind": "data", "zh": "知识库", "en": "Knowledge base"},
+    {"id": "question", "kind": "artifact", "zh": "问题", "en": "Question"},
+    {"id": "answer", "kind": "report", "zh": "带锚点回答", "en": "Anchored answer"},
+    {"id": "archive", "kind": "data", "zh": "历史批次", "en": "Archived batch"},
+    {"id": "new_fp", "kind": "data", "zh": "新指纹目录", "en": "New fp dir"},
+    {"id": "book", "kind": "artifact", "zh": "合成样书", "en": "Sample book"},
+    {"id": "build_receipt", "kind": "report", "zh": "build receipt", "en": "build receipt"},
+    {"id": "choices", "kind": "data", "zh": "choices.json", "en": "choices.json"},
+    {"id": "verified", "kind": "data", "zh": "verified 记录", "en": "Verified records"}
+  ],
+  "steps": [
+    {"id": "u1", "usecase": "U1", "zh": "U1 截图入库", "en": "Same-day intake", "role": "family", "in": ["shots"], "out": ["ocr_receipt", "confirm_page"]},
+    {"id": "u2", "usecase": "U2", "zh": "U2 拍照读图", "en": "Photo OCR", "role": "family", "in": ["photos"], "out": ["masked"]},
+    {"id": "u3", "usecase": "U3", "zh": "U3 跑流水线", "en": "Run pipeline", "role": "remote", "in": ["synced"], "out": ["records"]},
+    {"id": "u4", "usecase": "U4", "zh": "U4 PDF 建库", "en": "PDF to KB", "role": "user", "in": ["pdf"], "out": ["kb"]},
+    {"id": "u5", "usecase": "U5", "zh": "U5 问 expert", "en": "Ask expert", "role": "user", "in": ["question"], "refers_to": ["kb"], "out": ["answer"]},
+    {"id": "u6", "usecase": "U6", "zh": "U6 重做 OCR", "en": "Redo OCR", "role": "user", "in": ["archive"], "out": ["new_fp"]},
+    {"id": "u7", "usecase": "U7", "zh": "U7 书建库", "en": "Book to KB", "role": "user", "in": ["book"], "out": ["build_receipt"]},
+    {"id": "u8", "usecase": "U8", "zh": "U8 点选写回", "en": "Pick, write back", "role": "user", "in": ["confirm_page"], "out": ["choices", "verified"]}
+  ],
+  "loops": []
+}

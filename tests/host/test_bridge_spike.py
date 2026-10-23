@@ -32,7 +32,7 @@ from klode_kit.devtools import spike_check_card
 AURORA = (REPO / "tests" / "fixtures" / "fx-book-aurora" / "aurora-kettle.txt").read_text(encoding="utf-8")
 CH1 = AURORA[AURORA.index("Chapter 1:"):AURORA.index("Chapter 2:")].strip() + "\n"
 PLUGIN = json.loads((REPO / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-MINI_MCP = REPO / "tests" / "fixtures" / "host" / "mini_mcp_server.py"
+MINI_MCP = REPO / "tests" / "recordings" / "host" / "mini_mcp_server.py"
 BUILD_ID = "b-20261023T000000Z-0123abcd"
 
 CARD_FORMAT = """Card format (the checker enforces every rule):

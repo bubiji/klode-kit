@@ -2,7 +2,7 @@
 
 - 日期：2026-10-23；Claude Code 2.1.285（macOS arm64，claude.ai 订阅登录）；闸门 G2 授权 `KLODE_KIT_GATE_ACK=G2-20261023`。
 - 只用合成数据：`fx-book-aurora` 第 1 章、`fx-u3-mixed`（只当作 inbox 文件做哈希）、合成 kb `fx-labs-3x`（只有 `builds/<id>/` 与 `current`）、
-  `tests/fixtures/host/mini_mcp_server.py`（合成 MCP 服务器）。
+  `tests/recordings/host/mini_mcp_server.py`（合成 MCP 服务器）。
 - 实验目录：`tests/host/_lab/`（gitignored，位于已信任的仓库根之内，G5 不需要用户再操作）。
 - 原始证据（gitignored，含本机路径）：`work/host-spike/<用例>-<时间戳>/`（argv、stdout JSON、stderr、bridge receipt、卡片副本）、
   费用台账 `work/host-spike/costs.jsonl`。
@@ -24,7 +24,7 @@
 | (b) `/klode-kit:kb-pipeline` 两段式 | **PASS**：第一段 audit exit 10、`awaiting_confirm`；`args.resume` 第二段到 `done`；第一段 3 个 receipt 字节不变 | 00d2-03/04 |
 | ⑪ headless（`claude -p --plugin-dir .`）能否跑 Workflow | **可行**。`-p` 会等后台 workflow 结束再输出最终结果（墙钟 35–37 s，`duration_ms` 约 6 s） | 00d2-03/04 的 stdout JSON；docs workflows「Approve the plan before it runs」「Turn workflows off」 |
 | ⑬ 信任状态可编程探测 | **可探测**（读 `~/.claude.json` 的文档化键，只读），写进 `src/klode_kit/hostenv.py::trusted()`；读不到时返回 `"undetectable"` | 00d2-05：`_lab` → True，新 tmp → False；宿主行为交叉验证（同配置 Connected / Pending） |
-| ⑮ `claude mcp get` 遇 `env` 键能否解析 connected | **能**。`env` 显示在独立的 `Environment:` 块，不影响 `Status:` 行 | 00d2-06；录制 `tests/fixtures/host/mcp_get/*.txt`；S6 性质测试 |
+| ⑮ `claude mcp get` 遇 `env` 键能否解析 connected | **能**。`env` 显示在独立的 `Environment:` 块，不影响 `Status:` 行 | 00d2-06；录制 `tests/recordings/host/mcp_get/*.txt`；S6 性质测试 |
 | R2-11 插件命名空间入口 | **PASS**：`claude -p --plugin-dir . "/klode-kit:kb-check --kb <合成库>"` 写出的 check_receipt 中 name/version/entry 与 plugin.json、`skill:/klode-kit:kb-check` 一致，root_sha 与本地计算一致 | 00d2-07 |
 | 费用 | 合计 **$1.50**（`total_cost_usd`，客户端估算；实际走订阅）；每次 `--max-budget-usd` ≤ 3 | §6 |
 

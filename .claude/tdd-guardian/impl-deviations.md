@@ -58,3 +58,5 @@
 | WI-00d2 | writer agent tools 补 `StructuredOutput`（`--agent` 下工具受 agent tools 限制）；Glob/Grep 实测存在（与 00d1 记录相反） | 接受 |
 | WI-00d2 | 风险 R-1：writer 会话加载用户全局 CLAUDE.md 与用户级 agents/plugins | 交 WI-12（writer argv 加 `--setting-sources`/隔离评估） |
 | WI-00d2 | 临时替身命令 `check-cards`（WI-02a 替换）、`kb-check`（WI-13a 补全）、`dev spike-pipeline`；新增顶层 `.claude-plugin/ skills/ workflows/` 尚未写进目录说明 | WI-30 文档补齐 |
+| WI-00e | 三张 WUA 图（scenarios 6 场景 / usecases U1–U8 / pipeline 7 阶段、唯一人工「点选」、L1–L3 回路、状态机 extracted→pending_confirm→verified|disputed）；auto-verified 与缺路 disputed 两条直达路径只写在 pipeline.wf.json 的 source 说明（00e-06 要求恰三条边）；00e-10 依赖 001 wfviz 输出不变，wfviz 升级需重渲染 | 接受 |
+| 主会话（M0 收尾） | WI-00d2 的 `tests/fixtures/host/`（手工录制 + mini MCP server）移到 `tests/recordings/host/`（同 WI-00c3 方案 B），改 3 个测试文件的路径常量与文档路径；fixtures MANIFEST 重生成、recordings MANIFEST 重写（旧件在 _trash/manifest-fix/、_trash/fixtures-20261023T022211Z/） | 机械搬迁，断言未变 |

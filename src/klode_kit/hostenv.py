@@ -1,7 +1,7 @@
 """Host environment probes (WI-00d2): ``claude mcp get`` status parsing (⑮) and the workspace-trust probe (⑬).
 
 ``parse_mcp_get(text)`` - the text ``claude mcp get <name>`` prints (Claude Code 2.1.285, recordings in
-tests/fixtures/host/mcp_get/) -> ``connected | pending | failed | missing | unknown``. Only the server-level
+tests/recordings/host/mcp_get/) -> ``connected | pending | failed | missing | unknown``. Only the server-level
 ``  Status:`` line (two-space indent, before any ``Environment:`` block) is read, so the ``env`` entries of an
 ``.mcp.json`` server (the r4.2 ``KLODE_KIT_BUILD`` marker) never move the result (⑮). Anything unrecognised is
 ``unknown`` - never ``connected``.
