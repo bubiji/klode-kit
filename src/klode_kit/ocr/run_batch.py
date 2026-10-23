@@ -3,7 +3,7 @@
 
 Usage::
 
-    klode-kit kb-ocr --batch <inbox dir> [--project <data project>] [--routes vision,mlx,claude,codex] [--redo]
+    klode-kit kb-ocr --batch <inbox dir or PDF> [--project <data project>] [--routes vision,mlx,claude,codex] [--redo]
 
 Layout (``<batch>`` is ``batch_id``, the set hash of the images)::
 
@@ -50,12 +50,31 @@ Test seam: ``KLODE_KIT_ENGINE_REPLAY=<dir>`` replaces every route call by record
 this process; neither: no page) and appends each call to ``$KLODE_KIT_FAKE_LOG``. Honoured only when the test
 seams are active (``KLODE_KIT_TEST_SEAMS=1`` and ``KLODE_KIT_REAL != 1``); otherwise stderr says it is ignored.
 
+PDF input (WI-04c; design 02 r2.4 "文字层 PDF"): ``--batch`` may be a PDF file, and ``.pdf`` files in an inbox
+are documents. Needs poppler (``pdfinfo``, ``pdftotext``, ``pdftoppm``): a missing tool is exit 40 naming it,
+before anything is written. Every page is read with ``pdftotext -bbox-layout``, classified ``text`` / ``empty``
+/ ``garbled`` (``text_layer.min_chars`` / ``garbage_max``, see ``textlayer``) and rendered at
+``textlayer.DEFAULT_DPI`` as its derived image. ``text`` pages never go to the routes (their route state is
+``skipped``); ``empty`` and ``garbled`` pages do, like images. Outputs::
+
+    work/<batch>/text/<key>.jsonl             pdftext ``ocr_line`` rows of a ``text`` page
+    work/<batch>/text/<doc_id>_whole.txt      the PDF's text pages as one text (``text_to_whole``)
+    work/<batch>/page_map.jsonl               per PDF page: page_id, key, class, dpi, size_px, whole,
+                                              first_line, n_lines
+
+A PDF that cannot be read stops the batch before any extraction is written: exit 2, stderr and the batch
+receipt (``status: failed``, ``errors: [{path, reason: pdf_unreadable, detail}]``) name it.
+
 Batch receipt ``klode-kit.ocr_batch/1`` (no wall-clock fields, so equal runs give equal bytes)::
 
-    {schema, batch_id, routes, route_retry, status: done|incomplete, skipped: [{path, reason}],
-     pages: [{key, doc_id, page_id, img_sha256, der_sha256, rotate, source,
-              routes: {engine: {status, run_id?, file?, tries?, error?}}, uncertain: [...]}],
-     attempts: {engine: {run_id, dir, status}}, issues: ["<state>:<engine>:<key>", ...]}
+    {schema, batch_id, routes, route_retry, status: done|incomplete|failed, skipped: [{path, reason}],
+     text_layer: true|false|"partial", routes_skipped: [engine, ...],
+     pages: [{key, doc_id, page_id, img_sha256, der_sha256, rotate, source, text_class?, text_file?,
+              routes: {engine: {status, run_id?, file?, tries?, error?, reason?}}, uncertain: [...]}],
+     attempts: {engine: {run_id, dir, status}}, issues: ["<state>:<engine>:<key>", ...], errors?: [...]}
+
+``text_layer`` is true when every page is a PDF ``text`` page, ``"partial"`` when some are, false otherwise;
+``routes_skipped`` lists the requested routes when no page needs them (U4), else is empty.
 """
 
 from __future__ import annotations
@@ -80,7 +99,9 @@ from klode_kit import __version__, receipts
 from klode_kit import config as config_mod
 from klode_kit.contract import ids, schema
 from klode_kit.ocr import engines as E
-from klode_kit.ocr.manifest import Batch, InboxError, Page, dumps_jsonl, plan, scan
+from klode_kit.ocr import textlayer
+from klode_kit.ocr.manifest import Batch, InboxError, Page, Source, dumps_jsonl, plan, scan
+from klode_kit.ocr.text_to_whole import text_to_whole
 from klode_kit.seams import crashpoint, seams_active
 
 RECEIPT_SCHEMA = "klode-kit.ocr_batch/1"
@@ -401,19 +422,19 @@ class RouteRun:
     pages: dict[str, dict]
 
 
-def _run_route(route: Route, batch: Batch, batch_dir: Path, cfg: config_mod.Config, redo: bool,
+def _run_route(route: Route, pages: list[Page], batch_dir: Path, cfg: config_mod.Config, redo: bool,
                out: TextIO) -> RouteRun:
     if route.problem is not None:
         return RouteRun(None, None, "failed", {p.key: {"status": "route_failed", "error": route.problem}
-                                                for p in batch.pages})
-    ders = [p.der_sha256 for p in batch.pages]
+                                                for p in pages})
+    ders = [p.der_sha256 for p in pages]
     fp = ids.cfg_fp(cfg, prompt_sha=route.prompt_sha, schema_sha=route.schema_sha, model=route.model,
                     effort=route.effort, adapter_code_version=f"{__version__}/{ADAPTER_VERSION}", der_sha256s=ders)
-    inputs_hash = _sha(_canonical([[p.key, p.page_id, p.der_sha256] for p in batch.pages]))
+    inputs_hash = _sha(_canonical([[p.key, p.page_id, p.der_sha256] for p in pages]))
     config_hash = _sha(_canonical({"config": json.loads(cfg.canonical()), "route": route.name, "model": route.model,
                                    "effort": route.effort, "prompt_sha": route.prompt_sha,
                                    "schema_sha": route.schema_sha, "adapter": f"{__version__}/{ADAPTER_VERSION}"}))
-    keys = [p.key for p in batch.pages]
+    keys = [p.key for p in pages]
     existing = _attempt_dirs(batch_dir / "ocr" / route.name, fp)
     seq, directory, mode = (existing[-1][0], existing[-1][1], "") if existing else (0, None, "")
     if directory is not None and not redo:
@@ -437,7 +458,7 @@ def _run_route(route: Route, batch: Batch, batch_dir: Path, cfg: config_mod.Conf
     started = _now()
     results: dict[str, dict] = {}
     outputs = []
-    for page in batch.pages:
+    for page in pages:
         target = directory / f"{page.key}.jsonl"
         if not (mode == "continue" and target.is_file() and _existing_rows(target, page)):
             state, tries, error, rows = _call(route, page, retry)
@@ -478,22 +499,101 @@ def _uncertain(page: Page, engine: str, result: dict) -> dict:
             "fix_action": fix}
 
 
+SKIPPED = {"status": "skipped", "reason": "text_layer"}
+
+
+def _routed(page: Page) -> bool:
+    return page.text_class != "text"
+
+
+def _text_layer(pages: list[Page]) -> bool | str:
+    text = sum(1 for p in pages if p.text_class == "text")
+    return True if pages and text == len(pages) else ("partial" if text else False)
+
+
 def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, skipped: list[dict],
                    runs: dict[str, RouteRun], batch_dir: Path) -> dict:
     pages, issues = [], []
     for page, der in zip(batch.pages, batch.derived):
-        per = {r: runs[r].pages[page.key] for r in routes}
-        unc = [_uncertain(page, r, per[r]) for r in routes if per[r]["status"] != "done"]
-        issues += [f"{per[r]['status']}:{r}:{page.key}" for r in routes if per[r]["status"] != "done"]
-        pages.append({"key": page.key, "doc_id": page.doc_id, "page_id": page.page_id,
-                      "img_sha256": page.img_sha256, "der_sha256": page.der_sha256, "rotate": page.rotate,
-                      "source": next(m["path"] for m in batch.manifest if m["img_sha256"] == page.img_sha256),
-                      "derived": der["path"], "routes": per, "uncertain": unc})
+        if not _routed(page):
+            per = {r: dict(SKIPPED) for r in routes}
+        else:
+            per = {r: runs[r].pages[page.key] for r in routes}
+        unc = [_uncertain(page, r, per[r]) for r in routes if per[r]["status"] not in ("done", "skipped")]
+        issues += [f"{per[r]['status']}:{r}:{page.key}" for r in routes if per[r]["status"] not in ("done", "skipped")]
+        entry = {"key": page.key, "doc_id": page.doc_id, "page_id": page.page_id,
+                 "img_sha256": page.img_sha256, "der_sha256": page.der_sha256, "rotate": page.rotate,
+                 "source": next(m["path"] for m in batch.manifest if m["img_sha256"] == page.img_sha256),
+                 "derived": der["path"], "routes": per, "uncertain": unc}
+        if page.text_class is not None:
+            entry["text_class"] = page.text_class
+            if page.text_class == "text":
+                entry["text_file"] = f"text/{page.key}.jsonl"
+        pages.append(entry)
     attempts = {r: {"run_id": run.run_id, "dir": run.directory.relative_to(batch_dir).as_posix(), "status": run.status}
                 for r, run in runs.items() if run.directory is not None and run.run_id is not None}
+    any_routed = any(_routed(p) for p in batch.pages)
     return {"schema": RECEIPT_SCHEMA, "batch_id": batch.batch_id, "routes": routes, "route_retry": retry,
             "status": "done" if not issues else "incomplete", "skipped": skipped, "pages": pages,
-            "attempts": attempts, "issues": issues}
+            "attempts": attempts, "issues": issues, "text_layer": _text_layer(batch.pages),
+            "routes_skipped": [] if any_routed else list(routes)}
+
+
+def _read_pdfs(sources: list[Source], cfg: config_mod.Config, tools: dict[str, str]) -> tuple[dict, list[dict]]:
+    pages: dict[str, list] = {}
+    errors: list[dict] = []
+    for src in sources:
+        if src.sha256 in pages:
+            continue
+        try:
+            pages[src.sha256] = textlayer.read_pdf(src.path, min_chars=cfg["text_layer.min_chars"],
+                                                   garbage_max=cfg["text_layer.garbage_max"], tools=tools)
+        except textlayer.PdfUnreadable as exc:
+            errors.append({"path": src.name, "reason": "pdf_unreadable", "detail": str(exc)})
+    return pages, errors
+
+
+def _text_outputs(batch: Batch, project: Path, batch_dir: Path) -> list[str]:
+    """Write text/<key>.jsonl, text/<doc>_whole.txt and page_map.jsonl; returns the written relative paths."""
+    written: list[str] = []
+    page_map: list[dict] = []
+    docs: dict[str, list[dict]] = {}
+    for page in batch.pages:
+        if page.pdf_page is None:
+            continue
+        pp = page.pdf_page
+        lines: list[str] = []
+        if page.text_class == "text":
+            rows = textlayer.pdftext_rows(pp.text, page_id=page.page_id, der_sha256=page.der_sha256, dpi=pp.dpi)
+            rel = f"text/{page.key}.jsonl"
+            _write_meta(batch_dir / rel, dumps_jsonl(rows))
+            written.append(rel)
+            lines = [r["text"] for r in rows]
+        docs.setdefault(page.doc_id, []).append({
+            "page_id": page.page_id, "key": page.key, "class": page.text_class, "dpi": pp.dpi,
+            "size_px": list(pp.size_px), "whole": f"text/{page.doc_id}_whole.txt", "lines": lines})
+    for doc, rows in docs.items():
+        whole, pm = text_to_whole(rows)
+        rel = f"text/{doc}_whole.txt"
+        _write_meta(batch_dir / rel, whole.encode("utf-8"))
+        written.append(rel)
+        page_map += pm
+    if page_map:
+        _write_meta(batch_dir / "page_map.jsonl", dumps_jsonl(page_map))
+        written.append("page_map.jsonl")
+    return written
+
+
+def _fail_receipt(work: Path, batch_id: str, names: list[str], retry: int, skipped: list[dict],
+                  errors: list[dict]) -> Path:
+    batch_dir = work / batch_id
+    _ensure_dir(batch_dir)
+    rec = {"schema": RECEIPT_SCHEMA, "batch_id": batch_id, "routes": names, "route_retry": retry,
+           "status": "failed", "skipped": skipped, "errors": errors, "pages": [], "attempts": {}, "issues": [],
+           "text_layer": False, "routes_skipped": []}
+    path = batch_dir / "receipt.json"
+    _write_meta(path, (json.dumps(rec, ensure_ascii=False, indent=1, sort_keys=True) + "\n").encode("utf-8"))
+    return path
 
 
 def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bool = False,
@@ -525,7 +625,33 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
                   f"{REPLAY_VAR}", file=out)
     enabled = routes_enabled_default() if routes_enabled is None else dict(routes_enabled)
     work = project / "work"
-    batch = plan(images, project, work)
+    pdfs = [s for s in images if s.kind == "pdf"]
+    pdf_pages: dict = {}
+    if pdfs:
+        try:
+            tools = textlayer.require_tools()
+        except textlayer.PopplerMissing as exc:
+            print(f"kb-ocr: {exc}", file=out)
+            return ENV_EXIT
+        pdf_pages, errors = _read_pdfs(pdfs, cfg, tools)
+        if errors:
+            batch_id = ids.batch_id([s.sha256 for s in images])
+            _ensure_dir(work)
+            try:
+                lock = _lock(work, batch_id)
+            except LockBusy as exc:
+                print(f"kb-ocr: {exc}", file=out)
+                return ENV_EXIT
+            try:
+                path = _fail_receipt(work, batch_id, names, cfg["route_retry"], skipped, errors)
+            finally:
+                os.close(lock)
+            for e in errors:
+                print(f"kb-ocr: {e['reason']}: {e['path']} ({e['detail']})", file=out)
+            print(f"kb-ocr: batch {batch_id} stopped, nothing extracted; receipt {path}", file=out)
+            return USAGE_EXIT
+    batch = plan(images, project, work, pdf_pages)
+    routed = [p for p in batch.pages if _routed(p)]
     specs = build_routes(names, cfg, enabled, replay)
     _ensure_dir(work)
     try:
@@ -542,10 +668,12 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
                 _write_meta(page.derived_path, page.derived_bytes)
         _write_meta(batch_dir / "manifest.jsonl", dumps_jsonl(batch.manifest))
         _write_meta(batch_dir / "derived.jsonl", dumps_jsonl(batch.derived))
+        text_files = _text_outputs(batch, project, batch_dir)
         started = _now()
-        runs = {name: _run_route(specs[name], batch, batch_dir, cfg, redo, out) for name in names}
+        runs = {name: _run_route(specs[name], routed, batch_dir, cfg, redo, out) for name in names} if routed else {}
         rec = _batch_receipt(batch, project, names, cfg["route_retry"], skipped, runs, batch_dir)
-        outputs = [{"path": n, "sha256": _sha((batch_dir / n).read_bytes())} for n in ("manifest.jsonl", "derived.jsonl")]
+        outputs = [{"path": n, "sha256": _sha((batch_dir / n).read_bytes())}
+                   for n in ("manifest.jsonl", "derived.jsonl", *text_files)]
         outputs += [{"path": r["file"], "sha256": _sha((batch_dir / r["file"]).read_bytes())}
                     for p in rec["pages"] for r in p["routes"].values() if r["status"] == "done"]
         _write_receipt(batch_dir / "receipts" / "ocr.json", {
@@ -560,8 +688,10 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
     for page in rec["pages"]:
         for r in names:
             res = page["routes"][r]
-            if res["status"] != "done":
+            if res["status"] not in ("done", "skipped"):
                 print(f"kb-ocr: {res['status']}:{r}:{page['key']} ({res.get('error')})", file=out)
+    if rec["routes_skipped"]:
+        print(f"kb-ocr: text layer on every page; routes skipped: {','.join(rec['routes_skipped'])}", file=out)
     print(f"kb-ocr: batch {batch.batch_id}: {len(batch.pages)} page(s), routes {','.join(names)}, "
           f"{len(rec['issues'])} issue(s); receipt {(batch_dir / 'receipt.json')}", file=out)
     return 0
@@ -569,7 +699,7 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
 
 def main(argv: list[str] | None = None, *, routes_enabled: Mapping[str, bool] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="klode-kit kb-ocr", description="OCR a directory of images on four routes.")
-    parser.add_argument("--batch", required=True, type=Path, help="inbox directory with the images")
+    parser.add_argument("--batch", required=True, type=Path, help="inbox directory with the images/PDFs, or one PDF")
     parser.add_argument("--project", type=Path, default=None, help="data project directory (default: cwd)")
     parser.add_argument("--routes", default=None, help="comma-separated subset of vision,mlx,claude,codex")
     parser.add_argument("--redo", action="store_true", help="always start new attempts (never reuse done ones)")

@@ -10,6 +10,11 @@
   ``<doc_id>/p001`` (an image is always page 1), orientation (``orient.upright``) and one ``derived`` line.
   An upright page's derived image is the original file (same sha); a turned page's is
   ``<batch dir>/derived/<key>.png``.
+- PDF input (WI-04c): ``.pdf`` files are documents of kind ``pdf`` (not decoded here; ``textlayer.read_pdf``
+  reads them). ``plan`` takes their pages (``pdf_pages[img_sha256]``) and makes one page per PDF page: key
+  ``p<NNN>`` in batch order, ``page_id`` ``<doc_id>/p<page number>``, rotate 0, the page rendered at its dpi as
+  the derived image ``<batch dir>/derived/<key>.png`` (``transform.render_dpi``), and ``text_class``
+  ``text``/``empty``/``garbled``. ``inbox`` may also be a single PDF file.
 
 Paths in the manifest and derived lines are relative to the data project when they lie inside it (posix),
 absolute otherwise.
@@ -23,12 +28,13 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping, Sequence
 
 from klode_kit.contract import ids, schema
 from klode_kit.ocr import orient
 
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg")
+PDF_SUFFIX = ".pdf"
 
 
 class InboxError(ValueError):
@@ -41,6 +47,7 @@ class Source:
     name: str
     data: bytes
     sha256: str
+    kind: str = "image"
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,8 @@ class Page:
     source: Path
     derived_path: Path
     derived_bytes: bytes | None  # None: the derived image is the source file itself
+    text_class: str | None = None  # PDF pages: text | empty | garbled
+    pdf_page: Any = None  # PDF pages: the textlayer.PdfPage
 
 
 @dataclass(frozen=True)
@@ -80,6 +89,9 @@ def _decodes(data: bytes) -> bool:
 def scan(inbox: str | os.PathLike) -> tuple[list[Source], list[dict]]:
     """Images and skipped entries of ``inbox`` (top level only, sorted by name)."""
     root = Path(inbox)
+    if root.is_file() and root.suffix.lower() == PDF_SUFFIX:
+        data = root.read_bytes()
+        return [Source(root, root.name, data, hashlib.sha256(data).hexdigest(), "pdf")], []
     if not root.is_dir():
         raise InboxError(f"inbox is not a directory: {root}")
     images: list[Source] = []
@@ -87,6 +99,10 @@ def scan(inbox: str | os.PathLike) -> tuple[list[Source], list[dict]]:
     for entry in sorted(root.iterdir(), key=lambda p: p.name):
         if entry.is_dir():
             skipped.append({"path": entry.name, "reason": "directory"})
+            continue
+        if entry.suffix.lower() == PDF_SUFFIX:
+            data = entry.read_bytes()
+            images.append(Source(entry, entry.name, data, hashlib.sha256(data).hexdigest(), "pdf"))
             continue
         if entry.suffix.lower() not in IMAGE_SUFFIXES:
             skipped.append({"path": entry.name, "reason": "not_image"})
@@ -107,8 +123,10 @@ def display_path(path: Path, project: Path) -> str:
         return str(path)
 
 
-def plan(images: Iterable[Source], project: str | os.PathLike, batch_root: str | os.PathLike) -> Batch:
-    """Manifest, pages and derived lines for ``images``; ``batch_root`` is ``<project>/work``."""
+def plan(images: Iterable[Source], project: str | os.PathLike, batch_root: str | os.PathLike,
+         pdf_pages: Mapping[str, Sequence[Any]] | None = None) -> Batch:
+    """Manifest, pages and derived lines for ``images``; ``batch_root`` is ``<project>/work``; ``pdf_pages``
+    maps the ``img_sha256`` of every PDF source to its ``textlayer.PdfPage`` list."""
     images = list(images)
     project = Path(project)
     shas = [s.sha256 for s in images]
@@ -117,13 +135,24 @@ def plan(images: Iterable[Source], project: str | os.PathLike, batch_root: str |
     manifest, derived, pages = [], [], []
     for source, dup in zip(images, ids.duplicate_flags(shas)):
         doc = ids.doc_id(source.sha256)
-        line: dict[str, Any] = {"doc_id": doc, "img_sha256": source.sha256, "kind": "image",
+        line: dict[str, Any] = {"doc_id": doc, "img_sha256": source.sha256, "kind": source.kind,
                                 "path": display_path(source.path, project)}
         if dup:
             line["duplicate"] = True
             manifest.append(line)
             continue
         manifest.append(line)
+        if source.kind == "pdf":
+            for pp in (pdf_pages or {})[source.sha256]:
+                key = f"p{len(pages) + 1:03d}"
+                der, der_path = hashlib.sha256(pp.png).hexdigest(), batch_dir / "derived" / f"{key}.png"
+                page = Page(key, doc, ids.page_id(doc, pp.number), source.sha256, der, 0, source.path, der_path,
+                            pp.png, pp.classification.kind, pp)
+                pages.append(page)
+                derived.append({"der_sha256": der, "parent": source.sha256, "page_id": page.page_id,
+                                "path": display_path(der_path, project),
+                                "transform": {"rotate": 0, "crop": None, "mask_boxes": [], "render_dpi": pp.dpi}})
+            continue
         key = f"p{len(pages) + 1:03d}"
         rotate, data = orient.upright(source.data)
         if rotate == 0:

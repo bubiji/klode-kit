@@ -64,3 +64,5 @@
 | WI-04b | run_batch / orient / manifest；新测试缝 `KLODE_KIT_ENGINE_REPLAY`（仅测试模式生效）→ doctor（WI-10b）须把它列入残留测试缝检查；页键 `p<NNN>` 按文件名排序的不重复图位置；批次 receipt `work/<batch>/receipt.json`（schema `klode-kit.ocr_batch/1`，代码内定义）；exit 0=跑完（route 问题记 receipt+stderr）、2=用法（含 no images）、40=配置/锁；不可用的路记 route_failed（route_disabled / route_unavailable）不致命；orient 为左对齐横排文档的启发式；degenerate_output 并入批次 receipt 留给 WI-08a | 接受；WI-10b 派工时写明 ENGINE_REPLAY |
 | WI-04b | Pillow 由 dev 组移到运行时依赖（主会话执行 `uv add pillow>=13.0`，G4） | — |
 | WI-04b | 已记录测试 test_apply_rejects_non_right_angles 在 `-W error` 下有 ResourceWarning（图像未关闭）；常规 lane 不受影响 | 记录，不改 |
+| WI-04c | 文字层分流：乱码字符集面向中日文（Latin-1 字母算乱码 → 走 OCR，安全方向）；渲染 dpi 为代码常量 300（不进 config 以免改 cfg_fp）；所有 PDF 页都渲染（使 pdftext 行的 der_sha256 是已登记衍生图）；PDF 页不转正；坏 PDF 整批 exit 2；批次 receipt 恒带 text_layer / routes_skipped | 接受 |
+| WI-04c | **待定**：pdftext 行写在 `work/<batch>/text/<key>.jsonl`（r2.4 / 04c-06），而 fx-chain `legal-pdftext_dpi` 放 `ocr/pdftext/<fp>.t1/`、provenance.Layout 只扫 `ocr/`；pdftext 行无 run_id | WI-07a 派工时决定：provenance Layout 增扫 `text/`（推荐，保持 04c 落盘位置） |
