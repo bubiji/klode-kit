@@ -151,3 +151,42 @@ REAL_ENTRIES: dict[str, RealEntry] = {
     "send": RealEntry("send", "WI-05b"),
     "writeback": RealEntry("writeback", "WI-08c"),
 }
+
+
+# --- run_batch (WI-04b) ------------------------------------------------------------------
+# Enumeration list of 04b-13 (tests/contract/test_run_batch.py crashes at each point, then resumes).
+RUN_BATCH_CRASHPOINTS = frozenset({
+    "run_batch.mkdir",            # after each directory run_batch creates (work/, the batch dir)
+    "run_batch.lock",             # after the project lock file is opened and locked
+    "run_batch.meta_tmp",         # manifest / derived / batch receipt: temporary file written
+    "run_batch.meta_replaced",    # ... and moved into place
+    "ids.mkdir",                  # attempt allocation: ocr/, ocr/<engine>/
+    "ids.attempt_mkdir",          # attempt directory claimed
+    "run_batch.before_replace",   # page file: temporary written, not yet in place (matrix 04b-13)
+    "run_batch.page_done",        # page file moved into place
+    "receipts.mkdir",             # receipts/ created by the step receipt write
+    "receipts.before_replace",    # attempt / step receipt temporary written
+    "run_batch.receipt_written",  # after an attempt / step receipt is in place
+})
+
+
+def _run_batch_runner(tmp_path: Path, env: Mapping[str, str]) -> list[Path]:
+    """Normal ``python -m klode_kit kb-ocr`` of fx-labs-1x on all four replayed routes into a fresh project."""
+    fixture = REPO / "tests" / "fixtures" / "fx-labs-1x"
+    root = tmp_path / "run-batch-flow"
+    root.mkdir()
+    flow_env = dict(env)
+    flow_env.update({
+        "KLODE_KIT_ENGINE_REPLAY": str(fixture / "engine"),
+        "KLODE_KIT_FAKE_LOG": str(tmp_path / "run-batch-calls.jsonl"),
+        "KLODE_KIT_TEST_SEAMS": "1",
+    })
+    flow_env.pop("KLODE_KIT_REAL", None)
+    res = run_module("klode_kit", ["kb-ocr", "--batch", str(fixture / "images"), "--project", str(root)],
+                     flow_env, timeout=120)
+    assert res.returncode == 0, res.stderr.decode()
+    assert len(list((root / "work").glob("*/ocr/*/*/p001.jsonl"))) == 4
+    return [root]
+
+
+REAL_FLOWS["run_batch"] = RealFlow("run_batch", "04b-13", "WI-04b", _run_batch_runner, RUN_BATCH_CRASHPOINTS)

@@ -24,6 +24,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "check-cards": ("klode_kit.devtools.spike_check_card:main", "check one card (WI-00d2 spike gate; WI-02a replaces)"),
     "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block"),
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
+    "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR [--project DIR] [--routes a,b] [--redo]: OCR an image inbox"),
 }
 
 

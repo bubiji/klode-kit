@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
     "jsonschema>=4.23",
+    "pillow>=13.0",
 ]
 
 [dependency-groups]
@@ -18,7 +19,6 @@ dev = [
     "mutmut>=3.2",
     "jsonschema>=4.23",
     "reportlab>=4.2",
-    "pillow>=13.0",
 ]
 ocr-local = [
     "mlx-vlm==0.7.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'",

@@ -569,6 +569,7 @@ version = "0.1.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },
+    { name = "pillow" },
 ]
 
 [package.dev-dependencies]
@@ -576,7 +577,6 @@ dev = [
     { name = "hypothesis" },
     { name = "jsonschema" },
     { name = "mutmut" },
-    { name = "pillow" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-socket" },
@@ -588,14 +588,16 @@ ocr-local = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "jsonschema", specifier = ">=4.23" }]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "pillow", specifier = ">=13.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.120" },
     { name = "jsonschema", specifier = ">=4.23" },
     { name = "mutmut", specifier = ">=3.2" },
-    { name = "pillow", specifier = ">=13.0" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-cov", specifier = ">=6.0" },
     { name = "pytest-socket", specifier = ">=0.7" },
