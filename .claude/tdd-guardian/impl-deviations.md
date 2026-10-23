@@ -93,3 +93,6 @@
 | WI-07d → 08a/08b | 08a/08b 须传入 audit_rev、读 `crops/<doc>_<page>.jsonl`，把记录里的 `no_bbox_crop` 并入 cell 的 uncertain；MLX block_bbox 未进 Candidate，MLX 块行按无 geom 处理 | WI-08a/08b 派工时写明 |
 | WI-06a 修复补全（主会话） | gate-law ACK 生成器再排除代理字符类别 Cs（上次改用 st.characters 后会产生 `\ud800`，env 同样不可编码）——同一处已批准修复的补全，断言不变；5 个随机种子通过 | 属用户 2026-10-23 已批准范围 |
 | 主会话流程（第二次） | 8e6fc98 再次在 `1 failed` 时与测试同一命令链里提交；**此后测试与提交分两次工具调用，见到 `0 failed`/无 `failed` 字样才提交** | 教训记录 |
+| WI-08a | 审计阶段 `kb-audit`：runs 变化 → a<N+1>，不变复用；runs.json/cells.jsonl/candidates.jsonl/confirm.html 写一次（link+只读，二次写 WriteOnceViolation）；uncertain_log 只追加（新修订自动 clear 不再出现的条目，写 cleared_by/at/evidence）；原因表 gate.REASONS（page/row/cell 三级）；judge：有 page 条目 → disputed；全部 cell agree 且无缺路无 uncertain → verified(auto)；其余 pending_confirm；无 cell 的页不判 verified；文字层 PDF 页不进审计；退出码 0/10/2/30/40；record.json 的 uncertain.reason 枚举加 5 个新码（契约改动） | 接受 |
+| WI-08a | test_audit_stage.py:244 的页名取 `page_id.split("/")[1]` 在每图一 doc 时撞名 → 改为按批次 receipt `pages[].key` 映射，期望值不变；该 contract receipt 会报 SEPARATION-BROKEN | **用户 2026-10-24 批准** |
+| WI-08a 发现 | `run_batch.FIX` 的 fix_action 文本仍提示 r3.3 已删除的「其他路继续」选项（receipt 文字过时） | 待修：并入 WI-08b 或 WI-30 |

@@ -167,7 +167,12 @@
                     "swap_suspect",
                     "no_bbox_crop",
                     "degenerate_output",
-                    "no_geometry"
+                    "no_geometry",
+                    "route_disabled",
+                    "route_unavailable",
+                    "effort_locked",
+                    "ordinal_shift",
+                    "extra_values"
                   ]
                 },
                 "scope": {
