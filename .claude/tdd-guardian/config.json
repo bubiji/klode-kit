@@ -140,6 +140,14 @@
         "functions": 0
       },
       "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/build/records_to_txt.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
     }
   ],
   "coverageMode": "absolute",

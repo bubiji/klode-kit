@@ -107,3 +107,9 @@
 | WI-08d → 01a/09b | U6 ③④ strict xfail 假定 build 布局（`python -m klode_kit build --project P`、build_receipt.json、build/src/**/*.txt、export_map rec_id/rev）；若 WI-01a/09b 用不同名字，需报告（改已记录测试） | WI-01a/09b 派工时写明 |
 | M1 收尾（主会话） | gate 覆盖率改为单份累计报告：unit 从零统计、contract-replay 与 cli-integration `--cov-append`，只有 cli 报告参与判定（coverage include）；functions 阈值（全局与 criticalPaths）置 0（coverage.py 不测函数）；原配置备份 `_trash/gate-config/config.json.before`。重跑 commit gate：三 lane PASS；lines 98.93% / branches 97.41%；8 条 criticalPaths 全 PASS（writeback 分支 99.39%，其余 100%） | — |
 | 注意 | taskCompleted 触发只跑 unit+contract，二者 coverage=none → 该触发不做覆盖率判定；覆盖率以 commit gate 为准 | 记录 |
+| WI-01a | 导出：`out/library/{items,records}/*.txt` + `src/export_map.jsonl` + `src/items_index.json`；只导出 effective verified 或 build 绑定快照中的记录，值全部取自 `_rev` 正文；观测行 `<item> <value>[ <unit>] <date>[ <flag>] ⟨rec_id⟩`，同记录同文本第二份锚点 `⟨rec#2⟩`；排除原因 not_verified/empty_record/malformed_value/no_date；export_map.json 加可选 `line_kind`（契约增量）；item 名取自 body 的 audit_rev 对应 candidates.jsonl 的 item_label（不读 cells.jsonl） | 接受 |
+| WI-01a 发现 | klode 0.5.0 CLI 输出 `FOUND`/`NOT-FOUND`（`--json` resolution found/not-found），`VERIFIED` 只是 klode-mcp 用语 → 矩阵中「VERIFIED」读作 found | 记录 |
+| WI-01a 决定 | U6 test_u6_redo_keeps_verified.py:134 导出文本查找路径 `build_dir/src/**/*.txt` → `build_dir/library/**/*.txt` | **用户 2026-10-24 批准** |
+| **新增 WI-08e**（用户 2026-10-24 批准） | 四路同错被自动 verified 后无公开入口更正 → 新增「重开字段」：`kb-audit --reopen <field_id>` 把已 verified 字段放回确认页 → 手输 → 新 rev 生效、旧 rev 保留、完整留痕；使设计 r3.1「四路 10.5、人工改 1.05」与 U5 前提可经公开入口走通 | 排在 M2 之后、M3 之前（或 M2 中按依赖插入） |
+| 待修 | provenance.slot_kind 只认 fx-chain 槽名（`labs[i].value`），真实 kb-audit 槽名（`r005-number-0`）下 value_audited_mismatch / transform_on_numeric 被静默跳过 → 新增小 WI-00b3b 修复 | 排入 M2 |
+| 待评估 | item_label 不在 `_rev` 正文里（WI-01a 回读 candidates.jsonl）；更干净的做法是写回把 item_label 存进正文 | WI-08e 时一并评估 |

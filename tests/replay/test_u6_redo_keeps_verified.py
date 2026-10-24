@@ -131,7 +131,8 @@ def _build(project: Path) -> dict:
 
 
 def _export_of(build_dir: Path, x: str) -> tuple[list[str], list[dict]]:
-    lines = [ln for p in sorted((build_dir / "src").glob("**/*.txt"))
+    # user-approved 2026-10-24: export txt lives under library/ (design r3.2, klode library.toml)
+    lines = [ln for p in sorted((build_dir / "library").glob("**/*.txt"))
              for ln in p.read_text(encoding="utf-8").splitlines() if x in ln]
     rows = [json.loads(ln) for ln in (build_dir / "src" / "export_map.jsonl").read_text(encoding="utf-8").splitlines()
             if ln.strip()]

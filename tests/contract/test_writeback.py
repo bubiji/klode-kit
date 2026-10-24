@@ -217,7 +217,7 @@ def test_none_not_a_field_dropped(tmp_path):
     assert (row["choice"], row["evidence"]["reason"]) == ("none", "not_a_field")
 
 
-@pytest.mark.xfail(strict=True, reason="依赖 WI-01a（records_to_txt 尚未实现）")
+# WI-01a: XPASSed, xfail removed
 def test_none_not_a_field_absent_from_export(tmp_path):
     """08c-04 (S2), export half: the dropped field is not in the ``records_to_txt`` output."""
     from klode_kit.build import records_to_txt  # noqa: F401  (WI-01a)

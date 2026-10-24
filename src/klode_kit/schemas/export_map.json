@@ -53,6 +53,13 @@
     "value_audited": {
       "type": "string"
     },
+    "line_kind": {
+      "description": "WI-01a: observation (an item value line, on the items and records shelves) or source (any other row of a record, records shelf only).",
+      "enum": [
+        "observation",
+        "source"
+      ]
+    },
     "positions": {
       "type": "object",
       "propertyNames": {
