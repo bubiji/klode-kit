@@ -17,7 +17,8 @@ Stages, in this order (``--stage S`` runs up to and including ``S``; default: al
     writeback   ``kb-audit --batch B --writeback <choices>`` (the human's choices, when given), then
                 ``kb-audit --batch B --writeback`` (ingest), then ``views`` (WI-08d: views are rebuilt after
                 every writeback).
-    build       ``build --project P`` (WI-09b): the 13 steps into ``kb/<id>/builds/<build_id>/``
+    build       ``build --project P --loops`` (WI-09b / 09c): the 13 steps into ``kb/<id>/builds/<build_id>/``,
+                a failed content gate repaired by the three loops
     check / publish
                 interfaces only (WI-10a / 09d): a stage without an implementation is reported and the run
                 ends with exit 2 - it never writes a receipt and never passes.
@@ -44,7 +45,7 @@ Receipts: ``work/<batch>/pipeline/receipts/<stage>.json`` (contract ``receipt``)
   themselves, so the kernel cannot hold it while it runs them. A killed holder releases the lock with its
   process.
 - Environment-class results (exit 40, 60, 61, 50 ...) end the run; only a content-gate failure (exit 20) can
-  enter a repair loop (``enters_loop``; the loops are WI-09c, until then 20 ends the run).
+  enter a repair loop (``enters_loop``; the loops are ``klode_kit.loops``, WI-09c).
 
 Exit codes (closed set): 0 ok, 2 usage, 10 awaiting_confirm, 20 content_gate, 21 post_publish_failed,
 22 stale_replay, 30 contract / stale input, 40 environment / configuration / authentication / lock,
@@ -385,9 +386,10 @@ def _writeback_run(ctx: Ctx) -> Outcome:
 
 
 def _build_run(ctx: Ctx) -> Outcome:
-    """``klode-kit build --project P`` (WI-09b): the 13 steps into ``kb/<id>/builds/<build_id>/``; the stage's product
-    is that build's ``build_receipt.json`` (the whole tree is pinned by its ``MANIFEST.sha256``)."""
-    code, text = ctx.child("build", "--project", str(ctx.project))
+    """``klode-kit build --project P --loops`` (WI-09b / 09c): the 13 steps into ``kb/<id>/builds/<build_id>/``, a
+    failed content gate repaired by the three loops (one new build per round); the stage's product is the last
+    build's ``build_receipt.json`` (the whole tree is pinned by its ``MANIFEST.sha256``)."""
+    code, text = ctx.child("build", "--project", str(ctx.project), "--loops")
     summary: dict = {}
     for line in reversed(text.splitlines()):
         if line.strip().startswith("{"):

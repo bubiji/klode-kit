@@ -77,6 +77,8 @@ STEPS = ("export", "init_kb", "ingest", "split_manifest", "klode_build", "dispat
 SCHEMA = "klode-kit.build/1"
 RECEIPT_SCHEMA = "klode-kit.receipt/1"
 BUILD_RECEIPT_SCHEMA = "klode-kit.build_receipt/1"
+REPAIR_SCHEMA = "klode-kit.repair/1"  # the input of a repair round (klode_kit.loops, WI-09c)
+REPAIR_MARKER = "KLODE-KIT REPAIR ROUND"  # in the writer prompt of a card that failed in the previous round
 RECORD_SHELVES = ("items", "records")
 MANIFEST_NAME = "MANIFEST.sha256"
 SLUG_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -205,6 +207,7 @@ class Result:
     reason: Reason
     detail: str = ""
     cost_usd: float | None = None
+    report: str | None = None  # the failing command's output, kept as reports/<step>.txt for the repair loops (WI-09c)
 
 
 class LockBusy(Exception):
@@ -219,6 +222,9 @@ class Options:
     desk: Path | None = None
     holdout: Path | None = None
     syntheses: Path | None = None
+    repair: Path | None = None  # repair spec of a loop round (klode_kit.loops, WI-09c)
+    repair_doc: dict | None = None
+    budget_usd: float | None = None  # writer budget of this run; every writer call is reserved before it starts
 
 
 # --------------------------------------------------------------------------- the build
@@ -309,6 +315,9 @@ class Build:
             res = fn()
         except Exception as exc:  # noqa: BLE001 - a crashing step is recorded, not lost
             res = Result(Reason.environment, f"{type(exc).__name__}: {exc}")
+        if res.reason is not Reason.ok and res.report:
+            (self.dir / "reports").mkdir(exist_ok=True)
+            (self.dir / "reports" / f"{name}.txt").write_text(res.report[:200_000], encoding="utf-8")
         after = self._signature()
         outputs = [{"path": rel, "sha256": sha} for rel, sha in after.items() if before.get(rel) != sha]
         ended = _now_iso(self.clock)
@@ -413,22 +422,41 @@ class Build:
     def step_dispatch(self) -> Result:
         if self.mode == "records":
             rc, _, _ = self.kit("records-to-l1", str(self.dir))
-            return Result(rc_reason(rc, Reason.content_gate), f"records-to-l1 exit {rc}" if rc else "deterministic cards")
+            reason = rc_reason(rc, Reason.content_gate)
+            if reason is Reason.ok:
+                self._overlay_fixed()
+            return Result(reason, f"records-to-l1 exit {rc}" if rc else "deterministic cards")
         cards = sorted(p.stem for p in (self.dir / "library" / "cards").glob("*.md") if p.stem != "INDEX")
         if not cards:
             return Result(Reason.contract_violation, "klode build left no card scaffold")
+        repair = self.opts.repair_doc or {}
+        redo: dict[str, list[str]] = {c: list(v) for c, v in (repair.get("redispatch") or {}).items()}
+        carried = self._carry_cards(cards, redo)
+        need = [c for c in cards if c not in carried]
+        if not need:
+            self._overlay_fixed()
+            return Result(Reason.ok, f"{len(cards)} cards carried over from {repair.get('from_build')}")
         guide = (resources.files("klode_kit") / "prompts" / "write_card.md").read_text(encoding="utf-8")
         tasks = []
-        for cid in cards:
+        for cid in need:
+            instructions = (f"{guide}\n\nCard id: {cid}\nSource text: {_source_of(self.dir, cid)}\n"
+                            f"Write cards_content/{cid}.md (aliases line, ## Thin, ## Full).")
+            if cid in redo:
+                self._place_previous_card(cid)
+                lines = "\n".join(f"- {t}" for t in redo[cid]) or "- (no detail was reported)"
+                instructions += (f"\n\n{REPAIR_MARKER} {repair.get('round')}: cards_content/{cid}.md holds the previous "
+                                 f"version of this card. It failed these checks - rewrite the card so that none of them "
+                                 f"is left, and keep everything that was fine:\n{lines}")
             tasks.append({"task_id": cid, "build_dir": str(self.dir), "card": f"cards_content/{cid}.md",
-                          "instructions": f"{guide}\n\nCard id: {cid}\nSource text: {_source_of(self.dir, cid)}\n"
-                                          f"Write cards_content/{cid}.md (aliases line, ## Thin, ## Full)."})
+                          "instructions": instructions})
         rdir = self.dir / "receipts"
         rdir.mkdir(parents=True, exist_ok=True)
         tasks_file, run_file = rdir / "writer_tasks.json", rdir / "writer_run.json"
         tasks_file.write_text(json.dumps({"tasks": tasks}, ensure_ascii=False, indent=1), encoding="utf-8")
-        rc, _, _ = self.kit("bridge", "run", "--tasks", str(tasks_file), "--receipt", str(run_file),
-                            "--project", str(self.project))
+        args = ["bridge", "run", "--tasks", str(tasks_file), "--receipt", str(run_file), "--project", str(self.project)]
+        if self.opts.budget_usd is not None:
+            args += ["--budget-usd", repr(float(self.opts.budget_usd))]
+        rc, _, _ = self.kit(*args)
         cost = None
         if run_file.is_file():
             cost = float(json.loads(run_file.read_text(encoding="utf-8")).get("cost_usd", 0.0))
@@ -439,11 +467,49 @@ class Build:
             missing = [c for c in cards if not (self.dir / "cards_content" / f"{c}.md").is_file()]
             if missing:
                 return Result(Reason.content_gate, f"writers left no card: {', '.join(missing)}", cost)
-        return Result(reason, f"bridge exit {rc}" if rc else f"{len(cards)} cards written", cost)
+            self._overlay_fixed()
+        return Result(reason, f"bridge exit {rc}" if rc else f"{len(need)} cards written, {len(carried)} carried over",
+                      cost)
+
+    # ---- repair rounds (klode_kit.loops, WI-09c)
+    def _from_build(self) -> Path | None:
+        doc = self.opts.repair_doc
+        return self.project / doc["from_build"] if doc else None
+
+    def _carry_cards(self, cards: Sequence[str], redo: Mapping[str, Any]) -> list[str]:
+        """Cards of the build the repair round starts from that need no writer: copied over byte for byte."""
+        src_dir = self._from_build()
+        carried: list[str] = []
+        for cid in cards:
+            src = src_dir / "cards_content" / f"{cid}.md" if src_dir else None
+            if src is not None and cid not in redo and src.is_file():
+                dest = self.dir / "cards_content" / f"{cid}.md"
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(src, dest)
+                carried.append(cid)
+        return carried
+
+    def _place_previous_card(self, cid: str) -> None:
+        src_dir = self._from_build()
+        src = src_dir / "cards_content" / f"{cid}.md" if src_dir else None
+        if src is not None and src.is_file():
+            dest = self.dir / "cards_content" / f"{cid}.md"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dest)
+
+    def _overlay_fixed(self) -> None:
+        """Cards the L3 modifier (``fix-anchors``) rewrote replace the generated / carried ones."""
+        for cid, rel in sorted(((self.opts.repair_doc or {}).get("fixed") or {}).items()):
+            src = self.project / rel
+            if src.is_file():
+                dest = self.dir / "cards_content" / f"{cid}.md"
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(src, dest)
 
     def step_gate1(self) -> Result:
-        rc, _, _ = self.kit("check-cards", "--all", "--kb", str(self.dir), "--project", str(self.project))
-        return Result(rc_reason(rc, Reason.content_gate), f"check-cards exit {rc}" if rc else "gate 1 pass")
+        rc, text, _ = self.kit("check-cards", "--all", "--kb", str(self.dir), "--project", str(self.project), "--json")
+        reason = rc_reason(rc, Reason.content_gate)
+        return Result(reason, f"check-cards exit {rc}" if rc else "gate 1 pass", report=text if rc else None)
 
     def step_write_card(self) -> Result:
         rc, _, _ = self.kit("write-card", str(self.dir), "--project", str(self.project))
@@ -459,11 +525,11 @@ class Build:
         return Result(Reason.ok, f"{len(doc.get('written', []))} cards published")
 
     def step_strict(self) -> Result:
-        rc, text, _ = self.klode_run("check", "--strict")
+        rc, text, err = self.klode_run("check", "--strict")
         last = (text.strip().splitlines() or [""])[-1]
         if rc == 0 and "0 errors, 0 warning(s)" in last:
             return Result(Reason.ok, last)
-        return Result(Reason.content_gate, f"klode check --strict exit {rc}: {last}"[:300])
+        return Result(Reason.content_gate, f"klode check --strict exit {rc}: {last}"[:300], report=text + err)
 
     def step_desk_apply(self) -> Result:
         (self.dir / "src").mkdir(parents=True, exist_ok=True)
@@ -651,7 +717,8 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         shelf: str = "book", manifest: str | os.PathLike | None = None, desk: str | os.PathLike | None = None,
         holdout: str | os.PathLike | None = None, syntheses: str | os.PathLike | None = None,
         launcher: str | os.PathLike | None = None, env: Mapping[str, str] | None = None, out: TextIO | None = None,
-        stdout: TextIO | None = None, clock: Callable[[], datetime] | None = None) -> int:
+        stdout: TextIO | None = None, clock: Callable[[], datetime] | None = None,
+        repair: str | os.PathLike | None = None, budget_usd: float | None = None) -> int:
     out = sys.stderr if out is None else out
     stdout = sys.stdout if stdout is None else stdout
     clock = clock or _utc
@@ -672,6 +739,19 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         return _usage(out, stdout, f"--syntheses: not a directory: {syn}")
     if paths["manifest"] is not None and paths["source"] is None:
         return _usage(out, stdout, "--manifest needs --source")
+    repair_path = Path(repair).resolve() if repair is not None else None
+    repair_doc: dict | None = None
+    if repair_path is not None:
+        try:
+            repair_doc = json.loads(repair_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return _usage(out, stdout, f"--repair: cannot read {repair_path}: {exc}")
+        if (not isinstance(repair_doc, dict) or repair_doc.get("schema") != REPAIR_SCHEMA
+                or not isinstance(repair_doc.get("from_build"), str)):
+            return _usage(out, stdout, f"--repair: not a {REPAIR_SCHEMA} document: {repair_path}")
+    if budget_usd is not None and (isinstance(budget_usd, bool) or not isinstance(budget_usd, (int, float))
+                                   or not 0 < budget_usd < float("inf")):
+        return _usage(out, stdout, f"--budget-usd must be a number > 0: {budget_usd!r}")
     if not SHELF_RE.fullmatch(shelf):
         return _usage(out, stdout, f"--shelf must be a plain name: {shelf!r}")
     kb_dir = (Path(kb) if Path(kb).is_absolute() else project / kb) if kb is not None else default_kb(project)
@@ -704,7 +784,8 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         print(f"build: {exc}", file=out)
         return _finish(stdout, EXIT_CODE[Reason.lock_busy], Reason.lock_busy.value, detail=str(exc))
     try:
-        opts = Options(paths["source"], shelf, paths["manifest"], paths["desk"], paths["holdout"], syn)
+        opts = Options(paths["source"], shelf, paths["manifest"], paths["desk"], paths["holdout"], syn, repair_path,
+                       repair_doc, budget_usd)
         b = Build(project, kb_dir, kb_dir.name, cfg, opts, launcher_path, klode, env, out, clock)
         return _run_locked(b, builds, stdout)
     finally:
@@ -726,6 +807,8 @@ def _run_locked(b: Build, builds: Path, stdout: TextIO) -> int:
         "plugin_version": __version__, "klode_version": doctor.klode_version(b.klode, b.env),
         "deident_mode": b.deident,
     }
+    if opts.repair is not None:
+        b.inputs["repair"] = _sha_file(opts.repair)
     b.inputs_digest = inputs_hash(b.inputs)
     now = b.clock()
     for _ in range(40):
@@ -778,14 +861,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--holdout", type=Path, default=None, help="holdout for --desk (default: holdout.jsonl beside it)")
     parser.add_argument("--syntheses", type=Path, default=None, help="desk workers' output: <dimension>.md files")
     parser.add_argument("--launcher", type=Path, default=None, help="command launcher (default: this repo's bin/klode-kit)")
+    parser.add_argument("--loops", action="store_true", help="repair a failed content gate with the three loops "
+                                                              "(L1 desk routing, L2 card content, L3 anchors), one new build per round")
+    parser.add_argument("--repair", type=Path, default=None, help="repair spec of a loop round (written by --loops)")
+    parser.add_argument("--budget-usd", type=float, default=None, help="writer budget of this run in USD "
+                                                                       "(each writer call is reserved before it is dispatched)")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    if args.loops:
+        from klode_kit import loops
+
+        return loops.run(project, kb=args.kb, source=args.source, shelf=args.shelf, manifest=args.manifest,
+                         desk=args.desk, holdout=args.holdout, syntheses=args.syntheses, launcher=args.launcher,
+                         budget_usd=args.budget_usd)
     try:
         return run(project, kb=args.kb, source=args.source, shelf=args.shelf, manifest=args.manifest, desk=args.desk,
-                   holdout=args.holdout, syntheses=args.syntheses, launcher=args.launcher)
+                   holdout=args.holdout, syntheses=args.syntheses, launcher=args.launcher, repair=args.repair,
+                   budget_usd=args.budget_usd)
     except config_mod.ConfigError as exc:
         print(f"build: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code

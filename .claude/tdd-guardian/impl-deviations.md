@@ -152,3 +152,6 @@
 | **设计缺口** | 书籍路径书桌 worker 合成无 WI 负责：`--syntheses DIR` 为输入，缺维度 → desk_apply FAIL exit 20 | WI-13a（/kb-build skill 派 worker）补，必要时增工作项 |
 | WI-31 待定（加重） | U7 夹具自带 desk 在真 klode 下留出集 3/5 = 0.60 < 0.8（retinning/tinning、darkened copper shell 路由偏差），字面「5/5」不成立；构建测试改用 test_desk_cli 同一套 spec | WI-31 需问用户 |
 | 已知 | 4 个 SIGINT 类用例在 shell `&` 后台运行时失败（继承 SIGINT 忽略），前台/工具后台模式全过 | 记录 |
+| WI-09c（Sonnet） | 三回路 `build --loops`：每轮新不可变 build（旧 build 保留）；`classify` 只对可回路步骤的 exit 20 分类，问题 hash 取 (loop,step,code,card,dimension)；L1 cue-suggest（只读调优集）、L3 fix-anchors（修不了的同轮升 L2）、L2 书籍重派指定卡（提示词附问题清单）/ 医疗重新生成；顺序 L3→L2→L1；终止 exit 50：连续 no_progress_rounds（默认 2）同 hash、max_total_rounds（默认 6）、预算耗尽；bridge 加 `--budget-usd/--reserve-usd` 派发前预留；pipeline build 阶段改走 `--loops`；run_build 为失败步骤保存 `reports/<step>.txt`，gate1 用 `check-cards --json` | 接受 |
+| WI-09c 决定（主会话） | ① L1 无新线索词 → exit 50（no_progress），按矩阵 09c-06（设计 r2.8 写 20）；② 默认窗口下「复发升级」先被 no_progress 截停（需 no_progress_rounds ≥3 才触发，已单测）；③ 书籍路径 synthesis 无法由回路重做 → 与 WI-13a 缺口合并；④ gate1 人读文本不再转发 stderr | 接受 |
+| 小修待办 | `loops.run` 本身不持锁，直接并发两次 `build --loops` 会交错轮次（经 pipeline 有 .pipeline.lock） | 并入 WI-09d |

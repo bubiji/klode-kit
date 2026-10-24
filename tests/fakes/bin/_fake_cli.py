@@ -28,6 +28,9 @@ Usage (via the sh wrappers): ``_fake_cli.py <tool> <args...>``.
   stdout the literal ``{card}`` is replaced by the card.
   A card named in the last argument (the prompt) is preferred over earlier ones (``--json-schema`` holds a pattern).
   ``ignore_sigterm`` (bool, applied first) makes this process and the child it spawns ignore SIGTERM.
+  A step may carry ``if_prompt_has`` (WI-09c): a text the prompt (last argument) must contain. When the prompt contains
+  the text of at least one such step, only those steps are played (in order, counted per prompt); otherwise only the
+  steps without the key - so a repair round, whose prompt carries the problem list, gets its own answers.
 """
 
 from __future__ import annotations
@@ -149,6 +152,9 @@ def _behave(scenario: Path, args: list[str]) -> int:
     in_prompt = CARD_RE.search(args[-1]) if args else None  # the prompt wins: --json-schema also holds a card pattern
     card = in_prompt.group(0) if in_prompt else card
     steps = data["by_card"][card] if "by_card" in data else data["steps"]
+    prompt = args[-1] if args else ""
+    special = [s for s in steps if "if_prompt_has" in s and s["if_prompt_has"] in prompt]
+    steps = special or [s for s in steps if "if_prompt_has" not in s]
     idx = _call_index(scenario, args[-1] if args else "")
     step = steps[min(idx, len(steps) - 1)]
     sub = (lambda v: v.replace("{card}", card))

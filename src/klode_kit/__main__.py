@@ -97,8 +97,9 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "receipts; exit 10 = awaiting the human's confirm page"),
     "build": ("klode_kit.build.run_build:main",
               "build [--project DIR] [--kb DIR] [--source F --shelf S [--manifest M]] [--desk F [--holdout F]] "
-              "[--syntheses DIR]: the 13 build steps into kb/<id>/builds/<build_id>/ (read-only when finished; "
-              "nothing outside builds/ is written)"),
+              "[--syntheses DIR] [--loops [--budget-usd X]]: the 13 build steps into kb/<id>/builds/<build_id>/ "
+              "(read-only when finished; nothing outside builds/ is written); --loops repairs a failed content "
+              "gate with the three loops (a new build per round, exit 50 when they give up)"),
     "records-to-txt": ("klode_kit.build.records_to_txt:main",
                        "records-to-txt --project DIR --out DIR [--kb-id ID] [--bindings F] [--deident MODE]: "
                        "export the bound verified records as text sources + export_map (prints a JSON summary)"),

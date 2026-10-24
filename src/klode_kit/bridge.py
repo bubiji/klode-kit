@@ -35,8 +35,14 @@ Run (``run``):
   reported none (a malformed output, a kill).
 
 CLI: ``python -m klode_kit.bridge run --tasks <json> --receipt <path> [--project DIR] [--concurrency N]
-[--timeout-s S] [--max-rounds N] [--max-budget-usd X]``. Exit 0 all done; 20 some task not done; 130 cancelled
-(SIGINT/SIGTERM); 2 usage; 40 configuration; 61 real-call gate closed.
+[--timeout-s S] [--max-rounds N] [--max-budget-usd X] [--budget-usd B] [--reserve-usd R]``. Exit 0 all done; 20 some
+task not done; 50 the run budget refused a call; 130 cancelled (SIGINT/SIGTERM); 2 usage; 40 configuration; 61
+real-call gate closed.
+
+Run budget (WI-09c, ``--budget-usd``): every attempt is reserved in a ``cloud_budget.Ledger`` of that limit BEFORE its
+process is started (``--reserve-usd`` per call, default 1 USD, capped at the limit) and settled with the cost the CLI
+reported (the reservation when none was). A call the ledger refuses is never started: its task is ``budget``, the run
+receipt carries the ledger (``budget``) and the exit code is 50. Without ``--budget-usd`` nothing is reserved.
 
 Real-call gate (G2, WI-00d2): unless ``claude`` resolves (real path) to the replay fake in this repository's
 ``tests/fakes/bin``, ``run`` starts nothing and raises ``BridgeGateClosed`` (CLI exit 61) when
@@ -65,6 +71,7 @@ from typing import Any, Callable
 
 from klode_kit import gate as G
 from klode_kit.contract import schema as contract
+from klode_kit.ocr.cloud_budget import BUDGET_EXIT, CALL_RESERVE_USD, BudgetExceeded, Ledger
 from klode_kit.receipts import dumps
 from klode_kit.seams import startup
 
@@ -82,8 +89,9 @@ CARD_RE = re.compile(r"^cards_content/(?!.*\.\./).+\.md$")  # writer_receipt.jso
 TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 AGENT_FIELDS = {"description": "str", "tools": "list", "disallowedTools": "list", "model": "str"}
 
-FINAL = ("done", "timeout", "cancelled")
+FINAL = ("done", "timeout", "cancelled", "budget")
 EXIT_OK, EXIT_NOT_DONE, EXIT_CANCELLED, EXIT_USAGE, EXIT_CONFIG = 0, 20, 130, 2, 40
+EXIT_BUDGET = BUDGET_EXIT
 EXIT_GATE = G.GATE_EXIT
 
 
@@ -135,15 +143,19 @@ class Options:
     launcher: Path = field(default=PLUGIN_ROOT / "bin" / "klode-kit")
     claude: str = "claude"
     kill_grace_s: float = 2.0
+    budget_usd: float | None = None
+    reserve_usd: float = float(CALL_RESERVE_USD)
 
     def __post_init__(self) -> None:
         for name in ("concurrency", "max_rounds"):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value < 1:
                 raise BridgeUsageError(f"{name} must be an integer >= 1, got {value!r}")
-        for name in ("timeout_s", "max_budget_usd", "kill_grace_s"):
+        for name in ("timeout_s", "max_budget_usd", "kill_grace_s", "budget_usd", "reserve_usd"):
             value = getattr(self, name)
-            if not isinstance(value, (int, float)) or isinstance(value, bool) or not value > 0:
+            if name == "budget_usd" and value is None:
+                continue
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 < value < float("inf"):
                 raise BridgeUsageError(f"{name} must be > 0, got {value!r}")
         object.__setattr__(self, "agents_dir", Path(self.agents_dir))
         object.__setattr__(self, "launcher", Path(self.launcher))
@@ -326,6 +338,8 @@ class _Run:
     def __init__(self, options: Options, executable: str | None = None):
         self.options = options
         self.executable = executable
+        self.ledger = (Ledger(options.budget_usd, reserve_usd=options.reserve_usd)
+                       if options.budget_usd is not None else None)
         self.lock = threading.Lock()
         self.active: dict[str, subprocess.Popen] = {}
         self.cancel = threading.Event()
@@ -333,6 +347,28 @@ class _Run:
     # -- one attempt ------------------------------------------------------------------------------------------
 
     def _attempt(self, task: Task, n: int) -> dict:
+        """One attempt, admitted by the run budget first (when there is one): a refused call is never started."""
+        reservation = None
+        if self.ledger is not None:
+            try:
+                reservation = self.ledger.reserve()
+            except BudgetExceeded as exc:
+                return {"attempt": n, "status": "budget", "exit_code": None, "cost_usd": None, "duration_s": 0.0,
+                        "error": str(exc), "writer": None, "started": False, "permission_denials": []}
+        try:
+            result = self._attempt_started(task, n)
+        except BaseException:
+            if reservation is not None:
+                self.ledger.release(reservation)
+            raise
+        if reservation is not None:
+            if result["started"]:
+                self.ledger.settle(reservation, result["cost_usd"])
+            else:
+                self.ledger.release(reservation)
+        return result
+
+    def _attempt_started(self, task: Task, n: int) -> dict:
         argv, cwd = build_argv(task, self.options)
         if self.executable:
             argv[0] = self.executable  # exactly the executable the gate vetted, no second PATH lookup
@@ -493,6 +529,8 @@ def run(tasks: list[Task], options: Options, *, receipt_path: Path | None = None
         "ended": now(),
         "tasks": records,
     }
+    if state.ledger is not None:
+        receipt["budget"] = state.ledger.snapshot()
     if receipt_path is not None:
         _write_receipt(Path(receipt_path), receipt)
     if cancelled:
@@ -530,12 +568,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--timeout-s", type=float)
     r.add_argument("--max-rounds", type=int)
     r.add_argument("--max-budget-usd", type=float)
+    r.add_argument("--budget-usd", type=float, help="run budget: every call is reserved before it starts (exit 50)")
+    r.add_argument("--reserve-usd", type=float, help="reservation per call (default 1)")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return EXIT_USAGE if exc.code else 0
     overrides = {k: v for k, v in {"concurrency": args.concurrency, "timeout_s": args.timeout_s,
-                                   "max_rounds": args.max_rounds, "max_budget_usd": args.max_budget_usd}.items()
+                                   "max_rounds": args.max_rounds, "max_budget_usd": args.max_budget_usd,
+                                   "budget_usd": args.budget_usd, "reserve_usd": args.reserve_usd}.items()
                  if v is not None}
     try:
         options = Options.from_config(load(args.project), **overrides)
@@ -558,6 +599,8 @@ def main(argv: list[str] | None = None) -> int:
     except BridgeUsageError as exc:
         print(f"klode-kit bridge: usage error: {exc}", file=sys.stderr)
         return EXIT_USAGE
+    if any(t["status"] == "budget" for t in receipt["tasks"]):
+        return EXIT_BUDGET
     return EXIT_OK if receipt["status"] == "done" else EXIT_NOT_DONE
 
 
