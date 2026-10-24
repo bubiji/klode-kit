@@ -137,3 +137,6 @@
 | WI-03a | init_kb：在 klode init 结果上只插入缺失行（id/name/description、shelves、`[copyright] guard = true`），建五类目录，写 BIBLIOGRAPHY 表头，.gitignore 只追加（klode 托管块 + `_raw/ _work/ _trash/`）；冲突一律拒绝不覆盖（exit 1），输入非法 exit 2；frameworks 保持 klode 默认 false（desk-build --apply 再开）。gen_manifest：同 head_re 候选，重复章头首现视为目录项丢弃（03 §6.1）、仅空行的 Part 页并入下一章、<2 章头整本单源、显式 --manifest 逐字节复制、已有不同清单不覆盖、--apply 前先自校验再调 WI-02a split | 接受 |
 | WI-03a → 09b | 医疗书架 items/records（一文件即一源）不调用 gen_manifest | WI-09b 派工时写明 |
 | 环境 | cli-integration lane 命令未带 WFVIZ_SRC，receipt.js record/verify 该 lane 前须先 export（机器相关路径，不写进公开 config） | 记录 |
+| WI-03b | gen_desk：模式 explicit（--desk）/ records（有 items_index）/ generic（chapters）；generic 维度 `dNN[-slug]`，>8 章相邻合并；医疗维度按类别（blood-routine/liver-kidney/medication/other-items + records）；线索词取每卡前 5 别名并全书桌去重；调优题每维度一道；留出题由模板套本维度线索词生成（≥ max(holdout_min, 维度数)，排除含他维度线索词或为线索词子串的题）；先在临时目录用 desk_build 校验，全写或全不写；退出码 0/1/2/20/30/40 | 接受 |
+| WI-03b 已知局限 | **自动留出题由线索词套模板生成** → 只考同一说法的措辞泛化、不考未登记说法（专家 agent 自身用模型路由，不依赖线索词）；records 维度留出题用 rec_id 造题不像真实问法（待改为优先日期写法） | 记录；WI-31 若书桌成绩异常再评估，必要时问用户 |
+| WI-03b → 09b | 第 10 步须在 write-card 之后、desk-build --apply 之前调用 gen-desk；09b/31 用真 klode 跑一次 gen-desk → apply → verify | WI-09b 派工时写明 |

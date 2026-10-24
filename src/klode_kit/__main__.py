@@ -51,6 +51,11 @@ COMMANDS: dict[str, tuple[str, str]] = {
                      "[--head-re T] [--apply]: src/chapters-<shelf>.json from the chapter-head scan (TOC "
                      "duplicates -> body occurrence; < 2 heads -> the whole as one source; explicit --manifest "
                      "wins); pieces put back == whole before anything is written; --apply also splits"),
+    "gen-desk": ("klode_kit.build.gen_desk:main",
+                 "gen-desk KB [--desk F] [--mode auto|generic|records] [--items F] [--holdout-templates F] "
+                 "[--project DIR]: src/desk.json + src/holdout.jsonl without a model - chapters (> 8 merged to <= 8, "
+                 "< 2 one dimension) or the existing item categories / records; holdout >= 5 distinct questions from "
+                 "existing dimensions only (else exit 20 holdout_insufficient); explicit --desk wins"),
     "skeleton": ("klode_kit.build.skeleton:main", "skeleton KB ID [CHARS]: print a source's section titles and leads"),
     "fix-anchors": ("klode_kit.build.fix_anchors:main",
                     "fix-anchors KB [ID ...]: rewrite NOT FOUND card anchors to the source's own spelling"),

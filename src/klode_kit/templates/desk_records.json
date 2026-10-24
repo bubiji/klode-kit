@@ -1,0 +1,19 @@
+{
+ "schema": "klode-kit.desk_records_template/1",
+ "threshold": 0.8,
+ "uncategorized": "其他",
+ "categories": [
+  {"category": "血常规", "dimension": "blood-routine", "title": "血常规",
+   "question": "血常规各项（血红蛋白、白细胞、血小板等）历次记录了什么数值？", "tune": "{a} 是什么？"},
+  {"category": "肝肾", "dimension": "liver-kidney", "title": "肝肾功能",
+   "question": "肝肾功能各项（肌酐、尿素、转氨酶等）历次记录了什么数值？", "tune": "{a} 是什么？"},
+  {"category": "用药", "dimension": "medication", "title": "用药",
+   "question": "处方上开过哪些药、在哪些日期？", "tune": "{a} 是什么？"},
+  {"category": "其他", "dimension": "other-items", "title": "其他项目",
+   "question": "其他项目历次记录了什么数值？", "tune": "{a} 是什么？"}
+ ],
+ "unknown_category": {"dimension_prefix": "cat-", "title": "{category}",
+                      "question": "{category}相关项目历次记录了什么数值？", "tune": "{a} 是什么？"},
+ "records": {"category": "records", "dimension": "records", "title": "单据",
+             "question": "每张单据（化验单、处方）上逐行记了什么？", "tune": "{a} 是哪张单据？"}
+}
