@@ -41,6 +41,16 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "split-chapters": ("klode_kit.build.split_by_manifest:main",
                        "split-chapters KB (--whole F --scan [--head-re T] | --manifest M [--apply]): cut a whole "
                        "text into one source per chapter at manifest line numbers (pieces put back == whole)"),
+    "init-kb": ("klode_kit.build.init_kb:main",
+                "init-kb KB --id ID --shelf S [--shelf S ...] [--name N] [--description D]: library skeleton on "
+                "top of `klode init` - [library] id/name/description, [copyright] guard, library/<shelf> "
+                "library/cards cards_content src _raw, .gitignore keeps sources, _raw/ and _work/ local "
+                "(idempotent)"),
+    "gen-manifest": ("klode_kit.build.gen_manifest:main",
+                     "gen-manifest KB --shelf S [--whole F] [--manifest M] [--prefix P] [--citation C] "
+                     "[--head-re T] [--apply]: src/chapters-<shelf>.json from the chapter-head scan (TOC "
+                     "duplicates -> body occurrence; < 2 heads -> the whole as one source; explicit --manifest "
+                     "wins); pieces put back == whole before anything is written; --apply also splits"),
     "skeleton": ("klode_kit.build.skeleton:main", "skeleton KB ID [CHARS]: print a source's section titles and leads"),
     "fix-anchors": ("klode_kit.build.fix_anchors:main",
                     "fix-anchors KB [ID ...]: rewrite NOT FOUND card anchors to the source's own spelling"),

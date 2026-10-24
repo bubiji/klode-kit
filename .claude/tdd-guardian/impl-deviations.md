@@ -134,3 +134,6 @@
 | WI-00b3b | provenance.slot_kind 识别真实槽名（`r<row>-<kind>-<k>`、`<kind>-<k>`）与 fx-chain 槽名；不认识的槽名报新违例码 `unknown_slot`（不再静默跳过）；`ITEM_KINDS = {item, drug}`；新增 `Layout.for_project(project, build_dir)`（`audit_glob = */audit/a*/`）；OCR 行缺 run_id 时按目录推导 `ids.run_id(...)`，推不出 → run_id_mismatch（WI-08c 遗留③处理）；真实产物 4 夹具 × 3 导出模式 0 违例 | 接受 |
 | WI-00b3b 残余 | ① 源行无 number-0 而有 unit-0+number-1 时 value_audited 口径不一致（无夹具触发）；② flag 只禁 alias/dateshift；③ apply 失败后不再查 value_audited | 记录；①② WI-31 时复核 |
 | WI-00b3b → 09b/31 | 流水线产物复验用 `Layout.for_project` | WI-09b/31 派工时写明 |
+| WI-03a | init_kb：在 klode init 结果上只插入缺失行（id/name/description、shelves、`[copyright] guard = true`），建五类目录，写 BIBLIOGRAPHY 表头，.gitignore 只追加（klode 托管块 + `_raw/ _work/ _trash/`）；冲突一律拒绝不覆盖（exit 1），输入非法 exit 2；frameworks 保持 klode 默认 false（desk-build --apply 再开）。gen_manifest：同 head_re 候选，重复章头首现视为目录项丢弃（03 §6.1）、仅空行的 Part 页并入下一章、<2 章头整本单源、显式 --manifest 逐字节复制、已有不同清单不覆盖、--apply 前先自校验再调 WI-02a split | 接受 |
+| WI-03a → 09b | 医疗书架 items/records（一文件即一源）不调用 gen_manifest | WI-09b 派工时写明 |
+| 环境 | cli-integration lane 命令未带 WFVIZ_SRC，receipt.js record/verify 该 lane 前须先 export（机器相关路径，不写进公开 config） | 记录 |
