@@ -91,6 +91,10 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "batch's latest runs into audit revision a<N>"),
     "confirm-page": ("klode_kit.audit.confirm_page:main", "confirm-page --batch BATCH_ID [--project DIR] [--rev N]: "
                      "write the local confirm page work/<batch>/audit/a<N>/confirm.html"),
+    "pipeline": ("klode_kit.pipeline:main",
+                 "pipeline --batch INBOX [--project DIR] [--stage S] [--choices F] [--routes a,b] [--launcher L] "
+                 "[--resume]: preflight / ocr / audit / writeback (/ build / check / publish) with per-step "
+                 "receipts; exit 10 = awaiting the human's confirm page"),
     "views": ("klode_kit.audit.views:main", "views [--project DIR]: rebuild the read-only views records/<date>-<type>.md "
               "and verified/<date>-<type>.md (symlinks to revision bodies)"),
 }
