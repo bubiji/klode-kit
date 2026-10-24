@@ -105,3 +105,5 @@
 | WI-08d | 移除 08c-16 views 参数的 strict xfail（XPASS 强制）→ WI-08c contract receipt 判 SEPARATION-BROKEN（叠加已批准的 crash 断言改动） | 按 WI-00s 约定，记录 |
 | WI-31 待定 | U3-01 字面：fx-u3-mixed 中 `records/2026-10-22-lab.md` 是自动 verified 的 p001，pending 的 p002 是 `-2`；04 U3 写该文件为 pending_confirm → 验收时断言「pending 记录的视图」或调整 fixture，需核对是否属对 04 的澄清 | WI-31 派工时决定，必要时问用户 |
 | WI-08d → 01a/09b | U6 ③④ strict xfail 假定 build 布局（`python -m klode_kit build --project P`、build_receipt.json、build/src/**/*.txt、export_map rec_id/rev）；若 WI-01a/09b 用不同名字，需报告（改已记录测试） | WI-01a/09b 派工时写明 |
+| M1 收尾（主会话） | gate 覆盖率改为单份累计报告：unit 从零统计、contract-replay 与 cli-integration `--cov-append`，只有 cli 报告参与判定（coverage include）；functions 阈值（全局与 criticalPaths）置 0（coverage.py 不测函数）；原配置备份 `_trash/gate-config/config.json.before`。重跑 commit gate：三 lane PASS；lines 98.93% / branches 97.41%；8 条 criticalPaths 全 PASS（writeback 分支 99.39%，其余 100%） | — |
+| 注意 | taskCompleted 触发只跑 unit+contract，二者 coverage=none → 该触发不做覆盖率判定；覆盖率以 commit gate 为准 | 记录 |

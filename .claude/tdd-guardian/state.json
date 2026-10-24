@@ -2,81 +2,60 @@
   "schemaVersion": 2,
   "lanes": {
     "unit": {
-      "last_passed_at": "2026-10-24T01:56:57.722Z",
-      "last_run_at": "2026-10-24T01:56:57.722Z",
-      "last_head_sha": "78f5f5b9a53114e507a84ac2b855e447547aa62d",
+      "last_passed_at": "2026-10-24T03:02:39.735Z",
+      "last_run_at": "2026-10-24T03:02:39.735Z",
+      "last_head_sha": "c95e3eaa013dfed0253ea791fffc6f1f872430e3",
       "last_result": "passed",
       "ever_had_tests": true,
-      "duration_ms": 201163
+      "duration_ms": 205040
     },
     "contract-replay": {
-      "last_passed_at": "2026-10-24T02:01:46.259Z",
-      "last_run_at": "2026-10-24T02:01:46.259Z",
-      "last_head_sha": "78f5f5b9a53114e507a84ac2b855e447547aa62d",
+      "last_passed_at": "2026-10-24T03:07:34.565Z",
+      "last_run_at": "2026-10-24T03:07:34.565Z",
+      "last_head_sha": "c95e3eaa013dfed0253ea791fffc6f1f872430e3",
       "last_result": "passed",
       "ever_had_tests": true,
-      "duration_ms": 288531
+      "duration_ms": 294827
     },
     "cli-integration": {
-      "last_passed_at": "2026-10-24T02:03:00.314Z",
-      "last_run_at": "2026-10-24T02:03:00.314Z",
-      "last_head_sha": "78f5f5b9a53114e507a84ac2b855e447547aa62d",
+      "last_passed_at": "2026-10-24T03:08:47.592Z",
+      "last_run_at": "2026-10-24T03:08:47.592Z",
+      "last_head_sha": "c95e3eaa013dfed0253ea791fffc6f1f872430e3",
       "last_result": "passed",
       "ever_had_tests": true,
-      "duration_ms": 74047
+      "duration_ms": 73019
     }
   },
   "coverage": {
-    "timestamp": "2026-10-24T02:03:28.734Z",
-    "status": "FAIL",
-    "method": "union",
+    "timestamp": "2026-10-24T03:08:47.601Z",
+    "status": "PASS",
+    "method": "single",
     "approximate": false,
     "formats": [
-      "coverage-py",
-      "coverage-py",
       "coverage-py"
     ],
     "totals": {
       "lines": {
-        "covered": 8563,
-        "total": 8660,
-        "pct": 98.88
+        "covered": 8805,
+        "total": 8900,
+        "pct": 98.93
       },
       "functions": null,
       "branches": {
-        "covered": 2442,
-        "total": 2614,
-        "pct": 93.42
+        "covered": 2630,
+        "total": 2700,
+        "pct": 97.41
       },
       "statements": {
-        "covered": 8563,
-        "total": 8660,
-        "pct": 98.88
+        "covered": 8805,
+        "total": 8900,
+        "pct": 98.93
       }
     },
     "criticalPaths": {
-      "ok": false,
-      "failures": [
-        "src/klode_kit/contract/provenance.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/contract/provenance.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/audit/align.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/audit/align.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/contract/ids.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/contract/ids.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/ocr/isolation_check.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/ocr/isolation_check.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/ocr/isolation_guard.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/ocr/isolation_guard.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/ocr/send.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/ocr/send.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/audit/compare.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/audit/compare.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
-        "src/klode_kit/audit/writeback.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
-        "src/klode_kit/audit/writeback.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry."
-      ],
-      "warnings": [
-        "Critical-path functions and branches coverage is APPROXIMATE: more than one lane contributed and these dimensions carry no per-item identity across reports, so the strongest single lane is used rather than a union. Threshold a single authoritative report for exact functions/branches numbers."
-      ],
+      "ok": true,
+      "failures": [],
+      "warnings": [],
       "results": [
         {
           "glob": "src/klode_kit/contract/provenance.py",
@@ -85,23 +64,23 @@
           "totals": {
             "lines": 100,
             "functions": null,
-            "branches": 92.19,
+            "branches": 100,
             "statements": 100
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -116,18 +95,18 @@
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -137,23 +116,23 @@
           "totals": {
             "lines": 100,
             "functions": null,
-            "branches": 96.67,
+            "branches": 100,
             "statements": 100
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -168,18 +147,18 @@
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -194,18 +173,18 @@
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -220,18 +199,18 @@
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -246,18 +225,18 @@
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=100.00%, statements=100.00%",
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         },
         {
@@ -265,30 +244,29 @@
           "description": "",
           "matchedFiles": 1,
           "totals": {
-            "lines": 99.79,
+            "lines": 99.8,
             "functions": null,
-            "branches": 93.83,
-            "statements": 99.79
+            "branches": 99.39,
+            "statements": 99.8
           },
           "thresholds": {
             "lines": 90,
-            "functions": 90,
+            "functions": 0,
             "branches": 95,
             "statements": 90
           },
-          "ok": false,
-          "summary": "lines=99.79%, statements=99.79%",
+          "ok": true,
+          "summary": "lines=99.80%, functions=n/a, branches=99.39%, statements=99.80%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,
-            "statements": false,
-            "functions": true,
-            "branches": true
+            "functions": false,
+            "branches": false,
+            "statements": false
           }
         }
       ]
-    },
-    "globalThresholds": "PASS"
+    }
   },
   "mutation": null,
   "baseline": null
