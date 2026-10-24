@@ -23,7 +23,7 @@ inputs                                ``artifact_missing``, ``malformed_artifact
 (3) export transform -> export text   ``export_text_mismatch``, ``export_file_mismatch``,
                                       ``value_audited_mismatch``, ``transform_on_numeric``,
                                       ``alias_not_item``, ``dateshift_not_date``,
-                                      ``dateshift_without_mode``
+                                      ``dateshift_without_mode``, ``unknown_slot``
 version binding                       ``rev_binding_mismatch`` (export_map.rev or the bound
                                       audit_rev != ``audit_bindings[rec_id]``)
 ====================================  ==========================================================
@@ -45,6 +45,19 @@ the current value to equal ``from``; ``unapply`` runs them backwards. A transfor
 ``field_id`` is line-level (layout) and leaves field values alone. ``alias`` may only touch item
 fields, ``dateshift`` only date fields and only when ``deident_mode == "dateshift"``; nothing may
 touch a value or unit field.
+
+Slots (WI-00b3b): a field id is ``<rec_id>/<slot>``. ``slot_kind`` reads both slot formats - kb-audit slots
+``r<row:03d>-<kind>-<k>`` and their row-less ``<kind>-<k>`` (``kind`` in ``number date unit flag drug``), and
+fx-chain slots ``<group>[<n>].<role>`` / bare ``date`` (``value`` reads as ``number``). Numeric kinds are
+``number`` and ``unit``; item kinds (alias targets) are ``item`` and ``drug`` (``drug-0`` is the item of an rx
+row). A field of neither format - in a transform or in an export row's ``field_ids`` - is ``unknown_slot``; it is
+never skipped in silence. ``value_audited`` is checked against the line's first ``number`` field.
+
+Pipeline products (WI-00b3b): ``Layout.for_project(project, build_dir)`` lists ``work/<batch>/...``, the audit
+revisions ``work/<batch>/audit/a<N>/``, ``records/`` and the build. Real kb-ocr page files carry no ``run_id``
+(kb-audit stamps it on read): such a line is traced by the run id its attempt directory names, the kb-ocr formula
+``<batch>/<engine>/<fp>/t<N>`` for ``<batch>/ocr/<engine>/<fp>.t<N>/<key>.jsonl``; when the directories name no
+valid run id the line is a ``run_id_mismatch``.
 """
 
 from __future__ import annotations
@@ -52,9 +65,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+
+from klode_kit.contract import ids as ids_mod
 
 CODES: frozenset[str] = frozenset({
     "artifact_missing", "malformed_artifact", "artifact_sha_mismatch",
@@ -64,12 +80,16 @@ CODES: frozenset[str] = frozenset({
     "multiple_effective_decisions", "record_value_mismatch", "record_missing",
     "export_text_mismatch", "export_file_mismatch", "value_audited_mismatch",
     "transform_on_numeric", "alias_not_item", "dateshift_not_date", "dateshift_without_mode",
-    "rev_binding_mismatch",
+    "rev_binding_mismatch", "unknown_slot",
 })
 
 CLOUD_ROUTES = frozenset({"claude", "codex"})
 TEXT_KEY_PREFIX = "text/"
-NUMERIC_KINDS = frozenset({"value", "unit"})
+NUMERIC_KINDS = frozenset({"number", "unit"})   # no transform may touch them
+ITEM_KINDS = frozenset({"item", "drug"})       # alias may touch them (drug-0 is the item of an rx row)
+_PIPE_SLOT = re.compile(r"^(?:r\d{3,}-)?(number|date|unit|flag|drug)-\d+$")
+_CHAIN_SLOT = re.compile(r"^[A-Za-z_]\w*\[\d+\]\.(item|value|unit|flag|date)$")
+_CHAIN_KIND = {"value": "number"}
 DPI_TOLERANCE_PX = 1.0
 
 
@@ -101,6 +121,7 @@ class Layout:
     build_dir: Path | None = None
     artifact_base: Path | None = None
     text_dirs: list[Path] = field(default_factory=list)
+    audit_glob: str = "*/a*/"   # audit revision directories under ``audit_dir``
 
     @classmethod
     def for_products(cls, root: str | os.PathLike) -> "Layout":
@@ -115,13 +136,44 @@ class Layout:
                    audit_dir=r / "audit", records_dir=r / "records", build_dir=r / "build", artifact_base=r,
                    text_dirs=[text] if text.is_dir() else [])
 
+    @classmethod
+    def for_project(cls, project: str | os.PathLike, build_dir: str | os.PathLike) -> "Layout":
+        """The data-project layout (WI-00b3b): ``work/<batch>/{manifest,derived,page_map}.jsonl``,
+        ``work/<batch>/ocr``, ``work/<batch>/text``, audit revisions ``work/<batch>/audit/a<N>/``, ``records/`` and the
+        build directory ``build_dir``."""
+        p = Path(project)
+        batches = sorted(d for d in (p / "work").glob("*") if d.is_dir()) if (p / "work").is_dir() else []
+
+        def files(name: str) -> list[Path]:
+            return [d / name for d in batches if (d / name).is_file()]
+
+        def dirs(name: str) -> list[Path]:
+            return [d / name for d in batches if (d / name).is_dir()]
+
+        return cls(root=p, manifest=files("manifest.jsonl"), derived=files("derived.jsonl"),
+                   page_map=files("page_map.jsonl"), ocr_dirs=dirs("ocr"), audit_dir=p / "work",
+                   records_dir=p / "records", build_dir=Path(build_dir), artifact_base=p, text_dirs=dirs("text"),
+                   audit_glob="*/audit/a*/")
+
 
 # --------------------------------------------------------------------------- transforms
 
 
-def slot_kind(field_id: str) -> str:
-    """``r-x/labs[0].value`` -> ``value``; ``r-x/date`` -> ``date``."""
-    return field_id.split("/", 1)[-1].rsplit(".", 1)[-1]
+def slot_kind(field_id: str) -> str | None:
+    """The kind of a field's slot, in the pipeline vocabulary (WI-00b3b): kb-audit slots ``r<row:03d>-<kind>-<k>``
+    and their row-less form ``<kind>-<k>`` (``r-x/r005-number-0`` -> ``number``); fx-chain slots
+    ``<group>[<n>].<role>`` (``value`` -> ``number``) and a bare ``date``. ``None``: neither format (the caller
+    reports ``unknown_slot``, it never guesses)."""
+    slot = field_id.split("/", 1)[-1]
+    if slot == "date":
+        return "date"
+    m = _PIPE_SLOT.match(slot)
+    if m:
+        return m.group(1)
+    m = _CHAIN_SLOT.match(slot)
+    if m:
+        return _CHAIN_KIND.get(m.group(1), m.group(1))
+    return None
 
 
 def _run(transforms: Iterable[Mapping[str, Any]], values: Mapping[str, str], src: str, dst: str) -> dict[str, str]:
@@ -151,11 +203,14 @@ def check_transforms(transforms: Sequence[Mapping[str, Any]], *, deident_mode: s
         fid, kind = t.get("field_id"), t.get("kind")
         where = f"{location}#{i}"
         code = None
-        if fid is not None and slot_kind(fid) in NUMERIC_KINDS:
+        sk = slot_kind(fid) if fid is not None else None
+        if fid is not None and sk is None:
+            code = "unknown_slot"
+        elif sk in NUMERIC_KINDS:
             code = "transform_on_numeric"
-        elif kind == "alias" and fid is not None and slot_kind(fid) != "item":
+        elif kind == "alias" and fid is not None and sk not in ITEM_KINDS:
             code = "alias_not_item"
-        elif kind == "dateshift" and fid is not None and slot_kind(fid) != "date":
+        elif kind == "dateshift" and fid is not None and sk != "date":
             code = "dateshift_not_date"
         elif kind == "dateshift" and deident_mode != "dateshift":
             code = "dateshift_without_mode"
@@ -315,8 +370,9 @@ class _Chain:
             for page in sorted(root.glob("*/*/*.jsonl")):
                 engine, run_dir = page.parent.parent.name, page.parent.name
                 fp, _, attempt = run_dir.rpartition(".")
+                derived = _attempt_run_id(root.parent.name, engine, fp, attempt)
                 for where, line in self.ctx.jsonl(page):
-                    self.ctx.guarded(where, self._ocr_line, where, line, engine, f"/{engine}/{fp}/{attempt}")
+                    self.ctx.guarded(where, self._ocr_line, where, line, engine, f"/{engine}/{fp}/{attempt}", derived)
         for root in self.lay.text_dirs:
             if not root.is_dir():
                 self.ctx.missing(root)
@@ -334,8 +390,12 @@ class _Chain:
         self.lines[(key, line["der_sha256"], int(line["line_idx"]))] = line
         self._pdftext_dpi(where, line)
 
-    def _ocr_line(self, where: str, line: dict, engine: str, suffix: str) -> None:
-        run_id = line["run_id"]
+    def _ocr_line(self, where: str, line: dict, engine: str, suffix: str, derived: str | None) -> None:
+        run_id = line.get("run_id", derived)
+        if run_id is None:
+            self.ctx.add("run_id_mismatch", where, engine=engine,
+                         detail=f"line carries no run_id and its directories name none (…{suffix})")
+            return
         if line.get("engine", engine) != engine or not run_id.endswith(suffix):
             self.ctx.add("run_id_mismatch", where, engine=engine, detail=f"line run_id {run_id} not under {suffix}")
         self.lines[(run_id, line["der_sha256"], int(line["line_idx"]))] = line
@@ -362,7 +422,7 @@ class _Chain:
 
     def load_audit(self) -> None:
         audit = self.lay.audit_dir
-        revs = sorted(audit.glob("*/a*/")) if audit is not None and audit.is_dir() else []
+        revs = sorted(audit.glob(self.lay.audit_glob)) if audit is not None and audit.is_dir() else []
         if not revs:
             self.ctx.missing(audit if audit is not None else self.lay.root / "audit")
             return
@@ -535,6 +595,9 @@ class _Chain:
         for v in check_transforms(row["transforms"], deident_mode=deident_mode, location=f"{where} transforms"):
             self.ctx.found.append(Violation(v.code, rec, v.field_id, None, v.location, v.detail))
         self._export_file(where, row)
+        for fid in row["field_ids"]:
+            if slot_kind(fid) is None:
+                self.ctx.add("unknown_slot", f"{where} field_ids", fid=fid, detail="slot of neither known format")
         body = self.body(rec, b["rev"], where) if b is not None else None
         if body is None:
             return
@@ -552,7 +615,7 @@ class _Chain:
             if fid not in applied or not _is_span(pos, len(text)) or text[pos[0]:pos[1]] != applied[fid]:
                 self.ctx.add("export_text_mismatch", where, fid=fid,
                              detail=f"text at {pos} != apply(transforms, {values.get(fid)!r}) = {applied.get(fid)!r}")
-        value_fids = [f for f in ids if slot_kind(f) == "value"]
+        value_fids = [f for f in ids if slot_kind(f) == "number"]
         if value_fids and row["value_audited"] != fields.get(value_fids[0]):
             self.ctx.add("value_audited_mismatch", where, fid=value_fids[0],
                          detail=f"value_audited {row['value_audited']!r} != bound revision value {fields.get(value_fids[0])!r}")
@@ -567,6 +630,14 @@ class _Chain:
         if not (1 <= n <= len(lines)) or lines[n - 1] != row["text"]:
             self.ctx.add("export_file_mismatch", where, rec=row["rec_id"],
                          detail=f"{row['source_file']} line {n} differs from export_map text")
+
+
+def _attempt_run_id(batch: str, engine: str, fp: str, attempt: str) -> str | None:
+    """The run id kb-OCR gives attempt ``ocr/<engine>/<fp>.<attempt>`` of batch ``batch`` (``None``: not one)."""
+    try:
+        return ids_mod.run_id(batch, engine, fp, attempt)
+    except ValueError:
+        return None
 
 
 def _is_box(box: Any) -> bool:

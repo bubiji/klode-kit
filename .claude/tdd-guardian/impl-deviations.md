@@ -131,3 +131,6 @@
 | WI-01c | 脱敏：pseudonym（HMAC 假名 `[N-…]`/`[ID-…]`，日期不动）与 dateshift（全库单一偏移 ±365..3650 天、保持写法）；密钥 `_private/deident_key.json`（0600、O_EXCL、不覆盖、附 `.gitignore`），pseudonym 也建密钥（需盐）；接入点 `records_to_txt.export(deident=…)`，标签替换登记 layout transform、日期登记 dateshift transform，值/单位/flag 永不 transform；无法安全显示的记录整条排除（新原因 `deident_unsafe`）；.privacy-allowlist 追加一条合成占位误报 | 接受 |
 | WI-01c → 09b/11b | **`src/export_map.jsonl` 含审计原值（unapply 所需），dateshift 下可推出偏移 → `src/` 属私有侧，对外只能是 `library/` 与卡片**；build_receipt 记 deident_mode | WI-09b/11b 派工时写明 |
 | WI-01c 发现 | 00b3 校验器在真实槽名（`r003-date-0`）上把 dateshift 误报为 `dateshift_not_date`（slot_kind 不认真实槽名）→ 即 WI-00b3b | 下一个派 WI-00b3b |
+| WI-00b3b | provenance.slot_kind 识别真实槽名（`r<row>-<kind>-<k>`、`<kind>-<k>`）与 fx-chain 槽名；不认识的槽名报新违例码 `unknown_slot`（不再静默跳过）；`ITEM_KINDS = {item, drug}`；新增 `Layout.for_project(project, build_dir)`（`audit_glob = */audit/a*/`）；OCR 行缺 run_id 时按目录推导 `ids.run_id(...)`，推不出 → run_id_mismatch（WI-08c 遗留③处理）；真实产物 4 夹具 × 3 导出模式 0 违例 | 接受 |
+| WI-00b3b 残余 | ① 源行无 number-0 而有 unit-0+number-1 时 value_audited 口径不一致（无夹具触发）；② flag 只禁 alias/dateshift；③ apply 失败后不再查 value_audited | 记录；①② WI-31 时复核 |
+| WI-00b3b → 09b/31 | 流水线产物复验用 `Layout.for_project` | WI-09b/31 派工时写明 |
