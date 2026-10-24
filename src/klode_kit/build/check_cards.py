@@ -6,7 +6,9 @@ the WI-00d2 stand-in ``devtools/spike_check_card.py`` behind the same command ``
 Earlier and stricter than ``klode check --strict``: klode folds punctuation (``FOLDED-ONLY``) and lets stub cards
 through (03 B6), so this gate cannot be skipped. Rules kept from the original (03 A2):
 
-- F1 first line ``aliases: [...]`` with >= ``cards.min_aliases`` (10) entries;
+- F1 first line ``aliases: [...]`` with >= ``cards.min_aliases`` (10) entries on an authored card, >=
+  ``MIN_ALIASES_DETERMINISTIC`` (1) on a deterministic one (user decision 2026-10-24, WI-01b: deterministic cards
+  take their aliases only from deterministic sources and are not padded to 10);
 - F2 a ``## Thin`` section with >= 1 anchor;
 - F3 a ``## Full`` section with >= 1 ``###`` subsection; every top-level ``- `` bullet in it has an anchor;
 - A1 every anchor >= 15 characters;
@@ -60,6 +62,9 @@ DETERMINISTIC_SHELVES = frozenset(s.split("/", 1)[1] for s in (ITEMS_SHELF, RECO
 POLICIES = ("auto", "authored", "deterministic")
 SCHEMA_ID = "klode-kit.check_cards/1"
 MIN_ANCHOR_LEN = 15
+# F1 floor for cards whose source is on a deterministic shelf (items / records). A code constant, not a config
+# key: the authored floor stays ``cards.min_aliases`` (10). User decision 2026-10-24 (WI-01b, option B).
+MIN_ALIASES_DETERMINISTIC = 1
 
 JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -210,8 +215,9 @@ def _judge(kb: Path, cid: str, raw: str, policy: str, min_aliases: int, min_anch
         probs.append("F1 首行必须是 aliases: [...]")
     else:
         aliases = [a.strip() for a in m.group(1).split(",") if a.strip()]
-        if len(aliases) < min_aliases:
-            probs.append(f"F1 aliases 只有 {len(aliases)} 个，需 ≥ {min_aliases}")
+        floor = MIN_ALIASES_DETERMINISTIC if derived == "deterministic" else min_aliases
+        if len(aliases) < floor:
+            probs.append(f"F1 aliases 只有 {len(aliases)} 个，需 ≥ {floor}")
 
     thin = re.search(r"^## Thin\n(.*?)(?=^## Full|\Z)", raw, flags=re.S | re.M)
     full = re.search(r"^## Full\n(.*)\Z", raw, flags=re.S | re.M)

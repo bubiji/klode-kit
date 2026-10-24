@@ -125,3 +125,6 @@
 | WI-02d | test_smoke_mcp_cli.py 夹具库 id `fx-labs-3x-klode` → `fx-labs-3x`（两处已记录行；断言不变） | **用户 2026-10-24 批准** |
 | WI-02d → 09/13a | 流水线中 gen-agent 跑在 builds/<id> 上，应传 `--kb-root kb/<id>/current` 与 `--build-id`；kb_check 可直接调 `smoke_mcp.run()` | WI-09/13a 派工时写明 |
 | **/kb-build 搬迁完成** | 用户原 klode-build 的 11 个脚本 + 2 份 prompt 已全部搬入插件（WI-02a–02d），B1–B6 均已修或兜底；原 `~/.claude/skills/` 脚本未改（回修为可选 WI-19，需用户批准 G1） | 里程碑记录 |
+| WI-01b | records_to_l1：确定性生成 item/record 卡（`aliases` 首行、`kind: deterministic`；Thin = 观测次数+日期范围+最新值整行锚点+与前次比较 上升/下降/持平/无法比较 + 不作临床解读声明；Full = 每源行一个整行锚点，重复行 `#N`）；别名只来自确定来源（items.yaml、card_aliases.toml 通用名表、源中单位写法），不编造；源行须与 export_map 一致；有 BIBLIOGRAPHY 时补行（strict 0/0 所需） | 接受 |
+| WI-01b 决定 | **确定性卡别名下限 ≥1，书籍卡仍 ≥10**（用户 2026-10-24）；落为代码常量 `check_cards.MIN_ALIASES_DETERMINISTIC = 1`（不进 defaults.toml，免改 r2.6 设计表与配置测试；数据项目不可覆盖）；改已记录行：test_records_to_l1.py 模块 docstring、test_alias_shortage 的 write 调用/main 期望/末行断言 | **用户 2026-10-24 批准规则与相应断言改动** |
+| WI-01b | test_records_to_l1.py 插入一行 `L.write(build)`（测试准备遗漏）→ WI-01b.unit SEPARATION-BROKEN | **用户 2026-10-24 批准** |

@@ -34,6 +34,10 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "check-published": ("klode_kit.build.check_published:main",
                         "check-published (CARD ... | --all) [--kb DIR] [--receipt F] [--json]: gate 1 again on "
                         "the published cards below the marker, plus zoom / stale / forced write receipt"),
+    "records-to-l1": ("klode_kit.build.records_to_l1:main",
+                      "records-to-l1 KB [--json]: deterministic cards_content for the items / records shelves of a "
+                      "records_to_txt export (Thin latest + trend, Full one whole-line anchor per line; aliases >= "
+                      "10 from deterministic sources or stop)"),
     "split-chapters": ("klode_kit.build.split_by_manifest:main",
                        "split-chapters KB (--whole F --scan [--head-re T] | --manifest M [--apply]): cut a whole "
                        "text into one source per chapter at manifest line numbers (pieces put back == whole)"),
