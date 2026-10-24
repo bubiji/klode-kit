@@ -125,6 +125,13 @@
         "branches": 95
       },
       "requireSpecLevel": "S6"
+    },
+    {
+      "glob": "src/klode_kit/audit/writeback.py",
+      "thresholds": {
+        "branches": 95
+      },
+      "requireSpecLevel": "S5"
     }
   ],
   "coverageMode": "absolute",

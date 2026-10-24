@@ -139,6 +139,13 @@
               "disputed"
             ]
           },
+          "verified_by": {
+            "enum": [
+              "auto",
+              "human",
+              null
+            ]
+          },
           "uncertain": {
             "type": "array",
             "items": {

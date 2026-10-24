@@ -237,3 +237,68 @@ def _send_runner(tmp_path: Path, env: Mapping[str, str], timeout: float):
 
 
 REAL_ENTRIES["send"] = RealEntry("send", "WI-05b", _send_runner)
+
+
+# --- writeback (WI-08c) -------------------------------------------------------------------
+# Enumeration list of 08c-13 (tests/contract/test_writeback_crash.py crashes at each point, then reruns). Every
+# commit of one record is: begin marker -> decisions -> body -> front matter -> end marker; a rerun completes a
+# commit whose begin marker has no end marker (roll forward), so a crash anywhere leaves all or nothing.
+WRITEBACK_CRASHPOINTS = frozenset({
+    "writeback.lock",            # the project lock work/.lock opened (shared with kb-ocr / kb-audit) and taken
+    "writeback.begin",           # commit marker 'begin' (the whole planned commit) appended to a<N>/commits.jsonl
+    "writeback.fixes_appended",  # the commit's decisions appended to a<N>/fixes.jsonl
+    "writeback.mkdir",           # records/, records/_rev/, records/_by_id/ created (loop: one name)
+    "writeback.rev_tmp",         # revision body written to its temporary file in records/_rev/
+    "writeback.rev_renamed",     # ... moved to records/_rev/<rec_id>.r<N>.md
+    "writeback.rev_written",     # ... made read-only
+    "writeback.byid_tmp",        # record front matter written to its temporary file in records/_by_id/
+    "writeback.byid_written",    # ... replaced records/_by_id/<rec_id>.md
+    "writeback.committed",       # commit marker 'end' appended
+    "writeback.receipt",         # the run's receipt line appended to a<N>/writeback_receipts.jsonl
+})
+
+
+def writeback_setup(root: Path):
+    """fx-u8 audited, its confirm page written and every field to confirm clicked (route); ``(project, batch,
+    a1, choices path)``. The choices file lives outside the data project."""
+    from _support import writeback_fx as W
+
+    root.mkdir(parents=True, exist_ok=True)
+    project = root / "proj"
+    project.mkdir()
+    b, adir = W.audited(project, W.U8)
+    choices = W.write_choices(root / "choices.json", W.export(project, b, adir, W.picks(adir)))
+    return project, b, adir, choices
+
+
+def _writeback_runner(tmp_path: Path, env: Mapping[str, str]) -> list[Path]:
+    """Normal ``python -m klode_kit kb-audit --writeback <choices>`` on a fresh fx-u8 project (no records yet, so
+    every durable write kind of the flow happens)."""
+    project, _, _, choices = writeback_setup(tmp_path / "writeback-flow")
+    res = run_module("klode_kit", ["kb-audit", "--project", str(project), "--writeback", str(choices)], env,
+                     timeout=120)
+    assert res.returncode == 0, res.stderr.decode()
+    assert len(list((project / "records" / "_by_id").glob("*.md"))) == 2
+    return [project]
+
+
+REAL_FLOWS["writeback"] = RealFlow("writeback", "08c-13", "WI-08c", _writeback_runner, WRITEBACK_CRASHPOINTS)
+
+
+def _writeback_entry(tmp_path: Path, env: Mapping[str, str], timeout: float):
+    """00s-14 / 00s-15 on the real writeback; artifacts: everything the writeback owns plus its receipt log and
+    stdout, wall-clock stamps normalised (each runner call writes at its own second)."""
+    from _support import writeback_fx as W
+
+    project, b, adir, choices = writeback_setup(tmp_path)
+    res = run_module("klode_kit", ["kb-audit", "--project", str(project), "--writeback", str(choices)], env,
+                     timeout=timeout)
+    artifacts = dict(W.state(project, b))
+    log = adir / "writeback_receipts.jsonl"
+    if log.exists():
+        artifacts["receipts"] = W.TS.sub(b"<ts>", log.read_bytes())
+    artifacts["stdout"] = W.TS.sub(b"<ts>", res.stdout)
+    return res, artifacts
+
+
+REAL_ENTRIES["writeback"] = RealEntry("writeback", "WI-08c", _writeback_entry, "writeback.committed")

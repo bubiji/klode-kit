@@ -145,10 +145,7 @@ def test_seams_active_unreached_crash_point_is_harmless(tmp_path):
 
 
 @pytest.mark.parametrize("mode", ["seams_unset", "real_on"])
-@pytest.mark.parametrize("entry_name", [
-    "send",
-    pytest.param("writeback", marks=pytest.mark.xfail(strict=True, reason="依赖 WI-08c（真实 writeback 尚未实现）")),
-])
+@pytest.mark.parametrize("entry_name", ["send", "writeback"])  # WI-08c: writeback XPASSed, xfail removed
 def test_seams_inert_unless_test_mode_real(tmp_path, mode, entry_name):
     """00s-14 on the real send (fake claude) and writeback (fx-u8) entry points."""
     entry = REAL_ENTRIES[entry_name]

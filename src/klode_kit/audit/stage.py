@@ -384,17 +384,29 @@ def run(project: Path, batch_id: str, *, out: TextIO | None = None) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="klode-kit kb-audit",
-                                     description="Align, vote and gate a kb-ocr batch into audit revision a<N>.")
-    parser.add_argument("--batch", required=True, help="batch id (12 hex characters, the work/<batch> directory)")
+                                     description="Align, vote and gate a kb-ocr batch into audit revision a<N>; "
+                                                 "with --writeback, commit its candidates or the human choices "
+                                                 "(WI-08c).")
+    parser.add_argument("--batch", default=None, help="batch id (12 hex characters, the work/<batch> directory)")
     parser.add_argument("--project", type=Path, default=None, help="data project directory (default: cwd)")
+    parser.add_argument("--writeback", nargs="?", const="", default=None, metavar="CHOICES",
+                        help="writeback (audit.writeback): without CHOICES ingest the newest audit revision's "
+                             "candidates of --batch; with a choices.json commit the human choices")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
+    project = Path.cwd() if args.project is None else args.project
+    if args.writeback is not None:
+        from klode_kit.audit import writeback
+
+        return writeback.run(project, args.batch, Path(args.writeback) if args.writeback else None)
+    if args.batch is None:
+        print("kb-audit: --batch is required (or --writeback <choices.json>)", file=sys.stderr)
+        return USAGE_EXIT
     if not _BATCH.fullmatch(args.batch):
         print(f"kb-audit: --batch must be a batch id (12 hex characters): {args.batch!r}", file=sys.stderr)
         return USAGE_EXIT
-    project = Path.cwd() if args.project is None else args.project
     return run(project, args.batch)
 
 
