@@ -166,12 +166,26 @@ def check_card(kb: Path, cid: str, policy: str = "auto", *, min_aliases: int | N
         min_anchors_full = cfg["cards.min_anchors_full"] if min_anchors_full is None else min_anchors_full
     res: dict[str, Any] = {"id": cid, "card": f"cards_content/{cid}.md", "source": None, "policy": None,
                            "kind_declared": None, "anchors": 0, "coverage": None, "pass": False, "problems": []}
-    probs: list[str] = res["problems"]
     f = kb / "cards_content" / f"{cid}.md"
     if not f.is_file():
-        probs.append("MISSING cards_content 文件不存在")
+        res["problems"].append("MISSING cards_content 文件不存在")
         return res
-    raw = f.read_text(encoding="utf-8")
+    return _judge(kb, cid, f.read_text(encoding="utf-8"), policy, min_aliases, min_anchors_full, res)
+
+
+def judge(kb: Path, cid: str, raw: str, policy: str = "auto", *, min_aliases: int, min_anchors_full: int,
+          card: str | None = None) -> dict[str, Any]:
+    """Gate 1 on card text ``raw`` (the ``cards_content`` form) for card ``cid``; used by ``check_published``."""
+    if policy not in POLICIES:
+        raise ValueError(f"policy must be one of {POLICIES}, got {policy!r}")
+    res: dict[str, Any] = {"id": cid, "card": card or f"cards_content/{cid}.md", "source": None, "policy": None,
+                           "kind_declared": None, "anchors": 0, "coverage": None, "pass": False, "problems": []}
+    return _judge(Path(kb).resolve(), cid, raw, policy, min_aliases, min_anchors_full, res)
+
+
+def _judge(kb: Path, cid: str, raw: str, policy: str, min_aliases: int, min_anchors_full: int,
+           res: dict[str, Any]) -> dict[str, Any]:
+    probs: list[str] = res["problems"]
     res["anchors"] = len(ANCHOR_RE.findall(raw))
     head = raw.split("\n## ", 1)[0]
     kind = KIND_RE.search(head)

@@ -28,6 +28,12 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "check-cards": ("klode_kit.build.check_cards:main",
                     "check-cards (CARD ... | --all) [--kb DIR] [--json] [--policy P]: gate 1 (format + verbatim "
                     "anchors; policy from the source's shelf)"),
+    "write-card": ("klode_kit.build.write_card:main",
+                   "write-card KB [ID ...] [--force] [--receipt F]: write cards_content into library/cards below "
+                   "the scaffold marker; gate 1 first, FAIL writes nothing (--force: humans only, step fails)"),
+    "check-published": ("klode_kit.build.check_published:main",
+                        "check-published (CARD ... | --all) [--kb DIR] [--receipt F] [--json]: gate 1 again on "
+                        "the published cards below the marker, plus zoom / stale / forced write receipt"),
     "split-chapters": ("klode_kit.build.split_by_manifest:main",
                        "split-chapters KB (--whole F --scan [--head-re T] | --manifest M [--apply]): cut a whole "
                        "text into one source per chapter at manifest line numbers (pieces put back == whole)"),
