@@ -139,7 +139,6 @@ def _export_of(build_dir: Path, x: str) -> tuple[list[str], list[dict]]:
     return lines, [r for r in rows if r.get("rec_id") == x]
 
 
-@pytest.mark.xfail(strict=True, reason="依赖 WI-01a / WI-09b（records_to_txt、build 尚未实现）")
 def test_u6_export_and_build_bind_old_revision(tmp_path):
     """08d-06 (S5), r4.1 (3) and (4): after the failed redo the export lines of X are byte-identical and
     ``export_map.rev == 1``; the build binds ``{rev 1, a1}``, X is not excluded and is listed in

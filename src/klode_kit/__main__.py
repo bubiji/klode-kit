@@ -95,6 +95,15 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "pipeline --batch INBOX [--project DIR] [--stage S] [--choices F] [--routes a,b] [--launcher L] "
                  "[--resume]: preflight / ocr / audit / writeback (/ build / check / publish) with per-step "
                  "receipts; exit 10 = awaiting the human's confirm page"),
+    "build": ("klode_kit.build.run_build:main",
+              "build [--project DIR] [--kb DIR] [--source F --shelf S [--manifest M]] [--desk F [--holdout F]] "
+              "[--syntheses DIR]: the 13 build steps into kb/<id>/builds/<build_id>/ (read-only when finished; "
+              "nothing outside builds/ is written)"),
+    "records-to-txt": ("klode_kit.build.records_to_txt:main",
+                       "records-to-txt --project DIR --out DIR [--kb-id ID] [--bindings F] [--deident MODE]: "
+                       "export the bound verified records as text sources + export_map (prints a JSON summary)"),
+    "bridge": ("klode_kit.bridge:main", "bridge run --tasks F --receipt F [--project DIR]: dispatch card writers "
+               "through claude -p (real calls only behind gate G2)"),
     "views": ("klode_kit.audit.views:main", "views [--project DIR]: rebuild the read-only views records/<date>-<type>.md "
               "and verified/<date>-<type>.md (symlinks to revision bodies)"),
 }

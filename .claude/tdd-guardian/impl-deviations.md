@@ -145,3 +145,10 @@
 | 模型切换（用户 2026-10-24 21:55） | Opus 5.5 本周额度用尽（WI-09a 子代理 429，未留文件）→ **用户决定剩余实现改用 Sonnet 5.5**；质量仍由 TDD、red receipt、主会话复核与 gate 把关；各 WI 的 `--note` / 提交说明注明实现模型 | 用户批准 |
 | WI-09a（Sonnet） | pipeline 内核：阶段 preflight/ocr/audit/writeback 已编排，build/check/publish 为接口（未实现 → exit 2，不写 receipt）；锁 `work/.pipeline.lock`（子命令自持 `work/.lock`）；阶段 receipt `work/<batch>/pipeline/receipts/<stage>.json`，inputs_hash 含上游产物；三 hash 复用；dead-pid 崩溃重跑；等待确认记 done+exit 10（resume 幂等）；`--choices` 复制为 `pipeline/choices.json` 进入写回输入；写回顺序 choices → ingest → views；kb-audit 返 10 才调 confirm-page；`child_argv` 拒 `--force`；`write_receipt_verdict` 映射 PASS/FAIL；`--launcher` 选项供测试 | 接受 |
 | WI-09a → 09b/09c/10a/09d | 接口 `pipeline.Stage/Outcome/default_registry()/Ctx.child()`，替换 build/check/publish 的 run；09a-08 完整版（真实认证失败不进回路）待 09b/09c 补 | 派工时写明 |
+| WI-09b（Sonnet） | `klode-kit build`：13 步固定顺序写入 `kb/<id>/builds/<build_id>/`，失败点之后无 receipt、失败树也写 MANIFEST 并只读；医疗路径确定性（ingest/split 记 PASS「不适用」），书籍路径 ingest→gen-manifest→bridge 派 writer；书桌医疗路径用新增 `gen_synthesis.py` 机械合成（逐字取自卡片、无临床解读）；self_check 用 `Layout.for_project` 复验 provenance；`src/PRIVATE.md` + gitignore；build_id 输入另含 mode/source/manifest/syntheses/deident_mode/config sha；锁在 `builds/` 目录 fd；pipeline build 阶段已接入；U6 ③④ XPASS 去 xfail | 接受 |
+| WI-09b | 改已记录行：test_build_steps.py:302 写回退出码 `== 0` → `in (0, 10)`（disputed 记录使写回返回 10）；test_pipeline_kernel.py「未实现阶段」用例改以 check 阶段为例 | **用户 2026-10-25 批准** |
+| WI-09b | provenance 校验器：审计修订缺 `fixes.jsonl`（尚无人点选）视为无决定而非 artifact_missing；contract-replay timeoutMs 600000→1200000 | 接受 |
+| **待处理（CI）** | contract_replay 中 build 测试用 PATH 上的真 klode（非录制）→ Linux CI（只跑 unit+replay）会失败 | **WI-15b 必须处理**：这些用例改标 cli_integration，或 CI 安装 klode |
+| **设计缺口** | 书籍路径书桌 worker 合成无 WI 负责：`--syntheses DIR` 为输入，缺维度 → desk_apply FAIL exit 20 | WI-13a（/kb-build skill 派 worker）补，必要时增工作项 |
+| WI-31 待定（加重） | U7 夹具自带 desk 在真 klode 下留出集 3/5 = 0.60 < 0.8（retinning/tinning、darkened copper shell 路由偏差），字面「5/5」不成立；构建测试改用 test_desk_cli 同一套 spec | WI-31 需问用户 |
+| 已知 | 4 个 SIGINT 类用例在 shell `&` 后台运行时失败（继承 SIGINT 忽略），前台/工具后台模式全过 | 记录 |

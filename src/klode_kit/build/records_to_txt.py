@@ -70,9 +70,11 @@ built from it are the de-identified view.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
@@ -131,6 +133,10 @@ def _snapshot(project: Path) -> tuple[dict[str, dict], list[dict]]:
         else:
             excluded.append({"rec_id": rec, "reason": "not_verified", "status": front.get("status")})
     return bindings, excluded
+
+
+snapshot = _snapshot   # public: the build takes the snapshot once at its start (WI-09b)
+read_front = _front    # public: the JSON front matter of a record file (WI-09b)
 
 
 def _candidate_status(project: Path, rec: str, rev: Any) -> str | None:
@@ -447,3 +453,41 @@ def _write(out: Path, result: Mapping[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as fh:
             fh.write(payload[rel])
+
+
+def main(argv: list[str] | None = None) -> int:
+    """``klode-kit records-to-txt --project P --out DIR [--kb-id ID] [--bindings F] [--deident MODE]``: export the
+    bound verified records under ``DIR`` and print one JSON line ``{kb_id, audit_bindings, excluded, new_items,
+    files}``. Exit 0; 1 the export refused (a target exists, a record file is missing / malformed); 2 usage; 40 the
+    de-identification key or mode is unusable."""
+    parser = argparse.ArgumentParser(prog="klode-kit records-to-txt", description=main.__doc__.splitlines()[0])
+    parser.add_argument("--project", type=Path, required=True, help="data project directory")
+    parser.add_argument("--out", type=Path, required=True, help="build directory to write library/ and src/ into")
+    parser.add_argument("--kb-id", default=None)
+    parser.add_argument("--bindings", type=Path, default=None,
+                        help="JSON {rec_id: {rev, audit_rev}}: export exactly this snapshot (default: take it now)")
+    parser.add_argument("--deident", choices=sorted(deident_mod.MODES), default=None)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        return 2 if exc.code else 0
+    try:
+        bindings = json.loads(args.bindings.read_text(encoding="utf-8")) if args.bindings is not None else None
+        if bindings is not None and not (isinstance(bindings, dict) and all(
+                isinstance(b, dict) and isinstance(b.get("rev"), int) and isinstance(b.get("audit_rev"), str)
+                for b in bindings.values())):
+            raise ValueError("not an object of {rev, audit_rev} entries")
+        res = export(args.project, args.out, kb_id=args.kb_id, bindings=bindings, deident=args.deident)
+    except (OSError, ValueError) as exc:
+        print(f"records-to-txt: cannot read the bindings: {exc}", file=sys.stderr)
+        return 2
+    except ExportError as exc:
+        print(f"records-to-txt: {exc}", file=sys.stderr)
+        return 1
+    except deident_mod.DeidentError as exc:
+        print(f"records-to-txt: de-identification: {exc}", file=sys.stderr)
+        return 40
+    print(json.dumps({"kb_id": res["kb_id"], "audit_bindings": res["audit_bindings"], "excluded": res["excluded"],
+                      "new_items": res["new_items"], "files": sorted(res["files"])}, ensure_ascii=False,
+                     sort_keys=True))
+    return 0

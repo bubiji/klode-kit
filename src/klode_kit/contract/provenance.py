@@ -432,8 +432,11 @@ class _Chain:
             self.cells[key] = {}
             for where, cell in self.ctx.jsonl(rev_dir / "cells.jsonl"):
                 self.ctx.guarded(where, self._cell, where, key, cell)
-            for where, d in self.ctx.jsonl(rev_dir / "fixes.jsonl"):
-                self.ctx.guarded(where, self._decision, where, key, d)
+            # decisions are appended when a human decides: an audit revision nobody has clicked yet (a redo after a
+            # failed run, WI-09b) has no fixes.jsonl, which is a state, not a missing artifact
+            if (rev_dir / "fixes.jsonl").is_file():
+                for where, d in self.ctx.jsonl(rev_dir / "fixes.jsonl"):
+                    self.ctx.guarded(where, self._decision, where, key, d)
 
     def _cell(self, where: str, key: str, cell: dict) -> None:
         fid = cell["field_id"]

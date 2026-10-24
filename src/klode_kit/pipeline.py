@@ -17,8 +17,9 @@ Stages, in this order (``--stage S`` runs up to and including ``S``; default: al
     writeback   ``kb-audit --batch B --writeback <choices>`` (the human's choices, when given), then
                 ``kb-audit --batch B --writeback`` (ingest), then ``views`` (WI-08d: views are rebuilt after
                 every writeback).
-    build / check / publish
-                interfaces only (WI-09b / 10a / 09d): a stage without an implementation is reported and the run
+    build       ``build --project P`` (WI-09b): the 13 steps into ``kb/<id>/builds/<build_id>/``
+    check / publish
+                interfaces only (WI-10a / 09d): a stage without an implementation is reported and the run
                 ends with exit 2 - it never writes a receipt and never passes.
 
 Everything runs as a child process ``<launcher> <command> ...`` where the launcher is this repository's
@@ -383,14 +384,35 @@ def _writeback_run(ctx: Ctx) -> Outcome:
     return Outcome(final, "writeback + views", _writeback_outputs(ctx))
 
 
+def _build_run(ctx: Ctx) -> Outcome:
+    """``klode-kit build --project P`` (WI-09b): the 13 steps into ``kb/<id>/builds/<build_id>/``; the stage's product
+    is that build's ``build_receipt.json`` (the whole tree is pinned by its ``MANIFEST.sha256``)."""
+    code, text = ctx.child("build", "--project", str(ctx.project))
+    summary: dict = {}
+    for line in reversed(text.splitlines()):
+        if line.strip().startswith("{"):
+            try:
+                summary = json.loads(line)
+            except ValueError:
+                continue
+            break
+    rel = summary.get("build_dir") if isinstance(summary, dict) else None
+    product = f"{rel}/build_receipt.json" if isinstance(rel, str) else None
+    outputs = [product] if product and (ctx.project / product).is_file() else []
+    reason = classify_child_exit(code)
+    if reason is Reason.ok and not outputs:
+        return Outcome(Reason.contract_violation, "build wrote no build receipt")
+    return Outcome(reason, f"build exit {code}", outputs)
+
+
 def default_registry() -> dict[str, Stage]:
-    """The seven stages; ``build`` / ``check`` / ``publish`` have no ``run`` yet (WI-09b / 10a / 09d)."""
+    """The seven stages; ``check`` / ``publish`` have no ``run`` yet (WI-10a / 09d)."""
     return {
         "preflight": Stage("preflight", _preflight_inputs, _preflight_run),
         "ocr": Stage("ocr", _ocr_inputs, _ocr_run),
         "audit": Stage("audit", _after("ocr"), _audit_run),
         "writeback": Stage("writeback", _writeback_inputs, _writeback_run),
-        "build": Stage("build", _after("writeback"), None),
+        "build": Stage("build", _after("writeback"), _build_run),
         "check": Stage("check", _after("build"), None),
         "publish": Stage("publish", _after("check"), None),
     }

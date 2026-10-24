@@ -253,6 +253,9 @@ def _klode_version(exe: str, env: Mapping[str, str]) -> str | None:
     return ran.out.strip() if ran.ok and parse_version(ran.out) else None
 
 
+klode_version = _klode_version  # public: the build records it among its inputs (WI-09b)
+
+
 def _klode(env: Mapping[str, str]) -> Check:
     exe = _which("klode", env)
     if not exe:

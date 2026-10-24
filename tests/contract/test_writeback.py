@@ -453,7 +453,7 @@ def _stage(project, b, name):
     "kb-audit",
     "confirm-page",
     "views",  # WI-08d: XPASSed, xfail removed
-    pytest.param("build", marks=pytest.mark.xfail(strict=True, reason="依赖 WI-09b（build 尚未实现）")),
+    "build",  # WI-09b: XPASSed, xfail removed
     pytest.param("kb-verifier", marks=pytest.mark.xfail(strict=True, reason="依赖 WI-12（kb-verifier 尚未实现）")),
     pytest.param("kb-check", marks=pytest.mark.xfail(strict=True, reason="依赖 WI-10a（kb-check 内核尚未实现）")),
 ])

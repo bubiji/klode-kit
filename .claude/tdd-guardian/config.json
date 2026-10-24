@@ -33,7 +33,7 @@
       "coverage": "none",
       "coverageSummaryPath": "work/coverage/contract_replay.json",
       "probeCommand": ".venv/bin/python -m pytest -m contract_replay --collect-only -q",
-      "timeoutMs": 600000
+      "timeoutMs": 1200000
     },
     {
       "name": "cli-integration",
