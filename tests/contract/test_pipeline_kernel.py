@@ -264,17 +264,18 @@ def test_content_gate_failure_without_loops_ends_with_exit20(tmp_path: Path) -> 
 
 
 def test_unimplemented_stage_is_reported_not_faked(tmp_path: Path) -> None:
-    # WI-09b implemented the build stage (the stage this case first used); the check and publish interfaces
-    # (WI-10a / 09d) are still unimplemented, so the build stage is replaced by a stub that succeeds and the case
-    # reaches ``check``: reported with exit 2, no receipt for it or for what follows.
+    # WI-09b implemented the build stage, WI-10a the check stage (the stages this case first used); the publish
+    # interface (WI-09d) is still unimplemented, so build and check are replaced by stubs that succeed and the case
+    # reaches ``publish``: reported with exit 2, no receipt for it.
     rig = F.Rig(tmp_path)
     registry = P.default_registry()
-    registry["build"] = P.Stage("build", inputs=lambda ctx: {"stub": 3},
-                                run=lambda ctx: P.Outcome(reason=P.Reason.ok, detail="stub", outputs=[]))
-    code = P.run(rig.project, _all_verified_inbox(rig), stage="check", registry=registry, launcher=rig.wrapper,
+    for name in ("build", "check"):
+        registry[name] = P.Stage(name, inputs=lambda ctx: {"stub": 3},
+                                 run=lambda ctx: P.Outcome(reason=P.Reason.ok, detail="stub", outputs=[]))
+    code = P.run(rig.project, _all_verified_inbox(rig), stage="publish", registry=registry, launcher=rig.wrapper,
                  env=rig.env)
     assert code == 2
-    assert not (rig.receipts_dir / "check.json").exists() and not (rig.receipts_dir / "publish.json").exists()
+    assert not (rig.receipts_dir / "publish.json").exists()
 
 
 # ---------------------------------------------------------------- the human segment: choices -> writeback -> views

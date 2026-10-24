@@ -81,6 +81,7 @@ REPAIR_SCHEMA = "klode-kit.repair/1"  # the input of a repair round (klode_kit.l
 REPAIR_MARKER = "KLODE-KIT REPAIR ROUND"  # in the writer prompt of a card that failed in the previous round
 RECORD_SHELVES = ("items", "records")
 MANIFEST_NAME = "MANIFEST.sha256"
+CHECK_RECEIPT_NAME = "check_receipt.json"  # the verdict of kb-check about the tree, not part of it (WI-10a)
 SLUG_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 SHELF_RE = re.compile(r"[A-Za-z0-9._-]+")
 USAGE_EXIT = 2
@@ -114,7 +115,8 @@ def _sha_file(path: Path) -> str:
 
 
 def _tracked(root: Path) -> dict[str, Path]:
-    """``{relative path: file}`` of every regular file below ``root``, minus the manifest and ``.readers/``."""
+    """``{relative path: file}`` of every regular file below ``root``, minus the manifest, the root ``check_receipt.json``
+    (the verdict of ``kb-check`` about this tree, written after it) and ``.readers/``."""
     out: dict[str, Path] = {}
     for dirpath, dirs, files in os.walk(root):
         if Path(dirpath) == root and ".readers" in dirs:
@@ -122,7 +124,7 @@ def _tracked(root: Path) -> dict[str, Path]:
         for name in files:
             p = Path(dirpath, name)
             rel = p.relative_to(root).as_posix()
-            if rel != MANIFEST_NAME and p.is_file():
+            if rel not in (MANIFEST_NAME, CHECK_RECEIPT_NAME) and p.is_file():
                 out[rel] = p
     return dict(sorted(out.items()))
 

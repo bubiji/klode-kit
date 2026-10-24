@@ -407,15 +407,33 @@ def _build_run(ctx: Ctx) -> Outcome:
     return Outcome(reason, f"build exit {code}", outputs)
 
 
+def _check_run(ctx: Ctx) -> Outcome:
+    """``klode-kit kb-check`` on the build the build stage made (WI-10a): the whole-library criteria, judged on the
+    build directory before anything points to it; the stage's product is the build's ``check_receipt.json``."""
+    receipt = next((o["path"] for o in ctx.upstream("build") if str(o.get("path", "")).endswith("build_receipt.json")),
+                   None)
+    if receipt is None:
+        return Outcome(Reason.contract_violation, "the build stage left no build receipt to check")
+    build = (ctx.project / receipt).parent
+    code, _ = ctx.child("kb-check", "--kb", str(build.parent.parent), "--build", build.name, "--entry",
+                        "pipeline:check", "--project", str(ctx.project))
+    product = build / "check_receipt.json"
+    outputs = [ctx.rel(product)] if product.is_file() else []
+    reason = classify_child_exit(code)
+    if reason is Reason.ok and not outputs:
+        return Outcome(Reason.contract_violation, "kb-check wrote no check receipt")
+    return Outcome(reason, f"kb-check exit {code}", outputs)
+
+
 def default_registry() -> dict[str, Stage]:
-    """The seven stages; ``check`` / ``publish`` have no ``run`` yet (WI-10a / 09d)."""
+    """The seven stages; ``publish`` has no ``run`` yet (WI-09d)."""
     return {
         "preflight": Stage("preflight", _preflight_inputs, _preflight_run),
         "ocr": Stage("ocr", _ocr_inputs, _ocr_run),
         "audit": Stage("audit", _after("ocr"), _audit_run),
         "writeback": Stage("writeback", _writeback_inputs, _writeback_run),
         "build": Stage("build", _after("writeback"), _build_run),
-        "check": Stage("check", _after("build"), None),
+        "check": Stage("check", _after("build"), _check_run),
         "publish": Stage("publish", _after("check"), None),
     }
 

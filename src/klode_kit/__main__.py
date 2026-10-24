@@ -78,7 +78,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "smoke-mcp": ("klode_kit.build.smoke_mcp:main",
                   "smoke-mcp KB --card ID --real PHRASE [--query Q] [--desk SYMPTOM=DIM] [--timeout S]: run the "
                   "real klode-mcp (initialize, tools/list, search, zoom, verify real / fake); exit 0 all PASS"),
-    "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block; "
+    "kb-check": ("klode_kit.check.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block; "
                  "kb-check --doctor [doctor args]: same as `doctor`"),
     "doctor": ("klode_kit.check.doctor:main",
                "doctor [--project DIR] [--repo DIR] [--only host,project,seams] [--receipt F]: run every "
