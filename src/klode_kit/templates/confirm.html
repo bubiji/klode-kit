@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="klode-kit-confirm-sha256" content="{{stamp}}">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' file: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>klode-kit 确认页 {{audit_rev}}</title>
+<style>
+body { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; margin: 1.5em; color: #222; }
+header { border-bottom: 1px solid #ccc; margin-bottom: 1em; }
+.kk-note { color: #555; font-size: 0.9em; }
+.kk-record { border: 1px solid #ddd; border-radius: 6px; padding: 0.8em 1em; margin: 1em 0; }
+.kk-revs { font-family: ui-monospace, Menlo, monospace; }
+.kk-blocked { color: #a40000; }
+.kk-item { border: 1px solid #eee; margin: 0.8em 0; padding: 0.6em 0.8em; }
+.kk-crop { max-width: 100%; border: 1px solid #ccc; display: block; margin: 0.4em 0; }
+.kk-cands, .kk-other { list-style: none; padding-left: 0; }
+.kk-cand { margin: 0.2em 0; }
+.kk-value { font-family: ui-monospace, Menlo, monospace; font-size: 1.1em; }
+.kk-star { color: #b8860b; margin-left: 0.4em; }
+.kk-missing { color: #888; }
+.kk-advice { background: #f3f7ff; border-left: 3px solid #6b8cd6; padding: 0.3em 0.6em; margin: 0.4em 0; }
+.kk-codes { color: #666; font-size: 0.85em; }
+footer { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #ccc; padding: 0.6em 0; }
+</style>
+</head>
+<body>
+<header>
+<h1>klode-kit 确认页</h1>
+<p>批次 <code>{{batch_id}}</code> · 审计修订 <code>{{audit_rev}}</code></p>
+<p class="kk-summary">{{summary}}</p>
+<p class="kk-note">本页只在本机打开：分歧小图是本机裁图，不外发。每条分歧选一路读数，或选「都不对」/「手输」；推荐值（多数票）只是推荐。kb-verifier 的建议只作提示，不会自动选中。未点完的记录也能导出，但写回时整条记录会被拒绝。</p>
+</header>
+<main>
+{{body}}
+</main>
+<footer>
+<button type="button" id="kk-export">导出 choices.json</button>
+<span id="kk-status"></span>
+</footer>
+<script type="application/json" id="klode-kit-confirm-data">{{data}}</script>
+<script id="klode-kit-confirm-export">
+{{script}}
+</script>
+</body>
+</html>

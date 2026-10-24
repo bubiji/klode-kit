@@ -564,13 +564,12 @@ def _run_route(route: Route, pages: list[Page], batch_dir: Path, cfg: config_mod
 # --------------------------------------------------------------------------- the batch
 
 
+# r3.3: a page with a failed / missing route stays disputed until the route is repaired; there is no
+# "continue with the remaining routes" choice on the confirm page.
 FIX = {
-    "route_failed": "rerun kb-ocr (a new attempt is made for this route), or choose 'continue with the other "
-                    "routes' on the confirm page",
-    "route_missing_page": "rerun kb-ocr for this route, or choose 'continue with the other routes' on the "
-                          "confirm page",
-    "parse_error": "rerun kb-ocr for this route (the answer broke the output schema twice), or choose 'continue "
-                   "with the other routes' on the confirm page",
+    "route_failed": "rerun kb-ocr (a new attempt is made for this route), then kb-audit",
+    "route_missing_page": "rerun kb-ocr for this route (--routes <route> --redo), then kb-audit",
+    "parse_error": "rerun kb-ocr for this route (the answer broke the output schema twice), then kb-audit",
 }
 
 
@@ -581,8 +580,7 @@ def _uncertain(page: Page, engine: str, result: dict) -> dict:
     if NOT_MASKED in error:
         fix = "run the masker (WI-05a) on this batch, then rerun kb-ocr; cloud routes send only _masked/ images"
     elif error.startswith("budget_exceeded"):
-        fix = ("raise cloud.max_cost_usd_per_batch in klode-kit.toml and rerun kb-ocr, or choose 'continue with "
-               "the other routes' on the confirm page")
+        fix = "raise cloud.max_cost_usd_per_batch in klode-kit.toml and rerun kb-ocr, then kb-audit"
     elif error.startswith("effort_locked"):
         fix = (f"remove the codex.effort override from klode-kit.toml (it is locked to "
                f"{adapters_codex.EFFORT_LOCK!r}), then rerun kb-ocr")
