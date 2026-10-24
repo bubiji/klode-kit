@@ -13,7 +13,7 @@
    "id": "ch03"
   }
  ],
- "description": "3 章合成英文小书（虚构的 aurora kettle），desk.json 3 维度各 1 题调优题，holdout 5 题。",
+ "description": "3 章合成英文小书（虚构的 aurora kettle），desk.json 3 维度各 1 题调优题（原 klode-build desk.json 结构），holdout 5 题（{q, gold}）。",
  "expect": {
   "chapters": 3,
   "holdout": 5

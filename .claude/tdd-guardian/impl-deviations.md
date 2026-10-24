@@ -117,3 +117,7 @@
 | WI-02a → 01b | deterministic 卡同样要求 F1 aliases ≥10；若 items 卡别名不足 10 个，需在 WI-01b 决定 | WI-01b 派工时写明 |
 | WI-02b | write_card：保留原写入契约与输出；修 B2（先跑门禁 1，任一 FAIL 全部不写）；`--force` 仅人工、记 forced=true 且步骤失败；别名按字面替换（修原脚本把 `C:\new`/`\1` 当正则模板的崩溃）；原子写；write_receipt `klode-kit.write_receipt/1`（代码内 schema，无时间字段，cards 台账跨运行延续）。check_published：对发布卡重建门禁 1 输入并全量复判，另报 MARKER/ZOOM/RECEIPT/STALE/FORCED；真实 klode 0.5.0 证明 strict 0E 而 check_published 抓到 FOLDED-ONLY 与 stub 卡（B6 兜底） | 接受 |
 | WI-02b → 09 | 「流水线永不传 --force」尚无代码强制（pipeline.py 未建）→ WI-09a/09b 须断言 argv 不含 --force，并把 write_receipt.forced=true 视为步骤失败；write_receipt status done/failed 需映射到 build_receipt 步骤 PASS/FAIL | WI-09 派工时写明 |
+| WI-02c | 书桌：保留原流程、_diagnostics.md 格式、S1–S6 判据与输出；修 B3（路由读 `klode --json diagnose` 的 value[0][0]）、B4（动作标题 `[^\n]*`）、eval_compare 题目缺 kind 时的 ValueError；**门禁只看留出集（≥5 题且命中率 ≥0.8），调优集只报告并作 L1 回路信号**（依设计 r2.1/H7）；留出集冻结 `src/holdout.freeze.json`（改动须 --refreeze --reason）；手改 _diagnostics.md → verify FAIL；cue-suggest 只读调优集、线索词只来自卡片别名、无新建议 exit 1（回路无进展信号）；fx-book-aurora 的 desk.json/holdout 改为原 klode-build 结构（gen_book.py 重生成） | 接受 |
+| WI-02c 残余 | 删掉冻结文件后下一次 verify 会把当前留出集当作初始版重新冻结 | 记录 |
+| WI-31 待定 | U7 字面「desk --verify 5/5」：aurora 线索词按 klode 子串路由第 5 题会落到 construction，预计 4/5（刚过门禁）→ 验收时接受 4/5 或改 agent 路由，涉及 04 字面需问用户 | WI-31 |
+| WI-02c → 02d | 书桌提示词引用的包内 `prompts/synthesis.md` 尚不存在 | WI-02d 补 |

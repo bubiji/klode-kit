@@ -37,27 +37,39 @@ CHAPTERS = [
     ]),
 ]
 
+# The original klode-build desk.json shape (desk_build.py docstring): per dimension ``dimension / title / question /
+# cards / cues / tests`` (``tests`` = the tuning set). ``construction`` and ``whistle`` carry no hyphen on purpose
+# (03 B3). Cues are the chapter's own words, chosen without looking at the holdout (iron law 2): with klode's
+# substring routing the last holdout question ("darkened copper shell") is expected to go to ``construction``.
 DESK = {
     "kb": "demo-klode",
     "synthetic": True,
+    "threshold": 0.8,
     "dimensions": [
-        {"id": "d1", "title": "Construction", "cards": ["ch01"], "cues": ["copper shell", "annealing", "domed base", "tinning"]},
-        {"id": "d2", "title": "Whistle", "cards": ["ch02"], "cues": ["whistle valve", "reed", "valve cap", "pitch"]},
-        {"id": "d3", "title": "Care", "cards": ["ch03"], "cues": ["night market", "ember bed", "salt and lemon", "winter storage"]},
-    ],
-    "tests": [
-        {"q": "Why is the copper shell annealed twice?", "expect": "ch01"},
-        {"q": "What makes the whistle produce two tones?", "expect": "ch02"},
-        {"q": "How do vendors keep the kettle warm at night markets?", "expect": "ch03"},
+        {"dimension": "construction", "title": "Construction: the copper shell",
+         "question": "How is the kettle body built, and why does it survive an open flame?",
+         "cards": ["ch01"], "cues": ["copper shell", "annealing", "annealed", "domed base", "tinning", "brass rim"],
+         "tests": ["Why is the copper shell annealed twice?"]},
+        {"dimension": "whistle", "title": "The whistle valve",
+         "question": "How does the two-tone whistle work, and how is it kept in tune?",
+         "cards": ["ch02"], "cues": ["whistle", "reed", "valve cap", "pitch", "two tones"],
+         "tests": ["What makes the whistle produce two tones?"]},
+        {"dimension": "night-market-care", "title": "Night market care",
+         "question": "How is the kettle kept, cleaned and stored when it works every night?",
+         "cards": ["ch03"], "cues": ["night market", "ember bed", "salt and lemon", "winter", "wool cloth",
+                                     "waxed cord"],
+         "tests": ["How do vendors keep the kettle warm at night markets?"]},
     ],
 }
 
+# The frozen holdout set (02 r2.1 row 1.3): one ``{"q", "gold": <dimension>}`` per line, the original ``--gold``
+# shape. Never used to tune cues.
 HOLDOUT = [
-    {"q": "How often does the inside of the kettle need retinning?", "expect": "ch01"},
-    {"q": "Why does the domed base keep the kettle from rocking?", "expect": "ch01"},
-    {"q": "What should be done when the whistle drops to a single tone?", "expect": "ch02"},
-    {"q": "Which way is the valve cap threaded?", "expect": "ch02"},
-    {"q": "How is a darkened copper shell restored?", "expect": "ch03"},
+    {"q": "How often does the inside of the kettle need retinning?", "gold": "construction"},
+    {"q": "Why does the domed base keep the kettle from rocking?", "gold": "construction"},
+    {"q": "What should be done when the whistle drops to a single tone?", "gold": "whistle"},
+    {"q": "Which way is the valve cap threaded?", "gold": "whistle"},
+    {"q": "How is a darkened copper shell restored?", "gold": "night-market-care"},
 ]
 
 
@@ -76,7 +88,7 @@ def build() -> dict[str, bytes]:
         "fx-book-aurora/src/holdout.jsonl": C.jlines(HOLDOUT),
         "fx-book-aurora/scenario.json": C.jdump({
             "name": "fx-book-aurora", "synthetic": True, "kind": "book", "source": "aurora-kettle.txt",
-            "description": "3 章合成英文小书（虚构的 aurora kettle），desk.json 3 维度各 1 题调优题，holdout 5 题。",
+            "description": "3 章合成英文小书（虚构的 aurora kettle），desk.json 3 维度各 1 题调优题（原 klode-build desk.json 结构），holdout 5 题（{q, gold}）。",
             "chapters": [{"id": cid, "head": f"Chapter {n}: {title}"} for n, (cid, title, _) in enumerate(CHAPTERS, start=1)],
             "expect": {"chapters": 3, "holdout": 5},
         }),

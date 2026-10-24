@@ -40,6 +40,18 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "skeleton": ("klode_kit.build.skeleton:main", "skeleton KB ID [CHARS]: print a source's section titles and leads"),
     "fix-anchors": ("klode_kit.build.fix_anchors:main",
                     "fix-anchors KB [ID ...]: rewrite NOT FOUND card anchors to the source's own spelling"),
+    "desk-build": ("klode_kit.build.desk_build:main",
+                   "desk-build KB (--apply | --prompts | --status | --verify [--holdout F] [--refreeze --reason R]): "
+                   "the desk - frameworks on, _diagnostics.md from src/desk.json, worker prompts, tuning and frozen "
+                   "holdout scored apart (gate: holdout >= 5 questions and >= 4/5)"),
+    "check-synthesis": ("klode_kit.build.check_synthesis:main",
+                        "check-synthesis KB [DIM ...]: desk synthesis gate S1-S6 (anchors only copied from cards)"),
+    "eval-compare": ("klode_kit.build.eval_compare:main",
+                     "eval-compare --gold G --kb NAME=TOML [...] [--desk-gold D]: Hit@1/Hit@k/MRR over libraries; "
+                     "desk routing via klode --json diagnose"),
+    "cue-suggest": ("klode_kit.build.cue_suggest:main",
+                    "cue-suggest KB [--receipt F] [--write]: L1 loop - cues from card aliases for missed tuning "
+                    "questions (never reads the holdout)"),
     "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block"),
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
     "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR|PDF [--project DIR] [--routes a,b] [--redo]: OCR an image/PDF inbox"),

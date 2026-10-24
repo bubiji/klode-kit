@@ -46,19 +46,19 @@
    "sha256": "90a731fc19b08c565a586139652c6884d8be7b2f46ed61a2ab102316efe7b53f"
   },
   {
-   "bytes": 499,
+   "bytes": 552,
    "path": "fx-book-aurora/scenario.json",
-   "sha256": "25af7ddf116aef630d00470085d3897b35d3b807b187ab025b64a466f9cdca86"
+   "sha256": "2f2be5d0a6e76ccd88028cc03372c29e2dff6d167224a11a38bde1ca4fc77ceb"
   },
   {
-   "bytes": 836,
+   "bytes": 1219,
    "path": "fx-book-aurora/src/desk.json",
-   "sha256": "608788976715a253f8c783c98aa1dc1e366d50a795a906efb1bdd1cd913e2aa6"
+   "sha256": "15610f75e52db914783ad3991a1b33b7f58239c4aa262c5c6cd9856b9a74812a"
   },
   {
-   "bytes": 384,
+   "bytes": 409,
    "path": "fx-book-aurora/src/holdout.jsonl",
-   "sha256": "5fa1a01c2449c434d0be431282f2fde684bc494d8b3d6eb2484b62841367270b"
+   "sha256": "ee62e08ecfe5562443218bfaca673c3646fb9e7961f8944207c1bb04904b8a0d"
   },
   {
    "bytes": 13883,
@@ -2691,9 +2691,9 @@
    "sha256": "e53fc99744d1dc554119201c25f9bcc83ee793075a878473666feebdb2b5e927"
   },
   {
-   "bytes": 4848,
+   "bytes": 5970,
    "path": "gen_book.py",
-   "sha256": "dc43a435c505c3cd380a80a2e9ad3cb088708f3e83d0b0ac16f5f957583c3e5f"
+   "sha256": "ad447d683f7ca00b6783e7f11ea4c31bc9d551a83edf92b593fc7f009798836f"
   },
   {
    "bytes": 20184,

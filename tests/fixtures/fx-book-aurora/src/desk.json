@@ -7,24 +7,35 @@
    "cues": [
     "copper shell",
     "annealing",
+    "annealed",
     "domed base",
-    "tinning"
+    "tinning",
+    "brass rim"
    ],
-   "id": "d1",
-   "title": "Construction"
+   "dimension": "construction",
+   "question": "How is the kettle body built, and why does it survive an open flame?",
+   "tests": [
+    "Why is the copper shell annealed twice?"
+   ],
+   "title": "Construction: the copper shell"
   },
   {
    "cards": [
     "ch02"
    ],
    "cues": [
-    "whistle valve",
+    "whistle",
     "reed",
     "valve cap",
-    "pitch"
+    "pitch",
+    "two tones"
    ],
-   "id": "d2",
-   "title": "Whistle"
+   "dimension": "whistle",
+   "question": "How does the two-tone whistle work, and how is it kept in tune?",
+   "tests": [
+    "What makes the whistle produce two tones?"
+   ],
+   "title": "The whistle valve"
   },
   {
    "cards": [
@@ -34,26 +45,19 @@
     "night market",
     "ember bed",
     "salt and lemon",
-    "winter storage"
+    "winter",
+    "wool cloth",
+    "waxed cord"
    ],
-   "id": "d3",
-   "title": "Care"
+   "dimension": "night-market-care",
+   "question": "How is the kettle kept, cleaned and stored when it works every night?",
+   "tests": [
+    "How do vendors keep the kettle warm at night markets?"
+   ],
+   "title": "Night market care"
   }
  ],
  "kb": "demo-klode",
  "synthetic": true,
- "tests": [
-  {
-   "expect": "ch01",
-   "q": "Why is the copper shell annealed twice?"
-  },
-  {
-   "expect": "ch02",
-   "q": "What makes the whistle produce two tones?"
-  },
-  {
-   "expect": "ch03",
-   "q": "How do vendors keep the kettle warm at night markets?"
-  }
- ]
+ "threshold": 0.8
 }
