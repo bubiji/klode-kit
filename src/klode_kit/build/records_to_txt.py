@@ -1,7 +1,7 @@
 """WI-01a: ``records_to_txt`` - verified records -> deterministic text sources + ``export_map`` (design 02 r2.2-A
 export line, r2.2-C 书架/行格式, r3.1 segment 3 + version binding, R2-02, R3-07; plan WI-01a; matrix 01a-*).
 
-``export(project, out=None, *, kb_id=None, bindings=None) -> dict``
+``export(project, out=None, *, kb_id=None, bindings=None, deident=None) -> dict``
 
 **What is exported.** ``bindings`` is a build's snapshot ``{rec_id: {rev, audit_rev}}``; without it the snapshot is
 taken here from ``records/_by_id/<rec_id>.md``: every record whose ``effective`` revision is ``verified`` binds
@@ -46,6 +46,26 @@ items_index, excluded: [{rec_id, reason, status}], new_items}``. With ``out`` th
 ``out/library/{items,records}/*.txt``, ``out/src/export_map.jsonl``, ``out/src/items_index.json``. The export never
 overwrites: any target already present is an ``ExportError`` before anything is written. Output depends only on
 the bound bodies, the item table and the labels: the same input gives the same bytes.
+
+**De-identified view** (WI-01c; design r2.1 1.2, r3.1 segment 3): ``deident="pseudonym" | "dateshift"`` exports
+the view of that mode with the project key (``deident.load_key``: ``<project>/_private/deident_key.json``,
+created on first use; an unknown mode or a malformed key is a ``deident.DeidentError`` before anything is
+written). Without ``deident`` the export is the plain one above. Under a mode:
+
+- a row **label** (not a field) is ``deident.scrub``-bed; a change is registered as a line-level ``layout``
+  transform ``{kind, from, to}`` (no field_id);
+- under ``dateshift`` every **date** shown - the observation date, a date field of a source line - moves by the
+  key's single offset (``deident.shift_date``, spelling kept) and is registered as ``{kind: dateshift, field_id,
+  from, to}`` (without field_id when the record date comes from the body alone); under ``pseudonym`` dates are
+  shown as audited and no ``dateshift`` transform exists;
+- every other shown **field** (item, value, unit, flag, extra) stays as audited - values and units never get a
+  transform, an item only its alias. A field holding an identifier (``deident.find_identifiers``), under
+  ``dateshift`` one holding a date outside a date field, or a date that cannot be moved, would leak through: the
+  record is excluded as ``deident_unsafe`` instead.
+
+``value_audited`` and ``transforms[].from`` stay the audited values (``unapply`` must give them back), so
+``src/export_map.jsonl`` holds originals and belongs with the private side of a build; ``library/`` and the cards
+built from it are the de-identified view.
 """
 
 from __future__ import annotations
@@ -58,6 +78,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from klode_kit import items as items_mod
+from klode_kit.build import deident as deident_mod
 
 ITEMS_SHELF = "library/items"
 RECORDS_SHELF = "library/records"
@@ -215,8 +236,102 @@ def _record_date(body: Mapping[str, Any], rows: list[_Row]) -> tuple[str | None,
     return date, fid
 
 
+class _Unsafe(Exception):
+    """The record cannot be shown under the deident mode without touching a field no transform may touch."""
+
+
+@dataclass
+class _Deident:
+    """The export view under a deident mode (``deident`` module; r3.1 segment 3 transforms)."""
+
+    mode: str
+    key: deident_mod.Key
+
+    def check(self, text: str) -> None:
+        """A field shown as audited (no transform) must hold no identifier, nor a date under ``dateshift``."""
+        if deident_mod.find_identifiers(text) or (self.mode == "dateshift" and deident_mod.find_dates(text)):
+            raise _Unsafe
+
+    def date(self, value: str, fid: str | None, transforms: list[dict]) -> str:
+        """A date as shown; under ``dateshift`` moved by the key offset and registered as a transform."""
+        if self.mode != "dateshift":
+            self.check(value)
+            return value
+        try:
+            moved = deident_mod.shift_date(value, self.key.offset_days)
+        except deident_mod.DeidentError:
+            raise _Unsafe from None
+        t = {"kind": "dateshift", "field_id": fid, "from": value, "to": moved}
+        transforms.append(t if fid is not None else {k: v for k, v in t.items() if k != "field_id"})
+        return moved
+
+    def label(self, label: str, transforms: list[dict]) -> str:
+        """A row label (not a field): identifiers scrubbed, the change registered as a ``layout`` transform."""
+        shown = deident_mod.scrub(label, self.key, self.mode)
+        if shown != label:
+            transforms.append({"kind": "layout", "from": label, "to": shown})
+        return shown
+
+
+def _build_lines(rec: str, rows: list[_Row], date: str, date_fid: str | None, labels: Mapping[str, str],
+                 items: _Items, new_items: set[str], deid: _Deident | None) -> list[_Line]:
+    """The lines of a record's rows, before anchors (``_Unsafe`` when the deident view cannot show them)."""
+
+    def shown(text: str, fid: str | None, role: str, transforms: list[dict]) -> str:
+        if deid is None:
+            return text
+        if role == "date":
+            return deid.date(text, fid, transforms)
+        deid.check(text)
+        return text
+
+    out: list[_Line] = []
+    record_moves: list[dict] = []
+    shown_date = shown(date, date_fid, "date", record_moves)
+    for idx, row in enumerate(rows):
+        if row.key[0] == _BARE and all(role == "date" for role, _, _ in row.fields):
+            continue
+        item_fid, item_raw = row.roles.get("item", (None, None))
+        transforms: list[dict] = []
+        slug = display = None
+        known = True
+        if item_raw is not None:
+            shown(item_raw, item_fid, "item", transforms)
+            slug, display, known = items.display(item_raw)
+            if display != item_raw:
+                transforms.append({"kind": "alias", "field_id": item_fid, "from": item_raw, "to": display})
+        else:
+            order = [row.roles["value"][0]] if "value" in row.roles else []
+            label = next((labels[f] for f in order + [f for _, f, _ in row.fields] if f in labels), None)
+            if label is not None:
+                if deid is not None:
+                    label = deid.label(label, transforms)
+                slug, display, known = items.display(label)
+        head = [(display, item_fid)] if display is not None else []
+        if display is not None and "value" in row.roles:
+            if not known:
+                new_items.add(slug)
+            value_fid, value = row.roles["value"]
+            parts = head + [(shown(value, value_fid, "value", transforms), value_fid)]
+            if "unit" in row.roles:
+                parts.append((shown(row.roles["unit"][1], row.roles["unit"][0], "unit", transforms),
+                              row.roles["unit"][0]))
+            parts.append((shown_date, date_fid))
+            transforms += [dict(t) for t in record_moves]
+            if "flag" in row.roles:
+                parts.append((shown(row.roles["flag"][1], row.roles["flag"][0], "flag", transforms),
+                              row.roles["flag"][0]))
+            out.append(_Line(rec, "", "observation", parts, transforms, value, slug, shown_date, idx))
+        else:
+            rest = sorted(((_ROLE_ORDER[role], role, fid, v) for role, fid, v in row.fields if fid != item_fid))
+            parts = head + [(shown(v, fid, role, transforms), fid) for _, role, fid, v in rest]
+            value_audited = rest[0][3] if rest else item_raw
+            out.append(_Line(rec, "", "source", parts, transforms, value_audited, None, None, idx))
+    return out
+
+
 def _record_lines(rec: str, body: Mapping[str, Any], labels: Mapping[str, str], items: _Items,
-                  new_items: set[str]) -> list[_Line] | str:
+                  new_items: set[str], deid: _Deident | None = None) -> list[_Line] | str:
     """The lines of one bound body, or the exclusion reason."""
     fields = body.get("fields") or {}
     if not isinstance(fields, dict) or not fields:
@@ -227,40 +342,10 @@ def _record_lines(rec: str, body: Mapping[str, Any], labels: Mapping[str, str], 
     date, date_fid = _record_date(body, rows)
     if date is None:
         return "no_date"
-    out: list[_Line] = []
-    for idx, row in enumerate(rows):
-        if row.key[0] == _BARE and all(role == "date" for role, _, _ in row.fields):
-            continue
-        item_fid, item_raw = row.roles.get("item", (None, None))
-        transforms: list[dict] = []
-        slug = display = None
-        known = True
-        if item_raw is not None:
-            slug, display, known = items.display(item_raw)
-            if display != item_raw:
-                transforms.append({"kind": "alias", "field_id": item_fid, "from": item_raw, "to": display})
-        else:
-            order = [row.roles["value"][0]] if "value" in row.roles else []
-            label = next((labels[f] for f in order + [f for _, f, _ in row.fields] if f in labels), None)
-            if label is not None:
-                slug, display, known = items.display(label)
-        head = [(display, item_fid)] if display is not None else []
-        if display is not None and "value" in row.roles:
-            if not known:
-                new_items.add(slug)
-            value_fid, value = row.roles["value"]
-            parts = head + [(value, value_fid)]
-            if "unit" in row.roles:
-                parts.append((row.roles["unit"][1], row.roles["unit"][0]))
-            parts.append((date, date_fid))
-            if "flag" in row.roles:
-                parts.append((row.roles["flag"][1], row.roles["flag"][0]))
-            out.append(_Line(rec, "", "observation", parts, transforms, value, slug, date, idx))
-        else:
-            rest = sorted(((_ROLE_ORDER[role], fid, v) for role, fid, v in row.fields if fid != item_fid))
-            parts = head + [(v, fid) for _, fid, v in rest]
-            value_audited = rest[0][2] if rest else item_raw
-            out.append(_Line(rec, "", "source", parts, transforms, value_audited, None, None, idx))
+    try:
+        out = _build_lines(rec, rows, date, date_fid, labels, items, new_items, deid)
+    except _Unsafe:
+        return "deident_unsafe"
     seen: dict[str, int] = {}
     for line in out:
         base = " ".join(text for text, _ in line.parts)
@@ -286,9 +371,12 @@ def _map_row(kb_id: str, rel: str, n: int, line: _Line, rev: int) -> dict:
 
 
 def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, kb_id: str | None = None,
-           bindings: Mapping[str, Mapping[str, Any]] | None = None) -> dict:
+           bindings: Mapping[str, Mapping[str, Any]] | None = None, deident: str | None = None) -> dict:
     """Export the bound verified records of ``project`` (see the module docstring); write them under ``out``."""
     project = Path(project)
+    deid = None
+    if deident is not None:
+        deid = _Deident(deident_mod.check_mode(deident), deident_mod.load_key(project))
     kb = kb_id or project.resolve().name
     if bindings is None:
         bound, excluded = _snapshot(project)
@@ -309,7 +397,7 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
         if status != "verified":
             excluded.append({"rec_id": rec, "reason": "not_verified", "status": status})
             continue
-        lines = _record_lines(rec, body, _labels(project, body.get("audit_rev"), cache), items, new_items)
+        lines = _record_lines(rec, body, _labels(project, body.get("audit_rev"), cache), items, new_items, deid)
         if isinstance(lines, str):
             excluded.append({"rec_id": rec, "reason": lines, "status": body.get("status")})
             continue

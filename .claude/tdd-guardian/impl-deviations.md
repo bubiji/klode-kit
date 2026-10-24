@@ -128,3 +128,6 @@
 | WI-01b | records_to_l1：确定性生成 item/record 卡（`aliases` 首行、`kind: deterministic`；Thin = 观测次数+日期范围+最新值整行锚点+与前次比较 上升/下降/持平/无法比较 + 不作临床解读声明；Full = 每源行一个整行锚点，重复行 `#N`）；别名只来自确定来源（items.yaml、card_aliases.toml 通用名表、源中单位写法），不编造；源行须与 export_map 一致；有 BIBLIOGRAPHY 时补行（strict 0/0 所需） | 接受 |
 | WI-01b 决定 | **确定性卡别名下限 ≥1，书籍卡仍 ≥10**（用户 2026-10-24）；落为代码常量 `check_cards.MIN_ALIASES_DETERMINISTIC = 1`（不进 defaults.toml，免改 r2.6 设计表与配置测试；数据项目不可覆盖）；改已记录行：test_records_to_l1.py 模块 docstring、test_alias_shortage 的 write 调用/main 期望/末行断言 | **用户 2026-10-24 批准规则与相应断言改动** |
 | WI-01b | test_records_to_l1.py 插入一行 `L.write(build)`（测试准备遗漏）→ WI-01b.unit SEPARATION-BROKEN | **用户 2026-10-24 批准** |
+| WI-01c | 脱敏：pseudonym（HMAC 假名 `[N-…]`/`[ID-…]`，日期不动）与 dateshift（全库单一偏移 ±365..3650 天、保持写法）；密钥 `_private/deident_key.json`（0600、O_EXCL、不覆盖、附 `.gitignore`），pseudonym 也建密钥（需盐）；接入点 `records_to_txt.export(deident=…)`，标签替换登记 layout transform、日期登记 dateshift transform，值/单位/flag 永不 transform；无法安全显示的记录整条排除（新原因 `deident_unsafe`）；.privacy-allowlist 追加一条合成占位误报 | 接受 |
+| WI-01c → 09b/11b | **`src/export_map.jsonl` 含审计原值（unapply 所需），dateshift 下可推出偏移 → `src/` 属私有侧，对外只能是 `library/` 与卡片**；build_receipt 记 deident_mode | WI-09b/11b 派工时写明 |
+| WI-01c 发现 | 00b3 校验器在真实槽名（`r003-date-0`）上把 dateshift 误报为 `dateshift_not_date`（slot_kind 不认真实槽名）→ 即 WI-00b3b | 下一个派 WI-00b3b |
