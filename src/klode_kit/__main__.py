@@ -78,7 +78,13 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "smoke-mcp": ("klode_kit.build.smoke_mcp:main",
                   "smoke-mcp KB --card ID --real PHRASE [--query Q] [--desk SYMPTOM=DIM] [--timeout S]: run the "
                   "real klode-mcp (initialize, tools/list, search, zoom, verify real / fake); exit 0 all PASS"),
-    "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block"),
+    "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block; "
+                 "kb-check --doctor [doctor args]: same as `doctor`"),
+    "doctor": ("klode_kit.check.doctor:main",
+               "doctor [--project DIR] [--repo DIR] [--only host,project,seams] [--receipt F]: run every "
+               "prerequisite for real (venv imports, launcher, klode / klode-mcp, poppler, tesseract chi_sim+jpn, "
+               "ocrmac, MLX weights - never downloaded, node, claude / codex floors, data-project trust, "
+               ".gitignore, settings.local.json, leftover test seams); exit 40 with fix commands on any gap"),
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
     "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR|PDF [--project DIR] [--routes a,b] [--redo]: OCR an image/PDF inbox"),
     "kb-audit": ("klode_kit.audit.stage:main", "kb-audit --batch BATCH_ID [--project DIR]: align, vote and gate the "

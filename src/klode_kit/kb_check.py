@@ -1,6 +1,6 @@
 """Minimal ``/klode-kit:kb-check`` entry (WI-00d2 spike; the build checks themselves are WI-13a).
 
-``klode-kit kb-check --kb <kb_root> --entry <entry>``:
+``klode-kit kb-check --kb <kb_root> --entry <entry>``  (``kb-check --doctor [args]`` runs ``klode-kit doctor``):
 
 - ``<kb_root>/current`` must be a symlink to an existing ``builds/<build_id>`` - otherwise exit 30 (the kb is not
   published; r2.6 contract/stale input), nothing written;
@@ -71,6 +71,11 @@ def _now() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--doctor" in argv:  # `/kb-check --doctor` (design r2.5): the doctor with the remaining arguments
+        from klode_kit.check import doctor
+
+        return doctor.main([a for a in argv if a != "--doctor"])
     parser = argparse.ArgumentParser(prog="klode-kit kb-check", description="check receipt with the plugin block")
     parser.add_argument("--kb", type=Path, required=True)
     parser.add_argument("--entry", required=True)
