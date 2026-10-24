@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 2,
+  "lanes": {
+    "unit": {
+      "last_passed_at": "2026-10-24T01:56:57.722Z",
+      "last_run_at": "2026-10-24T01:56:57.722Z",
+      "last_head_sha": "78f5f5b9a53114e507a84ac2b855e447547aa62d",
+      "last_result": "passed",
+      "ever_had_tests": true,
+      "duration_ms": 201163
+    },
+    "contract-replay": {
+      "last_passed_at": "2026-10-24T02:01:46.259Z",
+      "last_run_at": "2026-10-24T02:01:46.259Z",
+      "last_head_sha": "78f5f5b9a53114e507a84ac2b855e447547aa62d",
+      "last_result": "passed",
+      "ever_had_tests": true,
+      "duration_ms": 288531
+    },
+    "cli-integration": {
+      "last_passed_at": "2026-10-24T02:03:00.314Z",
+      "last_run_at": "2026-10-24T02:03:00.314Z",
+      "last_head_sha": "78f5f5b9a53114e507a84ac2b855e447547aa62d",
+      "last_result": "passed",
+      "ever_had_tests": true,
+      "duration_ms": 74047
+    }
+  },
+  "coverage": {
+    "timestamp": "2026-10-24T02:03:28.734Z",
+    "status": "FAIL",
+    "method": "union",
+    "approximate": false,
+    "formats": [
+      "coverage-py",
+      "coverage-py",
+      "coverage-py"
+    ],
+    "totals": {
+      "lines": {
+        "covered": 8563,
+        "total": 8660,
+        "pct": 98.88
+      },
+      "functions": null,
+      "branches": {
+        "covered": 2442,
+        "total": 2614,
+        "pct": 93.42
+      },
+      "statements": {
+        "covered": 8563,
+        "total": 8660,
+        "pct": 98.88
+      }
+    },
+    "criticalPaths": {
+      "ok": false,
+      "failures": [
+        "src/klode_kit/contract/provenance.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/contract/provenance.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/audit/align.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/audit/align.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/contract/ids.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/contract/ids.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/ocr/isolation_check.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/ocr/isolation_check.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/ocr/isolation_guard.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/ocr/isolation_guard.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/ocr/send.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/ocr/send.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/audit/compare.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/audit/compare.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry.",
+        "src/klode_kit/audit/writeback.py: functions cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and functions has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the functions threshold to 0 on this entry.",
+        "src/klode_kit/audit/writeback.py: branches cannot be enforced exactly — coverage-py + coverage-py + coverage-py were combined, and branches has no per-item identity across reports, so the reported figure can exceed the true union. Emit one authoritative report for these files, or set the branches threshold to 0 on this entry."
+      ],
+      "warnings": [
+        "Critical-path functions and branches coverage is APPROXIMATE: more than one lane contributed and these dimensions carry no per-item identity across reports, so the strongest single lane is used rather than a union. Threshold a single authoritative report for exact functions/branches numbers."
+      ],
+      "results": [
+        {
+          "glob": "src/klode_kit/contract/provenance.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 92.19,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/audit/align.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/contract/ids.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 96.67,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/ocr/isolation_check.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/ocr/isolation_guard.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/ocr/send.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/audit/compare.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        },
+        {
+          "glob": "src/klode_kit/audit/writeback.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 99.79,
+            "functions": null,
+            "branches": 93.83,
+            "statements": 99.79
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 90,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": false,
+          "summary": "lines=99.79%, statements=99.79%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "statements": false,
+            "functions": true,
+            "branches": true
+          }
+        }
+      ]
+    },
+    "globalThresholds": "PASS"
+  },
+  "mutation": null,
+  "baseline": null
+}

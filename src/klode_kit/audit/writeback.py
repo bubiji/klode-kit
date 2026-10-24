@@ -12,7 +12,9 @@ Usage::
      candidates: [{rev, audit_rev, status, verified_by, uncertain, created, superseded_by?}]}
 
 ``records/_rev/<rec_id>.r<N>.md`` is the body of revision N, written once and made read-only: ``{rec_id, rev,
-audit_rev, commit_id, status, verified_by, type, date, fields: {field_id: value}, dropped: [...], open: [...]}``.
+audit_rev, commit_id, status, verified_by, type, date, fields: {field_id: value}, dropped: [...], open: [...],
+uncertain: [...]}`` (``uncertain``: the candidate's entries as the id list the views show, ``views.uncertain_ids``;
+``type`` / ``date``: the batch receipt's, else the record's own, else derived from the page, ``record_meta``).
 ``fields`` holds values only for a verified revision (every field but the dropped ones); a revision that is not
 verified claims no value and lists the fields still ``open``. Top-level ``status`` is ``effective.status``, or the
 newest candidate's status while there is no effective revision (R4-01).
@@ -74,6 +76,8 @@ from typing import Any, Iterable, Mapping, TextIO
 
 from klode_kit.audit import confirm_page as CP
 from klode_kit.audit import gate as G
+from klode_kit.audit import record_meta as RM
+from klode_kit.audit import views as V
 from klode_kit.contract import ids, schema
 from klode_kit.seams import crashpoint
 
@@ -184,6 +188,7 @@ class Revision:
     cells: dict[str, dict]
     cands: dict[str, dict]
     pages: dict[str, dict] = field(default_factory=dict)
+    meta: dict[str, dict] = field(default_factory=dict)
 
     @property
     def audit_rev(self) -> str:
@@ -293,10 +298,16 @@ def _region(rev: Revision, cand: Mapping[str, Any], fid: str) -> dict | None:
 
 
 def _page_meta(rev: Revision, cand: Mapping[str, Any], front: Mapping | None) -> tuple[str, str | None]:
+    """``(type, date)``: the batch receipt's ``record_type`` / ``date`` when it has them, else what the record
+    already has (a redo never renames its views), else derived from the page (``record_meta``, WI-08d)."""
     page = rev.pages.get(cand["page_id"], {})
-    rtype = page.get("record_type") or (front or {}).get("type") or DEFAULT_TYPE
+    if page and cand["page_id"] not in rev.meta:
+        rev.meta[cand["page_id"]] = RM.derive(rev.project / "work" / rev.batch_id, page, rev.voting)
+    derived = rev.meta.get(cand["page_id"], {})
+    known = (front or {}).get("type")
+    rtype = page.get("record_type") or (known if known != DEFAULT_TYPE else None) or derived.get("record_type")
     date = page.get("date") if isinstance(page.get("date"), str) and _DATE.fullmatch(page["date"]) else None
-    return str(rtype), date if date is not None else (front or {}).get("date")
+    return str(rtype or DEFAULT_TYPE), date or (front or {}).get("date") or derived.get("date")
 
 
 def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, status: str, verified_by: str | None,
@@ -341,9 +352,11 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
                           "audit_rev": rev.audit_rev, "field_id": fid, "rev_base": base, "rev_new": rev_new,
                           "by": by, "choice": kind, "route": route, "value": value, "evidence": evidence, "at": at})
     rtype, date = _page_meta(rev, cand, front)
+    key = rev.pages.get(cand["page_id"], {}).get("key") or cand["page_id"]
     body = {"rec_id": cand["rec_id"], "rev": rev_new, "audit_rev": rev.audit_rev, "commit_id": commit_id,
             "status": status, "verified_by": verified_by, "type": rtype, "date": date, "fields": values,
-            "dropped": sorted(dropped), "open": [] if status == G.VERIFIED else open_}
+            "dropped": sorted(dropped), "open": [] if status == G.VERIFIED else open_,
+            "uncertain": V.uncertain_ids(uncertain, key)}
     new = {"rev": rev_new, "audit_rev": rev.audit_rev, "status": status, "verified_by": verified_by,
            "uncertain": uncertain, "created": at}
     olds = copy.deepcopy(list((front or {}).get("candidates", [])))
