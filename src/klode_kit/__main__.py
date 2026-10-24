@@ -25,7 +25,15 @@ COMMANDS: dict[str, tuple[str, str]] = {
                            "PreToolUse hook (hooks/hooks.json): claude/codex via Bash only with registered images"),
     "ocr send": ("klode_kit.ocr.send:main", "ocr send --route R --project P --receipt-dir D --isolation-receipt F "
                  "PATH SHA: send one registered image (exit 60/61 on refusal)"),
-    "check-cards": ("klode_kit.devtools.spike_check_card:main", "check one card (WI-00d2 spike gate; WI-02a replaces)"),
+    "check-cards": ("klode_kit.build.check_cards:main",
+                    "check-cards (CARD ... | --all) [--kb DIR] [--json] [--policy P]: gate 1 (format + verbatim "
+                    "anchors; policy from the source's shelf)"),
+    "split-chapters": ("klode_kit.build.split_by_manifest:main",
+                       "split-chapters KB (--whole F --scan [--head-re T] | --manifest M [--apply]): cut a whole "
+                       "text into one source per chapter at manifest line numbers (pieces put back == whole)"),
+    "skeleton": ("klode_kit.build.skeleton:main", "skeleton KB ID [CHARS]: print a source's section titles and leads"),
+    "fix-anchors": ("klode_kit.build.fix_anchors:main",
+                    "fix-anchors KB [ID ...]: rewrite NOT FOUND card anchors to the source's own spelling"),
     "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block"),
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
     "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR|PDF [--project DIR] [--routes a,b] [--redo]: OCR an image/PDF inbox"),

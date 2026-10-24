@@ -113,3 +113,5 @@
 | **新增 WI-08e**（用户 2026-10-24 批准） | 四路同错被自动 verified 后无公开入口更正 → 新增「重开字段」：`kb-audit --reopen <field_id>` 把已 verified 字段放回确认页 → 手输 → 新 rev 生效、旧 rev 保留、完整留痕；使设计 r3.1「四路 10.5、人工改 1.05」与 U5 前提可经公开入口走通 | 排在 M2 之后、M3 之前（或 M2 中按依赖插入） |
 | 待修 | provenance.slot_kind 只认 fx-chain 槽名（`labs[i].value`），真实 kb-audit 槽名（`r005-number-0`）下 value_audited_mismatch / transform_on_numeric 被静默跳过 → 新增小 WI-00b3b 修复 | 排入 M2 |
 | 待评估 | item_label 不在 `_rev` 正文里（WI-01a 回读 candidates.jsonl）；更干净的做法是写回把 item_label 存进正文 | WI-08e 时一并评估 |
+| WI-02a | vendoring 第一批（split_by_manifest / skeleton / check_cards / fix_anchors）：保留原脚本全部判据与输出；修 B1（长匹配枚举，变体集合 ⊇ 原集合）、B5（BIBLIOGRAPHY 按条目去重）；新修 CRLF 切章拼回不等缺陷（字节精确读写，行号只按 \n 计）；HEAD_RE 外置并支持中文章头；split 加路径守卫与 `_raw` 防覆盖；check_cards policy 由来源书架决定（items/records → COV 观测覆盖率；其余 → ≥5 Full），`--policy` 只作期望不可放宽，`--all` 显式全查（空目录判 FAIL），同 id 多书架判 SRC；`--json` schema 在代码内；spike_check_card 改为委托正式 gate 的薄 shim | 接受 |
+| WI-02a → 01b | deterministic 卡同样要求 F1 aliases ≥10；若 items 卡别名不足 10 个，需在 WI-01b 决定 | WI-01b 派工时写明 |

@@ -148,6 +148,22 @@
         "functions": 0
       },
       "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/build/check_cards.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/build/fix_anchors.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
     }
   ],
   "coverageMode": "absolute",

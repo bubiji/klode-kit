@@ -1,0 +1,14 @@
+# Chapter-head patterns for `klode-kit split-chapters --scan` (WI-02a; design 02 §3.1 A1, gap G6).
+# A line (right-stripped, 1..80 characters) is a candidate head when any pattern matches at its start (re.match).
+# `--head-re FILE` replaces this whole list with the file's own `patterns`.
+# TOML literal strings ('...') keep backslashes as written.
+patterns = [
+  # English heads, unchanged from the original klode-build split_by_manifest.py HEAD_RE
+  '^(Chapter|CHAPTER|Part|PART|Section|SECTION|Introduction|INTRODUCTION|Foreword|Preface|Prologue|Epilogue|Afterword|Appendix|Acknowledg|Notes|NOTES|Endnotes|Index|INDEX|Glossary|Bibliography|References|Conclusion|Final Thoughts|About the Author|\d{1,2}[.:]?\s+[A-Z])',
+  # 第一章 / 第12节 / 第三篇 / 第二部分 / 第五卷 / 第八回
+  '^第[〇零一二三四五六七八九十百千两0-9０-９]+[章节篇部卷回]',
+  # 一、 / 十二、 (Chinese enumerated heads)
+  '^[〇零一二三四五六七八九十百千两]+、',
+  # medical document heads: 检验报告 / 检查报告单 / 化验报告 / 诊断报告
+  '^(检验|检查|化验|诊断)报告',
+]
