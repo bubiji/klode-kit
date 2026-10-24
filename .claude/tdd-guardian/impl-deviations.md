@@ -121,3 +121,7 @@
 | WI-02c 残余 | 删掉冻结文件后下一次 verify 会把当前留出集当作初始版重新冻结 | 记录 |
 | WI-31 待定 | U7 字面「desk --verify 5/5」：aurora 线索词按 klode 子串路由第 5 题会落到 construction，预计 4/5（刚过门禁）→ 验收时接受 4/5 或改 agent 路由，涉及 04 字面需问用户 | WI-31 |
 | WI-02c → 02d | 书桌提示词引用的包内 `prompts/synthesis.md` 尚不存在 | WI-02d 补 |
+| WI-02d | gen_agent 参数化（lang_source/lang_answer/source_kind/cite_format；items/records 书架默认医疗中文模板 + grep 引用，否则原通用模板 + quote）；首行 `---`、版本注释在 frontmatter 后（R4-03）；example 自动取 desk tests（无 → exit 20 no_examples）；写明 CLI 复核 `klode verify <卡> "<片段>"`→FOUND/NOT-FOUND；医疗模板加不诊断/不给用药建议/不推断数值；smoke_mcp 从 PATH 找 klode-mcp（缺 → 40），默认 query 取首个别名，每应答超时、错误不崩溃；prompts 去私有路径并改用插件命令；命名规则沿用原脚本（server `<id>-klode`、agent `<id>-klode-expert`） | 接受 |
+| WI-02d | test_smoke_mcp_cli.py 夹具库 id `fx-labs-3x-klode` → `fx-labs-3x`（两处已记录行；断言不变） | **用户 2026-10-24 批准** |
+| WI-02d → 09/13a | 流水线中 gen-agent 跑在 builds/<id> 上，应传 `--kb-root kb/<id>/current` 与 `--build-id`；kb_check 可直接调 `smoke_mcp.run()` | WI-09/13a 派工时写明 |
+| **/kb-build 搬迁完成** | 用户原 klode-build 的 11 个脚本 + 2 份 prompt 已全部搬入插件（WI-02a–02d），B1–B6 均已修或兜底；原 `~/.claude/skills/` 脚本未改（回修为可选 WI-19，需用户批准 G1） | 里程碑记录 |

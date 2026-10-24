@@ -52,6 +52,13 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "cue-suggest": ("klode_kit.build.cue_suggest:main",
                     "cue-suggest KB [--receipt F] [--write]: L1 loop - cues from card aliases for missed tuning "
                     "questions (never reads the holdout)"),
+    "gen-agent": ("klode_kit.build.gen_agent:main",
+                  "gen-agent KB --out F [--template T] [--lang-source L] [--lang-answer L] [--source-kind K] "
+                  "[--cite-format C] [--build-id ID] [--mcp NAME] [--kb-root TEXT] [--spec F]: the <id>-klode-expert "
+                  "agent for the data project (examples from desk.json tests; none -> exit 20 no_examples)"),
+    "smoke-mcp": ("klode_kit.build.smoke_mcp:main",
+                  "smoke-mcp KB --card ID --real PHRASE [--query Q] [--desk SYMPTOM=DIM] [--timeout S]: run the "
+                  "real klode-mcp (initialize, tools/list, search, zoom, verify real / fake); exit 0 all PASS"),
     "kb-check": ("klode_kit.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block"),
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
     "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR|PDF [--project DIR] [--routes a,b] [--redo]: OCR an image/PDF inbox"),
