@@ -302,3 +302,48 @@ def _writeback_entry(tmp_path: Path, env: Mapping[str, str], timeout: float):
 
 
 REAL_ENTRIES["writeback"] = RealEntry("writeback", "WI-08c", _writeback_entry, "writeback.committed")
+
+
+# --- publish (WI-09d) ---------------------------------------------------------------------
+# Enumeration list of 09d-02 (tests/contract/test_publish_crash.py crashes at each point, then resumes) and of the
+# 00s-16 publish parameter: a hooked ``pipeline --resume`` whose build and check stages are done, so that the
+# publish stage runs - the pipeline kernel's own points around it and ``kb-publish``'s.
+PUBLISH_ONLY_CRASHPOINTS = frozenset({
+    "publish.lock",             # the publish lock (a flock on kb/<id>) taken
+    "publish.tmp_link",         # current.tmp created, current not yet replaced
+    "publish.switched",         # current replaced (one os.replace), the pointer row not yet appended
+    "publish.logged",           # a PUBLISH.log row appended (loop: one name)
+    "publish.mkdir",            # a directory of a registration created (.claude, .claude/agents; loop: one name)
+    "publish.action_tmp",       # a registration written to its temporary file, not yet in place (loop)
+    "publish.action_written",   # ... moved into place, its row not yet appended (loop)
+    "publish.receipt_tmp",      # --receipt written to its temporary file
+    "publish.receipt_written",  # ... moved into place
+})
+PIPELINE_PUBLISH_CRASHPOINTS = frozenset({
+    "pipeline.mkdir",           # work/ and the stage receipts directory made (loop: one name)
+    "pipeline.lock",
+    "receipts.before_replace",  # the running / done stage receipt, temporary written
+    "pipeline.stage_running",
+    "pipeline.stage_done",
+})
+PUBLISH_CRASHPOINTS = PUBLISH_ONLY_CRASHPOINTS | PIPELINE_PUBLISH_CRASHPOINTS
+
+
+def _publish_runner(tmp_path: Path, env: Mapping[str, str]) -> list[Path]:
+    """``pipeline --resume`` of ``fx-u3-mixed`` whose stages up to check are done (run before, without the hook):
+    only the publish stage runs under the audit hook, with the kernel and ``kb-publish`` as hooked processes."""
+    from _support import publish_fx as PX
+
+    root = tmp_path / "publish-flow"
+    root.mkdir()
+    rig = PX.pipeline_rig(root, "check")
+    flow_env = dict(rig.env)
+    for key in ("KLODE_KIT_AUDIT_ROLE", "KLODE_KIT_AUDIT_LOG", "PYTHONPATH"):
+        flow_env[key] = env[key]
+    res = subprocess.run(rig.argv("--resume"), env=flow_env, capture_output=True, timeout=300, cwd=str(rig.project))
+    assert res.returncode == 0, res.stderr.decode()
+    assert (PX.pipeline_kb(rig) / "current").is_symlink()
+    return [rig.project]
+
+
+REAL_FLOWS["publish"] = RealFlow("publish", "09d-02", "WI-09d", _publish_runner, PUBLISH_CRASHPOINTS)

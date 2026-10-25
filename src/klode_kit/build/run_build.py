@@ -71,6 +71,7 @@ from klode_kit.build.write_card import SCHEMA_ID as _WRITE_SCHEMA  # noqa: F401 
 from klode_kit.check import doctor
 from klode_kit.contract import provenance
 from klode_kit.pipeline import EXIT_CODE, Reason, child_argv, classify_child_exit, default_launcher, write_receipt_verdict
+from klode_kit.seams import crashpoint
 
 STEPS = ("export", "init_kb", "ingest", "split_manifest", "klode_build", "dispatch_writers", "gate1", "write_card",
          "check_strict", "desk_apply", "desk_verify", "gen_agent", "self_check")
@@ -839,7 +840,9 @@ def _run_locked(b: Build, builds: Path, stdout: TextIO) -> int:
     b.ended = _now_iso(b.clock)
     b.save("FAIL" if failed else "PASS")
     write_manifest(b.dir)
+    crashpoint("build.manifest")  # the manifest is written, the tree is still writable
     make_readonly(b.dir)
+    crashpoint("build.sealed")  # sealed, not yet checked: nothing points to it (K5)
     rel = b.dir.relative_to(project).as_posix()
     if failed:
         code = EXIT_CODE[failed.reason]

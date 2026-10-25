@@ -47,6 +47,7 @@ stdout: the build summary line of the last round (``klode-kit.build/1`` plus ``l
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import io
 import json
@@ -67,6 +68,7 @@ from klode_kit.build.run_build import REPAIR_MARKER, REPAIR_SCHEMA, STEPS
 from klode_kit.ocr.cloud_budget import BudgetExceeded, Ledger
 from klode_kit.pipeline import EXIT_CODE, Reason, child_argv, default_launcher
 from klode_kit.receipts import dumps
+from klode_kit.seams import crashpoint
 
 SCHEMA = "klode-kit.loops/1"
 BUILD_SCHEMA = "klode-kit.build/1"
@@ -397,6 +399,26 @@ def _round_cost(build_dir: Path | None) -> Decimal:
     return total
 
 
+def _loops_lock_dir(project: Path, kb: str | os.PathLike | None) -> Path | None:
+    """``kb/<id>/loops`` of the library this run builds (the directory the loop receipts live in), made if needed;
+    ``None`` when the arguments do not name a library of this project (the build then reports the usage error)."""
+    from klode_kit.build import run_build
+
+    if not project.is_dir():
+        return None
+    root = project.resolve()
+    kb_dir = (Path(kb) if Path(kb).is_absolute() else root / kb) if kb is not None else run_build.default_kb(root)
+    kb_dir = kb_dir.parent.resolve() / kb_dir.name
+    try:
+        kb_dir.relative_to(root)
+    except ValueError:
+        return None
+    if not run_build.SLUG_RE.fullmatch(kb_dir.name):
+        return None
+    os.makedirs(kb_dir / "loops", exist_ok=True)
+    return kb_dir / "loops"
+
+
 def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, source: str | os.PathLike | None = None,
         shelf: str = "book", manifest: str | os.PathLike | None = None, desk: str | os.PathLike | None = None,
         holdout: str | os.PathLike | None = None, syntheses: str | os.PathLike | None = None,
@@ -404,7 +426,51 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         stdout: TextIO | None = None, clock: Callable[[], datetime] | None = None,
         budget_usd: float | None = None) -> int:
     """Build with the repair loops; the exit code is the build's own (0, 2, 20 for an unloopable gate failure, 30,
-    40, 50, 60, 61) or 50 when a loop gave up."""
+    40, 50, 60, 61) or 50 when a loop gave up, or 40 when another ``--loops`` run of the library holds the lock.
+
+    The run holds an ``flock`` on ``kb/<id>/loops/`` (the directory itself, no file) from the first round to the last
+    - the builds lock of ``run_build`` is released after every round, so without this one two runs would interleave
+    their rounds. A killed run releases it with its fd (WI-09d)."""
+    out_ = sys.stderr if out is None else out
+    stdout_ = sys.stdout if stdout is None else stdout
+    held: list[int] = []
+
+    def take_lock() -> int | None:
+        """Called by the rounds once the guards have passed (a refused run creates nothing, not even ``loops/``)."""
+        lock_dir = _loops_lock_dir(Path(project), kb)
+        if lock_dir is None:
+            return None
+        fd = os.open(lock_dir, os.O_RDONLY)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd)
+            detail = f"another build --loops holds the lock of {lock_dir}"
+            print(f"build: {detail}", file=out_)
+            print(json.dumps({"schema": BUILD_SCHEMA, "exit_code": EXIT_CODE[Reason.lock_busy],
+                              "reason": Reason.lock_busy.value, "detail": detail}, ensure_ascii=False, sort_keys=True),
+                  file=stdout_)
+            return EXIT_CODE[Reason.lock_busy]
+        held.append(fd)
+        crashpoint("loops.lock")
+        return None
+
+    try:
+        return _run_rounds(project, kb=kb, source=source, shelf=shelf, manifest=manifest, desk=desk, holdout=holdout,
+                           syntheses=syntheses, launcher=launcher, env=env, out=out, stdout=stdout, clock=clock,
+                           budget_usd=budget_usd, take_lock=take_lock)
+    finally:
+        for fd in held:
+            os.close(fd)
+
+
+def _run_rounds(project: str | os.PathLike, *, kb: str | os.PathLike | None = None,
+                source: str | os.PathLike | None = None, shelf: str = "book", manifest: str | os.PathLike | None = None,
+                desk: str | os.PathLike | None = None, holdout: str | os.PathLike | None = None,
+                syntheses: str | os.PathLike | None = None, launcher: str | os.PathLike | None = None,
+                env: Mapping[str, str] | None = None, out: TextIO | None = None, stdout: TextIO | None = None,
+                clock: Callable[[], datetime] | None = None, budget_usd: float | None = None,
+                take_lock: Callable[[], int | None] = lambda: None) -> int:
     from klode_kit.build import run_build
 
     out = sys.stderr if out is None else out
@@ -439,6 +505,9 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         print(json.dumps({"schema": BUILD_SCHEMA, "exit_code": USAGE_EXIT, "reason": "usage", "detail": str(exc)},
                          ensure_ascii=False, sort_keys=True), file=stdout)
         return USAGE_EXIT
+    busy = take_lock()
+    if busy is not None:
+        return busy
 
     state = _State(Path(desk).resolve() if desk is not None else None,
                    Path(holdout).resolve() if holdout is not None else None)

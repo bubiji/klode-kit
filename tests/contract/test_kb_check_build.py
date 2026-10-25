@@ -158,9 +158,9 @@ def test_repeated_failure_is_exit_50_no_progress(tmp_path):
 
 def test_pipeline_check_stage_runs_kb_check_on_the_build(tmp_path):
     """The pipeline's check stage (``default_registry``) runs kb-check on the build the build stage made and
-    reports the check receipt as its product; publish is still an interface (WI-09d)."""
+    reports the check receipt as its product; publish is the WI-09d stage (user-approved 2026-10-25)."""
     reg = P.default_registry()
-    assert reg["check"].run is not None and reg["publish"].run is None
+    assert reg["check"].run is not None and reg["publish"].run is not None
     kb, build = KX.good_kb(tmp_path)
     project = tmp_path
     rel = (build / "build_receipt.json").relative_to(project).as_posix()

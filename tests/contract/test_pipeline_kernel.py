@@ -264,14 +264,15 @@ def test_content_gate_failure_without_loops_ends_with_exit20(tmp_path: Path) -> 
 
 
 def test_unimplemented_stage_is_reported_not_faked(tmp_path: Path) -> None:
-    # WI-09b implemented the build stage, WI-10a the check stage (the stages this case first used); the publish
-    # interface (WI-09d) is still unimplemented, so build and check are replaced by stubs that succeed and the case
-    # reaches ``publish``: reported with exit 2, no receipt for it.
+    # WI-09b, WI-10a and WI-09d implemented build, check and publish (user-approved 2026-10-25): build and check
+    # are replaced by stubs that succeed and publish by a stage without a run, so the kernel's handling of an
+    # unimplemented stage is still covered: reported with exit 2, no receipt for it.
     rig = F.Rig(tmp_path)
     registry = P.default_registry()
     for name in ("build", "check"):
         registry[name] = P.Stage(name, inputs=lambda ctx: {"stub": 3},
                                  run=lambda ctx: P.Outcome(reason=P.Reason.ok, detail="stub", outputs=[]))
+    registry["publish"] = P.Stage("publish", inputs=lambda ctx: {"stub": 3}, run=None)
     code = P.run(rig.project, _all_verified_inbox(rig), stage="publish", registry=registry, launcher=rig.wrapper,
                  env=rig.env)
     assert code == 2

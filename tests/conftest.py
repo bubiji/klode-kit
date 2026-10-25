@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,9 @@ FAKES_BIN = TESTS_DIR / "fakes" / "bin"
 os.environ["PATH"] = str(FAKES_BIN) + os.pathsep + os.environ.get("PATH", "")
 os.environ["KLODE_KIT_FAKE_PYTHON"] = sys.executable
 os.environ["KLODE_KIT_TEST_SEAMS"] = "1"
+# WI-09d: ``kb-publish`` registers a library in the klode registry; no test (and no process it starts) may ever reach the
+# real ``~/.klode/registry.toml`` - every run gets a private one, whatever the tester's environment says.
+os.environ["KLODE_REGISTRY"] = str(Path(tempfile.mkdtemp(prefix="klode-registry-")) / "registry.toml")
 
 
 @pytest.fixture(autouse=True)

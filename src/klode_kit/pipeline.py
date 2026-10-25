@@ -19,9 +19,14 @@ Stages, in this order (``--stage S`` runs up to and including ``S``; default: al
                 every writeback).
     build       ``build --project P --loops`` (WI-09b / 09c): the 13 steps into ``kb/<id>/builds/<build_id>/``,
                 a failed content gate repaired by the three loops
-    check / publish
-                interfaces only (WI-10a / 09d): a stage without an implementation is reported and the run
-                ends with exit 2 - it never writes a receipt and never passes.
+    check       ``kb-check`` on the build the build stage made (WI-10a), judged before anything points to it
+    publish     ``kb-publish --build B`` (WI-09d): ``current`` moves to the checked build, ``PUBLISH.log``, the
+                registrations; the stage's product is ``pipeline/publish_receipt.json`` (stable, so a later
+                rollback is not undone by a resume). A registration that fails ends the run with exit 21 and the
+                pointer stays; the next ``--resume`` repeats only that action.
+
+A stage without a ``run`` (a registry entry replaced by a test) is reported and the run ends with exit 2 - it never
+writes a receipt and never passes.
 
 Everything runs as a child process ``<launcher> <command> ...`` where the launcher is this repository's
 ``bin/klode-kit`` (V1: never a venv console script; ``--launcher`` replaces it for tests). The kernel never
@@ -55,7 +60,8 @@ recorded as 40.
 stdout: one JSON line ``{schema: "klode-kit.pipeline/1", batch_id, stages: [...], exit_code, reason}``; progress
 and the children's output go to stderr.
 
-Crash points: ``pipeline.lock`` (lock taken, holder stamped), ``pipeline.stage_running`` (running receipt written),
+Crash points: ``pipeline.mkdir`` (``work/`` and the stage receipts directory made; a loop, one name),
+``pipeline.lock`` (lock taken, holder stamped), ``pipeline.stage_running`` (running receipt written),
 ``pipeline.stage_done`` (final receipt written).
 """
 
@@ -86,7 +92,7 @@ SCHEMA = "klode-kit.pipeline/1"
 RECEIPT_SCHEMA = "klode-kit.receipt/1"
 STAGE_NAMES = ("preflight", "ocr", "audit", "writeback", "build", "check", "publish")
 LOCK_NAME = ".pipeline.lock"
-CRASHPOINTS = ("pipeline.lock", "pipeline.stage_running", "pipeline.stage_done")
+CRASHPOINTS = ("pipeline.mkdir", "pipeline.lock", "pipeline.stage_running", "pipeline.stage_done")
 USAGE_EXIT = 2
 _BATCH_DIR = "pipeline"
 
@@ -425,8 +431,26 @@ def _check_run(ctx: Ctx) -> Outcome:
     return Outcome(reason, f"kb-check exit {code}", outputs)
 
 
+def _publish_run(ctx: Ctx) -> Outcome:
+    """``klode-kit kb-publish --build B`` for the build the check stage judged (WI-09d): the pointer, the log and the
+    registrations. The stage's product is ``pipeline/publish_receipt.json``, the summary ``kb-publish`` writes."""
+    receipt = next((o["path"] for o in ctx.upstream("check") if str(o.get("path", "")).endswith("check_receipt.json")),
+                   None)
+    if receipt is None:
+        return Outcome(Reason.contract_violation, "the check stage left no check receipt to publish")
+    build = (ctx.project / receipt).parent
+    product = ctx.pdir / "publish_receipt.json"
+    code, _ = ctx.child("kb-publish", "--kb", str(build.parent.parent), "--build", build.name, "--project",
+                        str(ctx.project), "--receipt", str(product))
+    outputs = [ctx.rel(product)] if product.is_file() else []
+    reason = classify_child_exit(code)
+    if reason is Reason.ok and not outputs:
+        return Outcome(Reason.contract_violation, "kb-publish wrote no publish receipt")
+    return Outcome(reason, f"kb-publish exit {code}", outputs)
+
+
 def default_registry() -> dict[str, Stage]:
-    """The seven stages; ``publish`` has no ``run`` yet (WI-09d)."""
+    """The seven stages."""
     return {
         "preflight": Stage("preflight", _preflight_inputs, _preflight_run),
         "ocr": Stage("ocr", _ocr_inputs, _ocr_run),
@@ -434,7 +458,7 @@ def default_registry() -> dict[str, Stage]:
         "writeback": Stage("writeback", _writeback_inputs, _writeback_run),
         "build": Stage("build", _after("writeback"), _build_run),
         "check": Stage("check", _after("build"), _check_run),
-        "publish": Stage("publish", _after("check"), None),
+        "publish": Stage("publish", _after("check"), _publish_run),
     }
 
 
@@ -559,6 +583,7 @@ def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | No
     reg = dict(default_registry() if registry is None else registry)
     work = project / "work"
     os.makedirs(work, exist_ok=True)
+    crashpoint("pipeline.mkdir")
     try:
         lock = _take_lock(work, batch_id)
     except LockBusy as exc:
@@ -566,6 +591,7 @@ def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | No
         return _finish(Reason.lock_busy, ctx, batch_id, [], stdout, str(exc))
     try:
         os.makedirs(ctx.receipts_dir, exist_ok=True)
+        crashpoint("pipeline.mkdir")
         if choices_path is not None:
             _store_choices(ctx, choices_path)
         return _run_stages(ctx, reg, last, stdout)

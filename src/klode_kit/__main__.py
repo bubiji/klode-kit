@@ -80,6 +80,11 @@ COMMANDS: dict[str, tuple[str, str]] = {
                   "real klode-mcp (initialize, tools/list, search, zoom, verify real / fake); exit 0 all PASS"),
     "kb-check": ("klode_kit.check.kb_check:main", "kb-check --kb DIR --entry E: check receipt with the plugin block; "
                  "kb-check --doctor [doctor args]: same as `doctor`"),
+    "kb-publish": ("klode_kit.publish:main",
+                   "kb-publish --kb DIR (--build ID | --replay ID | --rollback-to ID | --prune [--keep N]) "
+                   "[--project DIR] [--receipt F]: move kb/<id>/current to a checked build (one os.replace), "
+                   "PUBLISH.log, external registrations, replay of the failed ones, rollback, prune into "
+                   "builds/_trash/ (exit 21 post-publish failed, 22 stale replay)"),
     "doctor": ("klode_kit.check.doctor:main",
                "doctor [--project DIR] [--repo DIR] [--only host,project,seams] [--receipt F]: run every "
                "prerequisite for real (venv imports, launcher, klode / klode-mcp, poppler, tesseract chi_sim+jpn, "

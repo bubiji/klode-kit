@@ -61,6 +61,7 @@ from klode_kit.build import check_cards, check_published, desk_build, run_build,
 from klode_kit.contract import schema as contract
 from klode_kit.pipeline import write_receipt_verdict
 from klode_kit.receipts import dumps
+from klode_kit.seams import crashpoint
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 RUN_FILES = (".claude-plugin/plugin.json", "pyproject.toml", "uv.lock")
@@ -394,13 +395,17 @@ def run_checks(build: Path, *, cfg: Any, klode: str | None, klode_mcp: str | Non
 
 
 def _write_receipt(build: Path, doc: dict) -> None:
-    """Into the (read-only) build: the root is made writable for the one atomic replace, then sealed again."""
-    mode = build.stat().st_mode
-    os.chmod(build, mode | stat.S_IWUSR)
+    """Into the (read-only) build: the root is made writable for the one atomic replace, then sealed again. The sealed
+    mode is the current one *without* its write bits - a run that was killed between the two steps leaves the root
+    writable, and the next run must not take that for the mode to restore (publish refuses a writable build, K5)."""
+    sealed = build.stat().st_mode & ~0o222
+    os.chmod(build, sealed | stat.S_IWUSR)
+    crashpoint("check.unsealed")
     try:
         receipts.write(build / CHECK_RECEIPT, doc, "check_receipt")
+        crashpoint("check.written")
     finally:
-        os.chmod(build, mode)
+        os.chmod(build, sealed)
     target = build / CHECK_RECEIPT
     os.chmod(target, target.stat().st_mode & ~0o222)
 
