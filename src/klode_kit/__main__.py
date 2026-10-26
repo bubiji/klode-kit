@@ -56,6 +56,13 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "[--project DIR]: src/desk.json + src/holdout.jsonl without a model - chapters (> 8 merged to <= 8, "
                  "< 2 one dimension) or the existing item categories / records; holdout >= 5 distinct questions from "
                  "existing dimensions only (else exit 20 holdout_insufficient); explicit --desk wins"),
+    "check-agents": ("klode_kit.agents_check:main",
+                     "check-agents [DIR] [--json]: static check of the plugin agents/*.md (frontmatter keys, no "
+                     "hooks / mcpServers / permissionMode, kb-verifier read-only); exit 20 on any problem"),
+    "kb-advice": ("klode_kit.audit.advice:main",
+                  "kb-advice --batch B [--project P] [--rev N] (--from FILE | --run [--claude C] [--max-budget-usd X]): "
+                  "kb-verifier advice for the confirm page -> a<N>/advice.json (hints only; never writes records; "
+                  "--run is behind the G2 gate, exit 61)"),
     "skeleton": ("klode_kit.build.skeleton:main", "skeleton KB ID [CHARS]: print a source's section titles and leads"),
     "fix-anchors": ("klode_kit.build.fix_anchors:main",
                     "fix-anchors KB [ID ...]: rewrite NOT FOUND card anchors to the source's own spelling"),

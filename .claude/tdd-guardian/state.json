@@ -2,32 +2,32 @@
   "schemaVersion": 2,
   "lanes": {
     "unit": {
-      "last_passed_at": "2026-10-24T03:02:39.735Z",
-      "last_run_at": "2026-10-24T03:02:39.735Z",
-      "last_head_sha": "c95e3eaa013dfed0253ea791fffc6f1f872430e3",
+      "last_passed_at": "2026-10-26T06:08:10.678Z",
+      "last_run_at": "2026-10-26T06:08:10.678Z",
+      "last_head_sha": "f3f99ae41bd05e61cb34940c2ca9cca2bb6b4560",
       "last_result": "passed",
       "ever_had_tests": true,
-      "duration_ms": 205040
+      "duration_ms": 288000
     },
     "contract-replay": {
-      "last_passed_at": "2026-10-24T03:07:34.565Z",
-      "last_run_at": "2026-10-24T03:07:34.565Z",
-      "last_head_sha": "c95e3eaa013dfed0253ea791fffc6f1f872430e3",
+      "last_passed_at": "2026-10-26T06:08:10.678Z",
+      "last_run_at": "2026-10-26T06:08:10.678Z",
+      "last_head_sha": "f3f99ae41bd05e61cb34940c2ca9cca2bb6b4560",
       "last_result": "passed",
       "ever_had_tests": true,
-      "duration_ms": 294827
+      "duration_ms": 1141000
     },
     "cli-integration": {
-      "last_passed_at": "2026-10-24T03:08:47.592Z",
-      "last_run_at": "2026-10-24T03:08:47.592Z",
-      "last_head_sha": "c95e3eaa013dfed0253ea791fffc6f1f872430e3",
+      "last_passed_at": "2026-10-26T06:08:10.678Z",
+      "last_run_at": "2026-10-26T06:08:10.678Z",
+      "last_head_sha": "f3f99ae41bd05e61cb34940c2ca9cca2bb6b4560",
       "last_result": "passed",
       "ever_had_tests": true,
-      "duration_ms": 73019
+      "duration_ms": 281000
     }
   },
   "coverage": {
-    "timestamp": "2026-10-24T03:08:47.601Z",
+    "timestamp": "2026-10-26T06:08:10.678Z",
     "status": "PASS",
     "method": "single",
     "approximate": false,
@@ -36,20 +36,20 @@
     ],
     "totals": {
       "lines": {
-        "covered": 8805,
-        "total": 8900,
-        "pct": 98.93
+        "covered": 15645,
+        "total": 15928,
+        "pct": 98.22
       },
       "functions": null,
       "branches": {
-        "covered": 2630,
-        "total": 2700,
-        "pct": 97.41
+        "covered": 4704,
+        "total": 4888,
+        "pct": 96.24
       },
       "statements": {
-        "covered": 8805,
-        "total": 8900,
-        "pct": 98.93
+        "covered": 15645,
+        "total": 15928,
+        "pct": 98.22
       }
     },
     "criticalPaths": {
@@ -244,10 +244,10 @@
           "description": "",
           "matchedFiles": 1,
           "totals": {
-            "lines": 99.8,
+            "lines": 99.43,
             "functions": null,
-            "branches": 99.39,
-            "statements": 99.8
+            "branches": 99.45,
+            "statements": 99.43
           },
           "thresholds": {
             "lines": 90,
@@ -256,7 +256,267 @@
             "statements": 90
           },
           "ok": true,
-          "summary": "lines=99.80%, functions=n/a, branches=99.39%, statements=99.80%",
+          "summary": "lines=99.43%, functions=n/a, branches=99.45%, statements=99.43%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/audit/reopen.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/build/records_to_txt.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/build/check_cards.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/build/deident.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/build/fix_anchors.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/publish.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 99.29,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=99.29%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/mcp_wrap.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/register.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/registry_write.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 100,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=100.00%, statements=100.00%",
+          "approximate": false,
+          "approximateMetrics": {
+            "lines": false,
+            "functions": false,
+            "branches": false,
+            "statements": false
+          }
+        },
+        {
+          "glob": "src/klode_kit/u5_probe.py",
+          "description": "",
+          "matchedFiles": 1,
+          "totals": {
+            "lines": 100,
+            "functions": null,
+            "branches": 98.86,
+            "statements": 100
+          },
+          "thresholds": {
+            "lines": 90,
+            "functions": 0,
+            "branches": 95,
+            "statements": 90
+          },
+          "ok": true,
+          "summary": "lines=100.00%, functions=n/a, branches=98.86%, statements=100.00%",
           "approximate": false,
           "approximateMetrics": {
             "lines": false,

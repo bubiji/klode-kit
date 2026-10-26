@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "klode-kit/advice.json",
+  "title": "kb-verifier advice (work/<batch>/audit/a<N>/advice.json)",
+  "description": "Hints from the read-only kb-verifier agent (02 r2.3): per field in dispute, what it reads on the dispute crop. The confirm page shows an entry on its field; it never selects it, never reaches choices.json and never changes a status (only writeback does). Not one of the sixteen pinned contract names; loaded by klode_kit.audit.advice.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "field_id",
+      "suggestion",
+      "evidence"
+    ],
+    "properties": {
+      "field_id": {
+        "type": "string",
+        "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"
+      },
+      "suggestion": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  }
+}
