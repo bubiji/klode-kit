@@ -6,8 +6,12 @@ klode's rule: every ``(grep: `...`)`` in a synthesis must be the very string of 
 before the synthesis is accepted.
 
     klode-kit check-synthesis KB [DIM ...]      # no DIM: every _syntheses/*.md not starting with "_"
+    klode-kit check-synthesis KB --syntheses DIR [DIM ...]   # the files of DIR, judged against the cards of KB
     python3 -m klode_kit.build.check_synthesis KB [DIM ...]
     exit 0 all pass; 1 any problem (also: nothing to check); 2 usage
+
+``--syntheses DIR`` (WI-13a): the desk workers of a book build write ``DIR/<dim>.md`` outside the sealed build whose
+cards they cite; the gate is the same, only the place of the files differs (the syntheses of KB itself are not read).
 
 Checks (kept from the original):
   S1 front-matter has dimension / title / cards / status / tier, and dimension == the file name
@@ -49,10 +53,10 @@ def card_anchors(kb: Path, cid: str) -> set[str] | None:
     return set(ANCHOR_RE.findall(p.read_text(encoding="utf-8")))
 
 
-def check_one(kb: Path, dim: str) -> list[str]:
-    """Problems of ``_syntheses/<dim>.md``, each prefixed ``<dim>: ``; ``[]`` = PASS."""
+def check_one(kb: Path, dim: str, syn: Path | None = None) -> list[str]:
+    """Problems of ``_syntheses/<dim>.md`` (or ``syn/<dim>.md``), each prefixed ``<dim>: ``; ``[]`` = PASS."""
     probs: list[str] = []
-    f = syntheses_dir(kb) / f"{dim}.md"
+    f = (syntheses_dir(kb) if syn is None else Path(syn)) / f"{dim}.md"
     if not f.exists():
         return [f"{dim}: 文件不存在"]
     raw = f.read_text(encoding="utf-8")
@@ -103,17 +107,18 @@ def check_one(kb: Path, dim: str) -> list[str]:
     return [f"{dim}: {p}" for p in probs]
 
 
-def run(kb: Path, dims: list[str] | None = None) -> tuple[int, list[str]]:
-    """``(exit code, output lines)`` for ``dims`` (default: every synthesis not starting with ``_``)."""
+def run(kb: Path, dims: list[str] | None = None, syn: Path | None = None) -> tuple[int, list[str]]:
+    """``(exit code, output lines)`` for ``dims`` (default: every synthesis not starting with ``_``); ``syn``: the
+    directory that holds the files (default: the ``_syntheses`` of ``kb``)."""
     kb = Path(kb).resolve()
-    syn = syntheses_dir(kb)
+    syn = syntheses_dir(kb) if syn is None else Path(syn).resolve()
     dims = list(dims) if dims else sorted(p.stem for p in syn.glob("*.md") if not p.name.startswith("_"))
     if not dims:
         return 1, [f"FAIL  没有可检查的 synthesis（{syn} 下没有维度文件）"]
     lines: list[str] = []
     allp: list[str] = []
     for d in dims:
-        ps = check_one(kb, d)
+        ps = check_one(kb, d, syn)
         f = syn / f"{d}.md"
         n = len(ANCHOR_RE.findall(f.read_text(encoding="utf-8"))) if f.exists() else 0
         lines.append(f"{'PASS' if not ps else 'FAIL'}  {d}  ({n} 锚点{'' if not ps else f'，{len(ps)} 个问题'})")
@@ -127,7 +132,15 @@ def main(argv: list[str] | None = None) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
         return 2 if not argv else 0
-    rc, lines = run(Path(argv[0]), argv[1:])
+    rest, syn = argv[1:], None
+    if "--syntheses" in rest:
+        i = rest.index("--syntheses")
+        if i + 1 >= len(rest) or not Path(rest[i + 1]).is_dir():
+            print("check-synthesis: --syntheses needs an existing directory", file=sys.stderr)
+            return 2
+        syn = Path(rest[i + 1])
+        rest = rest[:i] + rest[i + 2:]
+    rc, lines = run(Path(argv[0]), rest, syn)
     print("\n".join(lines))
     return rc
 

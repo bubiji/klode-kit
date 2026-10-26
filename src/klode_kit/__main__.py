@@ -70,6 +70,10 @@ COMMANDS: dict[str, tuple[str, str]] = {
                    "desk-build KB (--apply | --prompts | --status | --verify [--holdout F] [--refreeze --reason R]): "
                    "the desk - frameworks on, _diagnostics.md from src/desk.json, worker prompts, tuning and frozen "
                    "holdout scored apart (gate: holdout >= 5 questions and >= 4/5)"),
+    "desk-tasks": ("klode_kit.build.desk_tasks:main",
+                   "desk-tasks --build BUILD_DIR --out SYN_DIR [--project DIR]: worker tasks for the desk syntheses a "
+                   "book build is missing (one prompt per absent <dimension>.md, repair.json that carries the cards "
+                   "over to the next build); the build tree is only read"),
     "check-synthesis": ("klode_kit.build.check_synthesis:main",
                         "check-synthesis KB [DIM ...]: desk synthesis gate S1-S6 (anchors only copied from cards)"),
     "eval-compare": ("klode_kit.build.eval_compare:main",
