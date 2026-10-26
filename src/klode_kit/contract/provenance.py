@@ -142,7 +142,9 @@ class Layout:
         ``work/<batch>/ocr``, ``work/<batch>/text``, audit revisions ``work/<batch>/audit/a<N>/``, ``records/`` and the
         build directory ``build_dir``."""
         p = Path(project)
-        batches = sorted(d for d in (p / "work").glob("*") if d.is_dir()) if (p / "work").is_dir() else []
+        # a symlink is a date alias of a batch (``work/20261022`` -> ``<batch_id>``, WI-13b), not a second batch
+        batches = sorted(d for d in (p / "work").glob("*") if d.is_dir() and not d.is_symlink()) \
+            if (p / "work").is_dir() else []
 
         def files(name: str) -> list[Path]:
             return [d / name for d in batches if (d / name).is_file()]

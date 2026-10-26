@@ -129,6 +129,10 @@ COMMANDS: dict[str, tuple[str, str]] = {
                        "export the bound verified records as text sources + export_map (prints a JSON summary)"),
     "bridge": ("klode_kit.bridge:main", "bridge run --tasks F --receipt F [--project DIR]: dispatch card writers "
                "through claude -p (real calls only behind gate G2)"),
+    "med-intake": ("klode_kit.med_intake:main",
+                   "med-intake --inbox DIR [--project DIR] [--type lab|rx] [--routes a,b] [--launcher L]: register the "
+                   "inbox (type, date, source), run ocr -> audit and stop at awaiting_confirm (exit 10); date aliases "
+                   "work/<yyyymmdd> and confirm/<yyyymmdd>.html"),
     "views": ("klode_kit.audit.views:main", "views [--project DIR]: rebuild the read-only views records/<date>-<type>.md "
               "and verified/<date>-<type>.md (symlinks to revision bodies)"),
 }
