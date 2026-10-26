@@ -53,6 +53,8 @@ markers = [
 source = ["klode_kit"]
 branch = true
 patch = ["subprocess"]
+# tests that copy the repo into pytest tmp (doctor "old checkout") must not count as source
+omit = ["*/pytest-of-*/*"]
 
 [tool.coverage.report]
 show_missing = true
