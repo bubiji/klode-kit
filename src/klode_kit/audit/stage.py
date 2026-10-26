@@ -3,6 +3,8 @@
 Usage::
 
     klode-kit kb-audit --batch <batch_id> [--project <data project>]
+    klode-kit kb-audit --writeback [<choices.json>] ...        (WI-08c, audit/writeback.py)
+    klode-kit kb-audit --reopen <field_id> [--reason ...] ...  (WI-08e, audit/reopen.py)
 
 It reads the kb-ocr batch receipt ``work/<batch>/receipt.json`` (WI-04b) and, for every page the routes read
 (text-layer PDF pages are not audited), aligns the routes' lines (WI-07b), votes every cell (WI-07c), crops the
@@ -392,11 +394,26 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--writeback", nargs="?", const="", default=None, metavar="CHOICES",
                         help="writeback (audit.writeback): without CHOICES ingest the newest audit revision's "
                              "candidates of --batch; with a choices.json commit the human choices")
+    parser.add_argument("--reopen", default=None, metavar="FIELD_ID",
+                        help="reopen (audit.reopen, WI-08e): put an already verified field back on a one-field confirm "
+                             "page; --batch (optional) is checked against the record's batch")
+    parser.add_argument("--reason", default=None, help="with --reopen: the human's note on the reopen event")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    if args.reopen is not None:
+        if args.writeback is not None:
+            print("kb-audit: --reopen and --writeback are two steps: reopen first, then write back the choices",
+                  file=sys.stderr)
+            return USAGE_EXIT
+        from klode_kit.audit import reopen
+
+        return reopen.run(project, args.reopen, batch_id=args.batch, reason=args.reason)
+    if args.reason is not None:
+        print("kb-audit: --reason belongs to --reopen", file=sys.stderr)
+        return USAGE_EXIT
     if args.writeback is not None:
         from klode_kit.audit import writeback
 

@@ -85,6 +85,7 @@ OK_EXIT, AWAITING_EXIT, USAGE_EXIT, CONTRACT_EXIT, ENV_EXIT = 0, 10, 2, 30, 40
 RECEIPT_SCHEMA = "klode-kit.writeback_receipt/1"
 CHOICES_SCHEMA = "klode-kit.choices/1"
 FIXES, COMMITS, RECEIPTS, LOCK = "fixes.jsonl", "commits.jsonl", "writeback_receipts.jsonl", ".lock"
+REOPEN_LOG, REOPEN_DIR = "reopen.jsonl", "reopen"   # WI-08e: written by ``reopen``; read here to accept its pages
 NON_VOTING = frozenset({"tesseract"})
 DEFAULT_TYPE = "doc"
 CRASHPOINTS = ("writeback.lock", "writeback.begin", "writeback.fixes_appended", "writeback.mkdir",
@@ -312,9 +313,14 @@ def _page_meta(rev: Revision, cand: Mapping[str, Any], front: Mapping | None) ->
 
 def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, status: str, verified_by: str | None,
           uncertain: list[dict], human: Mapping[str, dict], dropped: list[str], at: str,
-          confirm_sha: str | None = None) -> dict:
+          confirm_sha: str | None = None, carry: Mapping[str, Any] | None = None,
+          reopen_id: str | None = None) -> dict:
     """The complete commit of one record: decisions, body and front matter (``human``: field_id -> normalised
-    choice; fields not in it are agreed and get an auto decision when the revision is verified)."""
+    choice; fields not in it are agreed and get an auto decision when the revision is verified).
+
+    ``carry`` (WI-08e, a reopened field): the effective revision's body. The new revision then decides only the
+    ``human`` fields (each decision tagged ``reopen_id``); every other value, and the dropped fields, are carried over
+    from ``carry`` and keep the effective decision they already have."""
     base = _current(front)
     rev_new = base + 1
     marks = _jsonl(rev.dir / COMMITS)
@@ -337,6 +343,8 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
             elif ch.get("reason"):
                 evidence["reason"] = ch["reason"]
             by = "human"
+        elif carry is not None:
+            continue
         elif status == G.VERIFIED:
             kind, route = "route", _first_voting(rev, fid)
             value, by = seen[route], "auto"
@@ -351,12 +359,19 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
         decisions.append({"decision_id": ids.decision_id(rev.audit_rev, seq), "commit_id": commit_id,
                           "audit_rev": rev.audit_rev, "field_id": fid, "rev_base": base, "rev_new": rev_new,
                           "by": by, "choice": kind, "route": route, "value": value, "evidence": evidence, "at": at})
+        if reopen_id is not None:
+            decisions[-1]["reopen_id"] = reopen_id
+    if carry is not None:
+        values = {**{f: v for f, v in carry["fields"].items() if f not in human}, **values}
+        dropped = sorted(set(dropped) | (set(carry.get("dropped", [])) - set(human)))
     rtype, date = _page_meta(rev, cand, front)
     key = rev.pages.get(cand["page_id"], {}).get("key") or cand["page_id"]
     body = {"rec_id": cand["rec_id"], "rev": rev_new, "audit_rev": rev.audit_rev, "commit_id": commit_id,
             "status": status, "verified_by": verified_by, "type": rtype, "date": date, "fields": values,
             "dropped": sorted(dropped), "open": [] if status == G.VERIFIED else open_,
             "uncertain": V.uncertain_ids(uncertain, key)}
+    if reopen_id is not None:
+        body["reopened"] = reopen_id
     new = {"rev": rev_new, "audit_rev": rev.audit_rev, "status": status, "verified_by": verified_by,
            "uncertain": uncertain, "created": at}
     olds = copy.deepcopy(list((front or {}).get("candidates", [])))
@@ -481,8 +496,10 @@ def _normalise(choices: Any) -> Any:
     return out
 
 
-def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[str]) -> tuple[dict, dict | None]:
-    """``(result, human choices or None)`` for one record's items (all checks, no write)."""
+def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[str],
+                  reopen: "Reopen | None" = None) -> tuple[dict, dict | None]:
+    """``(result, human choices or None)`` for one record's items (all checks, no write). ``reopen``: the choices come
+    from a reopen page, whose field is the only one to confirm (WI-08e)."""
     cand = rev.cands.get(rec_id)
     fids = [it["field_id"] for it in items]
     if cand is None:
@@ -495,7 +512,8 @@ def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[
         return {"rec_id": rec_id, "result": "rejected",
                 "errors": [{"field_id": f, "reason": f"page-level uncertain ({why}): not selectable"} for f in fids],
                 "missing": [], "duplicate": []}, None
-    shown = [f["field_id"] for f in cand.get("fields", []) if _shown(f)]
+    shown = [f["field_id"] for f in cand.get("fields", []) if _shown(f)] if reopen is None \
+        else reopen.fields.get(rec_id, [])
     counts: dict[str, int] = {}
     for f in fids:
         counts[f] = counts.get(f, 0) + 1
@@ -512,7 +530,7 @@ def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[
         fid = it["field_id"]
         if fid not in shown or fid in human:
             continue
-        reason = _item_problem(rev, cand, it, current)
+        reason = _item_problem(rev, cand, it, current, reopen)
         if reason is not None:
             errors.append({"field_id": fid, "reason": reason})
             continue
@@ -534,7 +552,8 @@ def _item_choice(it: Mapping[str, Any]) -> dict:
     return ch
 
 
-def _item_problem(rev: Revision, cand: Mapping[str, Any], it: Mapping[str, Any], current: int) -> str | None:
+def _item_problem(rev: Revision, cand: Mapping[str, Any], it: Mapping[str, Any], current: int,
+                  reopen: "Reopen | None" = None) -> str | None:
     fid = it["field_id"]
     if it["cell"] != rev.cells[fid].get("cell"):
         return f"cell {it['cell']} is not the cell of {fid} ({rev.cells[fid].get('cell')})"
@@ -545,6 +564,8 @@ def _item_problem(rev: Revision, cand: Mapping[str, Any], it: Mapping[str, Any],
     ch, reason = it["choice"], (it.get("evidence") or {}).get("reason")
     if reason is not None and (reason != "not_a_field" or ch["kind"] != "none"):
         return f"evidence.reason {reason!r}: the only reason is not_a_field, with a 'none' choice"
+    if reopen is not None and ch["kind"] == "none" and reason is None:
+        return "a reopened field must be decided: pick a route, type a value, or mark it as not a field"
     if ch["kind"] == "route":
         route = ch["route"]
         if route in NON_VOTING:
@@ -584,16 +605,16 @@ def _choices_mode(project: Path, batch_arg: str | None, path: Path, at: str, out
         receipt["recovered"] = _recover(project, batch_id)
         rev = _load(project, batch_id, revs[-1])
         receipt["audit_rev"] = rev.audit_rev
-        _check_page(rev, data)
+        reopen = _check_page(rev, data)
         groups: dict[str, list[dict]] = {}
         for it in data["items"]:
             groups.setdefault(it["rec_id"], []).append(it)
         committed = _committed_keys(rev.dir)
         rejected = False
         for rec_id, items in groups.items():
-            res, human = _check_record(rev, rec_id, items, committed)
+            res, human = _check_record(rev, rec_id, items, committed, reopen)
             if human is not None:
-                res = _commit_human(rev, rec_id, human, at, data["confirm_sha256"])
+                res = _commit_human(rev, rec_id, human, at, data["confirm_sha256"], reopen)
             rejected |= res["result"] == "rejected"
             receipt["per_record"].append(res)
             if res["result"] == "rejected":
@@ -606,9 +627,11 @@ def _choices_mode(project: Path, batch_arg: str | None, path: Path, at: str, out
     return code, receipt
 
 
-def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, confirm_sha: str) -> dict:
+def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, confirm_sha: str,
+                  reopen: "Reopen | None" = None) -> dict:
     cand = rev.cands[rec_id]
     front = _front(_record_path(rev.project, rec_id))
+    carry = _front(_body_path(rev.project, rec_id, front["effective"]["rev"])) if reopen is not None else None
     undecided = [f for f, ch in human.items() if ch["kind"] == "none" and ch.get("reason") != "not_a_field"]
     dropped = [f for f, ch in human.items() if ch["kind"] == "none" and ch.get("reason") == "not_a_field"]
     if undecided:
@@ -619,13 +642,43 @@ def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, c
     else:
         status, by, uncertain = G.VERIFIED, "human", []
     plan = _plan(rev, cand, front, status=status, verified_by=by, uncertain=uncertain, human=human,
-                 dropped=dropped, at=at, confirm_sha=confirm_sha)
+                 dropped=dropped, at=at, confirm_sha=confirm_sha, carry=carry,
+                 reopen_id=reopen.reopen_id if reopen is not None else None)
     _commit(rev, plan)
     return {"rec_id": rec_id, "result": "committed", "rev_new": plan["rev_new"], "status": status,
             "commit_id": plan["commit_id"]}
 
 
-def _check_page(rev: Revision, data: Mapping[str, Any]) -> None:
+@dataclass(frozen=True)
+class Reopen:
+    """The reopen page (WI-08e) the choices come from: its event and the one field it asks about."""
+
+    reopen_id: str
+    fields: dict[str, list[str]]   # rec_id -> [field_id]
+
+
+def _reopen_page(rev: Revision, sha: str) -> Reopen | None:
+    """The sealed page ``a<N>/reopen/o*.html`` whose stamp is ``sha`` and whose event is in ``reopen.jsonl``. A file in
+    that directory that is not such a page is skipped."""
+    events = {e.get("reopen_id") for e in _jsonl(rev.dir / REOPEN_LOG)}
+    for path in sorted((rev.dir / REOPEN_DIR).glob("o*.html")):
+        try:
+            html = path.read_bytes()
+            if CP.confirm_sha256(html) != sha:
+                continue
+            data = CP.page_data(html)
+            info = data["reopen"]
+            fields = {r["rec_id"]: [f["field_id"] for f in r["fields"]] for r in data["records"]}
+            rid = info["reopen_id"]
+        except (CP.ConfirmError, KeyError, TypeError):
+            continue
+        if rid not in events:
+            raise WritebackError(f"{path.name} is not a reopen page of {rev.audit_rev}: {rid} is not in {REOPEN_LOG}")
+        return Reopen(rid, fields)
+    return None
+
+
+def _check_page(rev: Revision, data: Mapping[str, Any]) -> Reopen | None:
     if data.get("audit_rev") is not None and data["audit_rev"] != rev.audit_rev:
         raise WritebackError(f"the choices are for {data['audit_rev']}; the newest audit revision is "
                              f"{rev.audit_rev} (stale page)")
@@ -634,10 +687,14 @@ def _check_page(rev: Revision, data: Mapping[str, Any]) -> None:
         raise WritebackError(f"fingerprints {data['fingerprints']} are not the runs of {rev.audit_rev} "
                              f"({fingerprints}): stale page")
     page = rev.dir / "confirm.html"
+    if page.is_file() and CP.confirm_sha256(page.read_bytes()) == data["confirm_sha256"]:
+        return None
+    reopen = _reopen_page(rev, data["confirm_sha256"])
+    if reopen is not None:
+        return reopen
     if not page.is_file():
         raise WritebackError(f"{rev.audit_rev} has no confirm page; the choices cannot come from it")
-    if CP.confirm_sha256(page.read_bytes()) != data["confirm_sha256"]:
-        raise WritebackError(f"confirm_sha256 is not the sealed sha of {rev.audit_rev}/confirm.html")
+    raise WritebackError(f"confirm_sha256 is not the sealed sha of {rev.audit_rev}/confirm.html")
 
 
 def _awaiting(project: Path, rec_ids: Iterable[str]) -> int:

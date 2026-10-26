@@ -227,7 +227,8 @@ def _data_json(data: Mapping) -> str:
     return text
 
 
-def _item_html(f: dict, view: dict, routes: list[str], blocked: list[dict], advice: list[dict]) -> str:
+def _item_html(f: dict, view: dict, routes: list[str], blocked: list[dict], advice: list[dict],
+               verdict_label: str | None = None) -> str:
     fid = f["field_id"]
     name = f"kk:{fid}"
     verdict = f.get("verdict")
@@ -238,7 +239,8 @@ def _item_html(f: dict, view: dict, routes: list[str], blocked: list[dict], advi
            f'data-verdict="{_e(verdict)}">']
     label = f.get("item_label") or "?"
     out.append(f"<legend>{_e(label)} · <code>{_e(fid.split('/', 1)[1])}</code> · "
-               f"<span class=\"kk-verdict\">{_e(_VERDICT_LABEL.get(verdict, verdict))}</span></legend>")
+               f"<span class=\"kk-verdict\">{_e(verdict_label or _VERDICT_LABEL.get(verdict, verdict))}</span>"
+               "</legend>")
     if view["crop"]:
         out.append(f'<img class="kk-crop" src="{_e(view["crop"])}" alt="分歧小图">')
     else:
@@ -284,8 +286,12 @@ def _item_html(f: dict, view: dict, routes: list[str], blocked: list[dict], advi
 
 
 def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
-           advice_path: str | os.PathLike | None = None) -> bytes:
-    """The confirm page of audit revision ``a<n>`` (default: the newest) as bytes, sealed (module docstring)."""
+           advice_path: str | os.PathLike | None = None, reopen: Mapping[str, Any] | None = None) -> bytes:
+    """The confirm page of audit revision ``a<n>`` (default: the newest) as bytes, sealed (module docstring).
+
+    ``reopen`` (WI-08e): a ``reopen.jsonl`` event. The page then holds only that event's record and field, whatever the
+    field's verdict (it is a verified field a human doubts), labelled ``重开`` with the field's current value, shows no
+    advice, and its data block carries ``reopen: {reopen_id, field_id, value}``."""
     project = Path(project)
     n, adir = _rev_dir(project, batch_id, n)
     audit_rev = f"{batch_id}/a{n}"
@@ -296,20 +302,27 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
     fingerprints = {e: runs[e] for e in routes if isinstance(runs[e], str) and runs[e]}
     cells = {c.get("field_id"): c for c in _jsonl(adir / "cells.jsonl")}
     cands = _jsonl(adir / "candidates.jsonl")
-    shown_ids = [f["field_id"] for c in cands for f in c.get("fields", []) if _shown(f)]
+    if reopen is not None:
+        cands = [c for c in cands if c["rec_id"] == reopen["rec_id"]]
+        now = "无（已删除）" if reopen["value"] is None else reopen["value"]
+    wanted = (lambda f: f["field_id"] == reopen["field_id"]) if reopen is not None else _shown
+    shown_ids = [f["field_id"] for c in cands for f in c.get("fields", []) if wanted(f)]
     if len(shown_ids) != len(set(shown_ids)):
         raise ConfirmError(f"{adir / 'candidates.jsonl'}: a field_id appears twice")
-    advice = _advice(Path(advice_path) if advice_path is not None else adir / "advice.json", set(shown_ids))
+    advice = {} if reopen is not None else _advice(
+        Path(advice_path) if advice_path is not None else adir / "advice.json", set(shown_ids))
 
     sections, records = [], []
     n_items = n_blocked = 0
     for cand in cands:
         front = _record(project, cand["rec_id"])
         label, rev_base = _labels(cand, front)
+        if reopen is not None:
+            label = f"生效 r{reopen['effective_rev']} (verified) / 重开 {reopen['reopen_id']}（现值 {now}）"
         blocked = [u for u in cand.get("uncertain", []) if u.get("scope") == G.PAGE]
         fields, items = [], []
         for f in cand.get("fields", []):
-            if not _shown(f):
+            if not wanted(f):
                 continue
             cell = cells.get(f["field_id"])
             if cell is None or not isinstance(cell.get("cell"), dict):
@@ -320,7 +333,8 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
                     "recommended": f.get("recommended"),
                     "crop": _crop_src(f.get("crop"), batch_id, n, adir)}
             fields.append({k: view[k] for k in ("field_id", "cell", "seen", "item_label", "verdict", "recommended")})
-            items.append(_item_html(f, view, routes, blocked, advice.get(f["field_id"], [])))
+            items.append(_item_html(f, view, routes, blocked, advice.get(f["field_id"], []),
+                                    "重开：现生效值待核对" if reopen is not None else None))
         records.append({"rec_id": cand["rec_id"], "page_id": cand["page_id"], "status": cand["status"],
                         "rev_base": rev_base, "clickable": not blocked, "fields": fields})
         n_items += 0 if blocked else len(items)
@@ -343,6 +357,9 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
             "routes": routes, "records": records}
     summary = (f"{len(cands)} 条记录；待点选 {n_items} 处；缺路不可点选的记录 {n_blocked} 条"
                if n_items or n_blocked else f"{len(cands)} 条记录；无分歧")
+    if reopen is not None:
+        data["reopen"] = {"reopen_id": reopen["reopen_id"], "field_id": reopen["field_id"], "value": reopen["value"]}
+        summary = f"重开字段 {reopen['field_id']}（{reopen['reopen_id']}），现生效值 {now}"
     script = EXPORT_JS.read_text(encoding="utf-8")
     if "</script" in script.lower() or "<!--" in script:
         raise ConfirmError(f"{EXPORT_JS} cannot be embedded in a script element")

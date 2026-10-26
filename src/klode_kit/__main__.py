@@ -104,7 +104,8 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "dev spike-pipeline": ("klode_kit.devtools.spike_pipeline:main", "WI-00d2 stage stand-in for the workflow shell"),
     "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR|PDF [--project DIR] [--routes a,b] [--redo]: OCR an image/PDF inbox"),
     "kb-audit": ("klode_kit.audit.stage:main", "kb-audit --batch BATCH_ID [--project DIR]: align, vote and gate the "
-                 "batch's latest runs into audit revision a<N>"),
+                 "batch's latest runs into audit revision a<N>; --writeback [CHOICES]: commit them / the human's "
+                 "choices; --reopen FIELD_ID [--reason T]: put a verified field back on a one-field confirm page"),
     "confirm-page": ("klode_kit.audit.confirm_page:main", "confirm-page --batch BATCH_ID [--project DIR] [--rev N]: "
                      "write the local confirm page work/<batch>/audit/a<N>/confirm.html"),
     "pipeline": ("klode_kit.pipeline:main",
