@@ -88,6 +88,14 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "mcp": ("klode_kit.mcp_wrap:main",
             "mcp --kb DIR: the MCP server of one library; follows kb/<id>/current at every call (hand-over without "
             "restart), reader lease, tool kb_version, degrade levels in-process / klode-mcp proxy / klode CLI"),
+    "register": ("klode_kit.register:main",
+                 "register --kb DIR --build ID [--project DIR]: the four registrations of a published build "
+                 "(.mcp.json entry, $KLODE_REGISTRY entry, expert agent file, settings.local.json approval); each "
+                 "read-modify-write + one os.replace; exit 40 when a file cannot be read (left as it is)"),
+    "u5-probe": ("klode_kit.u5_probe:main",
+                 "u5-probe --kb DIR [--build ID] [--project DIR] [--host] [--check] [--receipt F]: direct probe "
+                 "(the .mcp.json argv and cwd, initialize -> kb_version) and optional host probe (claude -p "
+                 "stream-json, manual gate G2); u5_ready false and exit 21 when a probe reads another build"),
     "doctor": ("klode_kit.check.doctor:main",
                "doctor [--project DIR] [--repo DIR] [--only host,project,seams] [--receipt F]: run every "
                "prerequisite for real (venv imports, launcher, klode / klode-mcp, poppler, tesseract chi_sim+jpn, "

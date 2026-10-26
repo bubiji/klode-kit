@@ -25,7 +25,7 @@ epoch is missing or ``failed``; ``done`` and ``skipped_newer`` settle it. A buil
 pointer row is appended after the switch; a crash between the two is repaired by the next ``--build``/``--replay``
 of the same build, which records the switch after the fact.
 
-**Registrations** (the seam ``ACTIONS``; WI-11b brings the hosts' probes and the richer upsert): ``mcp_json`` in
+**Registrations** (the registrar, ``register.py`` / ``registry_write.py`` of WI-11b; ``ACTION_IMPL`` is its dict; the probes of ``u5_ready`` are ``u5_probe.py``): ``mcp_json`` in
 ``<project>/.mcp.json`` (``<kb>-klode`` -> the launcher ``mcp --kb <kb>``, ``env.KLODE_KIT_BUILD`` = the build id, the
 marker); ``registry`` an entry ``[[kb]]`` in ``$KLODE_REGISTRY`` (default: ``registry.toml`` in the ``.klode`` directory of the home directory) with ``path`` =
 ``<kb>/current/library.toml`` and ``build_id``; ``agent`` the build's ``agent/*.md`` into ``<project>/.claude/agents/``
@@ -68,17 +68,18 @@ import os
 import re
 import stat
 import sys
-import tomllib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Collection, Iterator, Mapping, Sequence, TextIO
 
-from klode_kit import __version__
+from klode_kit import __version__, register
 from klode_kit.build.run_build import CHECK_RECEIPT_NAME, MANIFEST_NAME, verify_manifest
 from klode_kit.contract.schema import issues
-from klode_kit.pipeline import EXIT_CODE, Reason, default_launcher, pid_alive
+from klode_kit.pipeline import EXIT_CODE, Reason, pid_alive
 from klode_kit.receipts import dumps
+from klode_kit.register import ActionError, Target  # noqa: F401  (re-exported: ``publish.ActionError`` / ``publish.Target``)
+from klode_kit.registry_write import atomic_write, ensure_dir
 from klode_kit.seams import crashpoint
 
 SCHEMA = "klode-kit.publish/1"
@@ -98,10 +99,6 @@ class LogError(Exception):
 
 class LockBusy(Exception):
     pass
-
-
-class ActionError(Exception):
-    """A registration cannot be read or written; its action fails, nothing else does."""
 
 
 # --------------------------------------------------------------------------- the log
@@ -450,213 +447,12 @@ def verify_target(kb: str | os.PathLike, build_id: str) -> list[str]:
 
 # --------------------------------------------------------------------------- atomic writes, the registrations
 
+# The four registrations are the registrar's (``register.py``, WI-11b; WI-09d had them here): ``publish`` runs them one
+# by one through ``ACTION_IMPL`` (the same dict) and adds the marker comparison between builds and the log rows.
+_ensure_dir = ensure_dir
+_atomic = atomic_write
 
-def _ensure_dir(directory: Path) -> None:
-    missing = []
-    cur = directory
-    while not cur.is_dir():
-        if os.path.lexists(cur):
-            raise ActionError(f"{cur} exists and is not a directory")
-        missing.append(cur)
-        cur = cur.parent
-    for d in reversed(missing):
-        try:
-            os.mkdir(d)
-        except FileExistsError:
-            if not d.is_dir():
-                raise ActionError(f"{d} exists and is not a directory") from None
-        crashpoint("publish.mkdir")
-
-
-def _atomic(path: Path, data: bytes, tmp_point: str = "publish.action_tmp",
-            done_point: str = "publish.action_written") -> None:
-    _ensure_dir(path.parent)
-    tmp = path.parent / f".{path.name}.klode-kit.tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
-    try:
-        try:
-            view = memoryview(data)
-            while view:
-                view = view[os.write(fd, view):]
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-        crashpoint(tmp_point)
-        os.replace(tmp, path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp)
-        raise
-    crashpoint(done_point)
-    _fsync_dir(path.parent)
-
-
-@dataclass(frozen=True)
-class Target:
-    kb: Path
-    project: Path
-    build_id: str
-    env: Mapping[str, str]
-
-    @property
-    def server(self) -> str:
-        return f"{self.kb.name}-klode"
-
-    @property
-    def build(self) -> Path:
-        return self.kb / "builds" / self.build_id
-
-
-def _read_json_object(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, UnicodeDecodeError) as exc:
-        raise ActionError(f"{path.name} cannot be read as JSON ({exc}); left as it is") from exc
-    if not isinstance(doc, dict):
-        raise ActionError(f"{path.name} is not a JSON object; left as it is")
-    return doc
-
-
-def _dump_json(doc: Mapping) -> bytes:
-    return (json.dumps(doc, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
-
-
-def _marker_of(value: Any) -> str | None:
-    return value if isinstance(value, str) and BUILD_RE.fullmatch(value) else None
-
-
-def _launcher(t: Target) -> str:
-    return t.env.get("KLODE_KIT_BIN") or str(default_launcher())
-
-
-# mcp_json ---------------------------------------------------------------------------------------------------
-
-
-def _mcp_marker(t: Target) -> str | None:
-    doc = _read_json_object(t.project / ".mcp.json")
-    servers = doc.get("mcpServers", {})
-    entry = servers.get(t.server) if isinstance(servers, dict) else None
-    env = entry.get("env") if isinstance(entry, dict) else None
-    return _marker_of(env.get("KLODE_KIT_BUILD")) if isinstance(env, dict) else None
-
-
-def _mcp_apply(t: Target) -> str:
-    path = t.project / ".mcp.json"
-    doc = _read_json_object(path)
-    servers = doc.setdefault("mcpServers", {})
-    if not isinstance(servers, dict):
-        raise ActionError(".mcp.json: mcpServers is not an object; left as it is")
-    old = servers.get(t.server) if isinstance(servers.get(t.server), dict) else {}
-    old_env = old.get("env") if isinstance(old.get("env"), dict) else {}
-    servers[t.server] = {**old, "command": _launcher(t), "args": ["mcp", "--kb", os.path.abspath(t.kb)],
-                         "env": {**old_env, "KLODE_KIT_BUILD": t.build_id}}
-    _atomic(path, _dump_json(doc))
-    return f"{t.server} -> build {t.build_id}"
-
-
-# registry ---------------------------------------------------------------------------------------------------
-
-
-def _registry_path(t: Target) -> Path:
-    explicit = t.env.get("KLODE_REGISTRY")
-    return Path(explicit) if explicit else Path(t.env.get("HOME") or os.path.expanduser("~")) / ".klode" / "registry.toml"
-
-
-def _kb_blocks(lines: Sequence[str]) -> list[tuple[int, int, dict]]:
-    """``(first line, end line, parsed table)`` of every ``[[kb]]`` block of a registry file."""
-    blocks = []
-    starts = [i for i, ln in enumerate(lines) if ln.strip() == "[[kb]]"]
-    for i in starts:
-        end = next((j for j in range(i + 1, len(lines)) if lines[j].lstrip().startswith("[")), len(lines))
-        table = tomllib.loads("".join(lines[i:end])).get("kb", [{}])[0]
-        blocks.append((i, end, table))
-    return blocks
-
-
-def _registry_read(t: Target) -> tuple[Path, str, list[str]]:
-    path = _registry_path(t)
-    try:
-        text = path.read_text(encoding="utf-8") if path.exists() else ""
-        tomllib.loads(text)
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
-        raise ActionError(f"{path.name} cannot be read as TOML ({exc}); left as it is") from exc
-    return path, text, text.splitlines(keepends=True)
-
-
-def _registry_marker(t: Target) -> str | None:
-    _, _, lines = _registry_read(t)
-    for _, _, table in _kb_blocks(lines):
-        if table.get("id") == t.kb.name:
-            return _marker_of(table.get("build_id"))
-    return None
-
-
-def _registry_apply(t: Target) -> str:
-    path, text, lines = _registry_read(t)
-    block = (f"[[kb]]\nid = {json.dumps(t.kb.name)}\npath = {json.dumps(os.path.abspath(t.kb / 'current' / 'library.toml'))}\n"
-             f"build_id = {json.dumps(t.build_id)}\n")
-    for start, end, table in _kb_blocks(lines):
-        if table.get("id") == t.kb.name:
-            tail = "\n" if end - start > 1 and lines[end - 1].strip() == "" else ""
-            new = "".join(lines[:start]) + block + tail + "".join(lines[end:])
-            break
-    else:
-        new = text + ("" if not text or text.endswith("\n") else "\n") + ("\n" if text.strip() else "") + block
-    _atomic(path, new.encode("utf-8"))
-    return f"{t.kb.name} -> build {t.build_id}"
-
-
-# agent ------------------------------------------------------------------------------------------------------
-
-
-def _agent_files(t: Target) -> list[Path]:
-    files = sorted((t.build / "agent").glob("*.md")) if (t.build / "agent").is_dir() else []
-    if not files:
-        raise ActionError(f"builds/{t.build_id}/agent holds no agent file")
-    return files
-
-
-def _agent_marker(t: Target) -> str | None:
-    dest = t.project / ".claude" / "agents" / _agent_files(t)[0].name
-    if not dest.is_file():
-        return None
-    head = "".join(dest.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)[:40])
-    m = MARKER_RE.search(head)
-    return m.group(1) if m else None
-
-
-def _agent_apply(t: Target) -> str:
-    names = []
-    for src in _agent_files(t):
-        _atomic(t.project / ".claude" / "agents" / src.name, src.read_bytes())
-        names.append(src.name)
-    return ", ".join(names)
-
-
-# approve ----------------------------------------------------------------------------------------------------
-
-
-def _approve_apply(t: Target) -> str:
-    path = t.project / ".claude" / "settings.local.json"
-    doc = _read_json_object(path)
-    enabled = doc.setdefault("enabledMcpjsonServers", [])
-    if not isinstance(enabled, list):
-        raise ActionError("settings.local.json: enabledMcpjsonServers is not a list; left as it is")
-    if t.server in enabled:
-        return f"{t.server} already enabled"
-    enabled.append(t.server)
-    _atomic(path, _dump_json(doc))
-    return f"{t.server} enabled"
-
-
-ACTION_IMPL: dict[str, tuple[Callable[[Target], str | None] | None, Callable[[Target], str]]] = {
-    "mcp_json": (_mcp_marker, _mcp_apply),
-    "registry": (_registry_marker, _registry_apply),
-    "agent": (_agent_marker, _agent_apply),
-    "approve": (None, _approve_apply),
-}
+ACTION_IMPL = register.ACTION_IMPL
 
 
 # --------------------------------------------------------------------------- one publication
