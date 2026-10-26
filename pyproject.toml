@@ -8,6 +8,30 @@ license = { text = "MIT" }
 dependencies = [
     "jsonschema>=4.23",
     "pillow>=13.0",
+    # pinned: the build/audit/MCP code is written against klode 0.5.0 (public PyPI, MIT, github.com/xiaolai/klode)
+    "klode==0.5.0",
+]
+
+[project.optional-dependencies]
+# core: the runtime set, spelled out so `--extra core` (install.sh, docs) is explicit; the same list is in
+#       `dependencies`, so a plain `pip install klode-kit` also gets it (test_packaging_static keeps them equal)
+core = [
+    "jsonschema>=4.23",
+    "pillow>=13.0",
+    "klode==0.5.0",
+]
+# local OCR engines (gate G4: installing them is the user's call; weights are never downloaded here)
+ocr-mac = ["ocrmac==1.0.1 ; sys_platform == 'darwin'"]
+mlx = ["mlx-vlm==0.7.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'"]
+# dev mirrors [dependency-groups].dev below (tests/unit/test_packaging_static.py keeps them equal)
+dev = [
+    "pytest>=8.3",
+    "hypothesis>=6.120",
+    "pytest-cov>=6.0",
+    "pytest-socket>=0.7",
+    "mutmut>=3.2",
+    "jsonschema>=4.23",
+    "reportlab>=4.2",
 ]
 
 [dependency-groups]
@@ -20,6 +44,7 @@ dev = [
     "jsonschema>=4.23",
     "reportlab>=4.2",
 ]
+# ocr-local is the pre-WI-15a name of the two OCR extras above; kept (error messages and docs name it).
 ocr-local = [
     "mlx-vlm==0.7.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
     "ocrmac==1.0.1 ; sys_platform == 'darwin'",
