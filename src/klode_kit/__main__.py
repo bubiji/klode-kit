@@ -85,6 +85,9 @@ COMMANDS: dict[str, tuple[str, str]] = {
                    "[--project DIR] [--receipt F]: move kb/<id>/current to a checked build (one os.replace), "
                    "PUBLISH.log, external registrations, replay of the failed ones, rollback, prune into "
                    "builds/_trash/ (exit 21 post-publish failed, 22 stale replay)"),
+    "mcp": ("klode_kit.mcp_wrap:main",
+            "mcp --kb DIR: the MCP server of one library; follows kb/<id>/current at every call (hand-over without "
+            "restart), reader lease, tool kb_version, degrade levels in-process / klode-mcp proxy / klode CLI"),
     "doctor": ("klode_kit.check.doctor:main",
                "doctor [--project DIR] [--repo DIR] [--only host,project,seams] [--receipt F]: run every "
                "prerequisite for real (venv imports, launcher, klode / klode-mcp, poppler, tesseract chi_sim+jpn, "

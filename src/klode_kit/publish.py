@@ -41,8 +41,11 @@ like a publish, switches (row ``rollback``) and does *all* the registrations aga
 the publish lock - an ``flock`` on the ``kb/<id>/`` directory itself (no file) - and a second one gets exit 40.
 
 **Prune** keeps ``current``, its rollback target (the previous build of its latest pointer row), every pending build,
-the ``N`` newest builds and every build with a live reader (a lease ``builds/<id>/.readers/<pid>-<nonce>`` whose pid
-is alive; unreadable names count as alive). Leases of dead pids are removed first. The others are *moved* to
+the ``N`` newest builds and every build with a live reader. A reader lease is a file ``<pid>-<nonce>`` whose pid is
+alive (a name without a pid counts as alive); the MCP wrapper writes it to ``kb/<id>/.readers/<build_id>/`` - outside
+the sealed build, whose tree (top directory included) is read-only and which a running reader therefore cannot write
+into (WI-11a). The older place ``builds/<id>/.readers/`` is still read, so a lease written there is honoured the same
+way. Leases of dead pids are removed first, in both places. The others are *moved* to
 ``builds/_trash/`` (nothing is deleted; a build keeps its bytes and its read-only seal), each with a ``prune`` row; a
 build that got a live reader while it was being moved is moved back.
 
@@ -276,7 +279,18 @@ class Lease:
 
 def leases(build_dir: str | os.PathLike) -> list[Lease]:
     """The reader leases of a build; one whose name has no pid cannot be proven dead and counts as alive."""
-    root = Path(build_dir) / ".readers"
+    return _scan_leases(Path(build_dir) / READERS_DIR)
+
+
+READERS_DIR = ".readers"
+
+
+def reader_lease_dir(kb: str | os.PathLike, build_id: str) -> Path:
+    """Where a reader of ``build_id`` writes its lease: ``kb/<id>/.readers/<build_id>/`` (outside the sealed build)."""
+    return Path(kb) / READERS_DIR / build_id
+
+
+def _scan_leases(root: Path) -> list[Lease]:
     if not root.is_dir():
         return []
     out = []
@@ -287,15 +301,36 @@ def leases(build_dir: str | os.PathLike) -> list[Lease]:
     return out
 
 
+def build_leases(kb: str | os.PathLike, build_id: str, build_dir: str | os.PathLike | None = None) -> list[Lease]:
+    """Every reader lease of a build: the ones in ``kb/<id>/.readers/<build_id>/`` and, as before, the ones inside
+    the build (``build_dir`` defaults to ``builds/<build_id>``; a build that was just moved passes its new place)."""
+    inside = Path(build_dir) if build_dir is not None else Path(kb) / "builds" / build_id
+    return _scan_leases(reader_lease_dir(kb, build_id)) + leases(inside)
+
+
 def _clean_dead_leases(kb: Path, builds: Sequence[str]) -> int:
-    """Remove the leases of dead pids (a lease is a runtime marker, not data); returns how many."""
+    """Remove the leases of dead pids (a lease is a runtime marker, not data), in both places; returns how many.
+    A lease directory left empty goes with them."""
     n = 0
+
+    def drop(lease: Lease) -> None:
+        nonlocal n
+        if not lease.alive:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(lease.path)
+                n += 1
+
     for b in builds:
         for lease in leases(kb / "builds" / b):
-            if not lease.alive:
-                with contextlib.suppress(FileNotFoundError):
-                    os.unlink(lease.path)
-                    n += 1
+            drop(lease)
+    root = kb / READERS_DIR
+    if root.is_dir():
+        for d in sorted(root.iterdir()):
+            if d.is_dir():
+                for lease in _scan_leases(d):
+                    drop(lease)
+                with contextlib.suppress(OSError):  # not empty (a live reader) or already gone
+                    os.rmdir(d)
     return n
 
 
@@ -779,14 +814,14 @@ def prune(kb: str | os.PathLike, keep: int, *, env: Mapping[str, str] | None = N
         rows = read_log(kb)
         builds = list_builds(kb)
         cleaned = _clean_dead_leases(kb, builds)
-        readers = {b for b in builds if any(l.alive for l in leases(kb / "builds" / b))}
+        readers = {b for b in builds if any(l.alive for l in build_leases(kb, b))}
         prot = protected_builds(rows, builds, current_build(kb), readers, keep)
         moved, returned = [], []
         for b in builds:
             if b in prot:
                 continue
             dest = move_to_trash(kb, b)
-            if any(l.alive for l in leases(dest)):  # a reader wrote its lease between the check and the move
+            if any(l.alive for l in build_leases(kb, b, dest)):  # a reader wrote its lease between the check and the move
                 _rename_build(dest, kb / "builds" / b)
                 returned.append(b)
                 continue

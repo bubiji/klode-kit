@@ -180,6 +180,14 @@
         "functions": 0
       },
       "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/mcp_wrap.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
     }
   ],
   "coverageMode": "absolute",

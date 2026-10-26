@@ -40,6 +40,14 @@
     "klode_version": {
       "type": "string",
       "minLength": 1
+    },
+    "mode": {
+      "enum": [
+        "in-process",
+        "subprocess-proxy",
+        "cli"
+      ],
+      "description": "how the wrapper serves the build right now (degrade level 0/1/2); optional, added by WI-11a"
     }
   }
 }
