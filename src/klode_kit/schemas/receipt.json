@@ -90,6 +90,10 @@
       ],
       "minimum": 0
     },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
     "exit_code": {
       "type": "integer",
       "minimum": 0,

@@ -4,12 +4,12 @@ r2.6 exit codes, r3.2 "done 复用", venv addendum V1; deviations WI-02b, 08b, 0
 Usage::
 
     klode-kit pipeline --batch <inbox dir or PDF> [--project DIR] [--stage S] [--choices FILE] [--routes a,b]
-                       [--launcher PATH] [--resume]
+                       [--type lab|rx] [--launcher PATH] [--resume]
 
 Stages, in this order (``--stage S`` runs up to and including ``S``; default: all of them)::
 
     preflight   ``doctor --project P --receipt <preflight_receipt.json>``
-    ocr         ``kb-ocr --batch INBOX --project P [--routes R]``
+    ocr         ``kb-ocr --batch INBOX --project P [--routes R] [--type T]``
     audit       ``kb-audit --batch B --project P``; when records await the human, ``confirm-page --batch B``
                 (WI-08b: the kernel, not kb-audit, writes the confirm page). Awaiting = exit 10, the first
                 segment of the two-segment flow (U1/U3): the run ends here until the human's ``choices.json``
@@ -90,6 +90,7 @@ from klode_kit.seams import crashpoint
 
 SCHEMA = "klode-kit.pipeline/1"
 RECEIPT_SCHEMA = "klode-kit.receipt/1"
+RECORD_TYPES = ("lab", "rx")
 STAGE_NAMES = ("preflight", "ocr", "audit", "writeback", "build", "check", "publish")
 LOCK_NAME = ".pipeline.lock"
 CRASHPOINTS = ("pipeline.mkdir", "pipeline.lock", "pipeline.stage_running", "pipeline.stage_done")
@@ -256,6 +257,7 @@ class Ctx:
     out: TextIO
     choices: Path | None = None
     done: dict[str, dict] = field(default_factory=dict)
+    record_type: str | None = None  # WI-13c: explicit document type, handed to kb-ocr (``--type``)
 
     @property
     def batch_dir(self) -> Path:
@@ -304,13 +306,18 @@ def _preflight_run(ctx: Ctx) -> Outcome:
 
 
 def _ocr_inputs(ctx: Ctx) -> Any:
-    return {"images": sorted(ctx.image_shas), "routes": ctx.routes}
+    inputs = {"images": sorted(ctx.image_shas), "routes": ctx.routes}
+    if ctx.record_type:  # only when given: the hashes of runs without a type stay as they were
+        inputs["type"] = ctx.record_type
+    return inputs
 
 
 def _ocr_run(ctx: Ctx) -> Outcome:
     args = ["kb-ocr", "--batch", str(ctx.inbox), "--project", str(ctx.project)]
     if ctx.routes:
         args += ["--routes", ctx.routes]
+    if ctx.record_type:
+        args += ["--type", ctx.record_type]
     code, _ = ctx.child(*args)
     names = ("manifest.jsonl", "derived.jsonl", "receipt.json")
     outputs = [ctx.rel(ctx.batch_dir / n) for n in names if (ctx.batch_dir / n).is_file()]
@@ -542,11 +549,15 @@ def _finish(code_reason: Reason, ctx: Ctx | None, batch: str | None, stages: lis
 def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | None = None,
         choices: str | os.PathLike | None = None, routes: str | None = None,
         launcher: str | os.PathLike | None = None, registry: Mapping[str, Stage] | None = None,
-        env: Mapping[str, str] | None = None, out: TextIO | None = None, stdout: TextIO | None = None) -> int:
+        env: Mapping[str, str] | None = None, out: TextIO | None = None, stdout: TextIO | None = None,
+        record_type: str | None = None) -> int:
     out = sys.stderr if out is None else out
     stdout = sys.stdout if stdout is None else stdout
     project, inbox = Path(project), Path(inbox)
     last = stage or STAGE_NAMES[-1]
+    if record_type is not None and record_type not in RECORD_TYPES:
+        print(f"pipeline: unknown document type {record_type!r}; types: {', '.join(RECORD_TYPES)}", file=out)
+        return _finish(Reason.usage, None, None, [], stdout, f"unknown type {record_type!r}")
     if last not in STAGE_NAMES:
         print(f"pipeline: unknown stage {last!r}; stages: {', '.join(STAGE_NAMES)}", file=out)
         return _finish(Reason.usage, None, None, [], stdout, f"unknown stage {last!r}")
@@ -579,7 +590,7 @@ def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | No
     shas = [s.sha256 for s in images]
     batch_id = ids.batch_id(shas)
     ctx = Ctx(project, inbox, batch_id, shas, launcher_path, routes, dict(os.environ if env is None else env),
-              cfg, out, choices_path)
+              cfg, out, choices_path, record_type=record_type)
     reg = dict(default_registry() if registry is None else registry)
     work = project / "work"
     os.makedirs(work, exist_ok=True)
@@ -665,6 +676,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stage", choices=STAGE_NAMES, default=None, help="last stage to run (default: all)")
     parser.add_argument("--choices", type=Path, default=None, help="the human's choices.json (second segment)")
     parser.add_argument("--routes", default=None, help="comma-separated subset of the OCR routes")
+    parser.add_argument("--type", dest="record_type", choices=RECORD_TYPES, default=None,
+                        help="document type, handed to kb-ocr (decides records/<date>-<type>.md)")
     parser.add_argument("--launcher", type=Path, default=None, help="command launcher (default: this repo's bin/klode-kit)")
     parser.add_argument("--resume", action="store_true", help="explicit resume (this is always the behaviour: done "
                                                                "steps whose three hashes match are reused)")
@@ -675,7 +688,7 @@ def main(argv: list[str] | None = None) -> int:
     project = Path.cwd() if args.project is None else args.project
     try:
         return run(project, args.batch, stage=args.stage, choices=args.choices, routes=args.routes,
-                   launcher=args.launcher)
+                   launcher=args.launcher, record_type=args.record_type)
     except config_mod.ConfigError as exc:
         print(f"pipeline: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code

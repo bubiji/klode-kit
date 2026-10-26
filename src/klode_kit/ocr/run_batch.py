@@ -4,6 +4,7 @@
 Usage::
 
     klode-kit kb-ocr --batch <inbox dir or PDF> [--project <data project>] [--routes vision,mlx,claude,codex] [--redo]
+                       [--type lab|rx]
 
 Layout (``<batch>`` is ``batch_id``, the set hash of the images)::
 
@@ -93,6 +94,14 @@ Batch receipt ``klode-kit.ocr_batch/1`` (no wall-clock fields, so equal runs giv
 
 ``text_layer`` is true when every page is a PDF ``text`` page, ``"partial"`` when some are, false otherwise;
 ``routes_skipped`` lists the requested routes when no page needs them (U4), else is empty.
+
+WI-13c, optional increments of the batch receipt: ``route_stats: {engine: {elapsed_ms, failed_pages}}`` for every
+requested route (``elapsed_ms``: non-negative integer, measured around the route and stored in the attempt receipt, so a
+reused attempt reports the same number and equal runs give equal bytes; a replayed run measures 0 with a logical
+clock; ``failed_pages``: pages whose state on that route is not done/skipped); ``record_type`` (``lab`` | ``rx``) at
+the top level and on every page when ``--type`` is given. ``record_type`` is sticky: a rerun without ``--type`` keeps
+the one in the receipt, a rerun with ``--type`` replaces it. The writeback prefers the page's ``record_type`` over
+what the page text says (``writeback._page_meta``), and the views follow the record's type.
 """
 
 from __future__ import annotations
@@ -107,7 +116,9 @@ import os
 import re
 import secrets
 import sys
+import time
 from dataclasses import dataclass, field
+from collections import Counter
 from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path
@@ -128,6 +139,7 @@ from klode_kit.seams import crashpoint, seams_active
 
 RECEIPT_SCHEMA = "klode-kit.ocr_batch/1"
 ROUTE_NAMES = ("vision", "mlx", "claude", "codex")
+RECORD_TYPES = ("lab", "rx")
 CLOUD_ROUTES = ("claude", "codex")
 REPLAY_VAR = "KLODE_KIT_ENGINE_REPLAY"
 ADAPTER_VERSION = "run_batch/1"
@@ -484,6 +496,7 @@ class RouteRun:
     status: str
     pages: dict[str, dict]
     stop: str | None = None  # "budget" (exit 50) / "privacy" (exit 60) / "isolation": no further call made
+    elapsed_ms: int = 0  # WI-13c: time the route took (stored in the attempt receipt; a reused attempt gives it back)
 
 
 def _stop_of(exc: BaseException) -> tuple[str, str]:
@@ -495,8 +508,17 @@ def _stop_of(exc: BaseException) -> tuple[str, str]:
     return "isolation", f"isolation_refused: {exc.reason}"
 
 
+def _stored_elapsed(directory: Path) -> int:
+    """``elapsed_ms`` an earlier run stored in the attempt receipt (0 for an attempt made before WI-13c)."""
+    try:
+        value = receipts.read(directory / "receipt.json", "receipt").get("elapsed_ms", 0)
+    except (OSError, receipts.ReceiptInvalid):  # pragma: no cover - ``_reusable`` just read this very file
+        return 0
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+
+
 def _run_route(route: Route, pages: list[Page], batch_dir: Path, cfg: config_mod.Config, redo: bool,
-               out: TextIO) -> RouteRun:
+               out: TextIO, clock: Callable[[], float] = time.monotonic) -> RouteRun:
     if route.problem is not None:
         return RouteRun(None, None, "failed", {p.key: {"status": "route_failed", "error": route.problem}
                                                 for p in pages})
@@ -524,11 +546,13 @@ def _run_route(route: Route, pages: list[Page], batch_dir: Path, cfg: config_mod
     if mode == "reuse":
         print(f"kb-ocr: {route.name}: reusing {rel} (done, hashes match)", file=out)
         return RouteRun(run_id, directory, "done", {k: {"status": "done", "run_id": run_id,
-                                                         "file": f"{rel}/{k}.jsonl"} for k in keys})
+                                                         "file": f"{rel}/{k}.jsonl"} for k in keys},
+                        elapsed_ms=_stored_elapsed(directory))
     if mode == "continue":
         print(f"kb-ocr: {route.name}: continuing interrupted attempt {rel}", file=out)
     retry = cfg["route_retry"]
     started = _now()
+    t0 = clock()
     results: dict[str, dict] = {}
     outputs = []
     stop: tuple[str, str] | None = None
@@ -552,13 +576,15 @@ def _run_route(route: Route, pages: list[Page], batch_dir: Path, cfg: config_mod
         results[page.key] = {"status": "done", "run_id": run_id, "file": f"{rel}/{page.key}.jsonl"}
         outputs.append({"path": target.name, "sha256": _sha(target.read_bytes())})
     status = "done" if all(r["status"] == "done" for r in results.values()) else "failed"
+    elapsed_ms = max(0, round((clock() - t0) * 1000))
     _write_receipt(directory / "receipt.json", {
         "schema": "klode-kit.receipt/1", "step": f"ocr_{route.name}", "status": status, "started": started,
         "ended": _now(), "inputs_hash": inputs_hash, "config_hash": config_hash,
         "config_version": cfg.config_version, "outputs": sorted(outputs, key=lambda o: o["path"]),
-        "model": route.model, "effort": route.effort, "exit_code": 0 if status == "done" else 1,
+        "model": route.model, "effort": route.effort, "elapsed_ms": elapsed_ms,
+        "exit_code": 0 if status == "done" else 1,
     })
-    return RouteRun(run_id, directory, status, results, stop[0] if stop else None)
+    return RouteRun(run_id, directory, status, results, stop[0] if stop else None, elapsed_ms)
 
 
 # --------------------------------------------------------------------------- the batch
@@ -603,8 +629,10 @@ def _text_layer(pages: list[Page]) -> bool | str:
 
 
 def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, skipped: list[dict],
-                   runs: dict[str, RouteRun], batch_dir: Path, cloud: dict | None = None) -> dict:
+                   runs: dict[str, RouteRun], batch_dir: Path, cloud: dict | None = None,
+                   record_type: str | None = None) -> dict:
     pages, issues = [], []
+    failed_pages: Counter = Counter()
     for page, der in zip(batch.pages, batch.derived):
         if not _routed(page):
             per = {r: dict(SKIPPED) for r in routes}
@@ -612,10 +640,13 @@ def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, s
             per = {r: runs[r].pages[page.key] for r in routes}
         unc = [_uncertain(page, r, per[r]) for r in routes if per[r]["status"] not in ("done", "skipped")]
         issues += [f"{per[r]['status']}:{r}:{page.key}" for r in routes if per[r]["status"] not in ("done", "skipped")]
+        failed_pages.update(Counter(r for r in routes if per[r]["status"] not in ("done", "skipped")))
         entry = {"key": page.key, "doc_id": page.doc_id, "page_id": page.page_id,
                  "img_sha256": page.img_sha256, "der_sha256": page.der_sha256, "rotate": page.rotate,
                  "source": next(m["path"] for m in batch.manifest if m["img_sha256"] == page.img_sha256),
                  "derived": der["path"], "routes": per, "uncertain": unc}
+        if record_type is not None:
+            entry["record_type"] = record_type
         if page.text_class is not None:
             entry["text_class"] = page.text_class
             if page.text_class == "text":
@@ -628,6 +659,10 @@ def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, s
            "status": "done" if not issues else "incomplete", "skipped": skipped, "pages": pages,
            "attempts": attempts, "issues": issues, "text_layer": _text_layer(batch.pages),
            "routes_skipped": [] if any_routed else list(routes)}
+    rec["route_stats"] = {r: {"elapsed_ms": runs[r].elapsed_ms if r in runs else 0,
+                              "failed_pages": failed_pages.get(r, 0)} for r in routes}
+    if record_type is not None:
+        rec["record_type"] = record_type
     if cloud is not None:
         rec["cloud"] = cloud
     return rec
@@ -767,10 +802,23 @@ def _attach_cloud(route: Route, project: Path, batch_dir: Path, cfg: config_mod.
     route.call = call
 
 
+def _receipt_type(path: Path) -> str | None:
+    """``record_type`` of an earlier batch receipt (WI-13c), if it is a known one."""
+    try:
+        value = json.loads(path.read_text(encoding="utf-8")).get("record_type")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return value if value in RECORD_TYPES else None
+
+
 def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bool = False,
         routes_enabled: Mapping[str, bool] | None = None, out: TextIO | None = None,
-        cloud: CloudOptions | None = None) -> int:
+        cloud: CloudOptions | None = None, record_type: str | None = None,
+        clock: Callable[[], float] | None = None) -> int:
     out = sys.stderr if out is None else out
+    if record_type is not None and record_type not in RECORD_TYPES:
+        print(f"kb-ocr: unknown document type {record_type!r}; types: {', '.join(RECORD_TYPES)}", file=out)
+        return USAGE_EXIT
     cfg = config_mod.load(project)
     names = list(cfg["routes"]) if routes is None else routes
     unknown = [n for n in names if n not in ROUTE_NAMES]
@@ -795,6 +843,8 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
         else:
             print(f"klode-kit: 测试缝变量已忽略（未处于测试模式：需要 KLODE_KIT_TEST_SEAMS=1 且 KLODE_KIT_REAL!=1）："
                   f"{REPLAY_VAR}", file=out)
+    if clock is None:  # a replayed run is deterministic: a logical clock that never advances measures 0 ms
+        clock = (lambda: 0.0) if replay is not None else time.monotonic
     enabled = routes_enabled_default() if routes_enabled is None else dict(routes_enabled)
     work = project / "work"
     pdfs = [s for s in images if s.kind == "pdf"]
@@ -857,14 +907,15 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
             if stop in ("budget", "privacy") and spec.cloud and spec.problem is None:
                 spec.problem = ("budget_exceeded: the batch budget stopped cloud sending" if stop == "budget"
                                 else "privacy_refused: the sender refused an image; cloud sending stopped")
-            runs[name] = _run_route(spec, routed, batch_dir, cfg, redo, out)
+            runs[name] = _run_route(spec, routed, batch_dir, cfg, redo, out, clock)
             if runs[name].stop in ("budget", "privacy") and stop != "privacy":
                 stop = runs[name].stop
         cloud_block = None
         if ledger is not None:
             cloud_block = {"limit_usd": float(ledger.limit_usd), "spent_usd": float(ledger.spent_usd),
                            "calls": ledger.calls, "stop": stop}
-        rec = _batch_receipt(batch, project, names, cfg["route_retry"], skipped, runs, batch_dir, cloud_block)
+        kept = record_type or _receipt_type(batch_dir / "receipt.json")  # sticky: a rerun without --type keeps it
+        rec = _batch_receipt(batch, project, names, cfg["route_retry"], skipped, runs, batch_dir, cloud_block, kept)
         outputs = [{"path": n, "sha256": _sha((batch_dir / n).read_bytes())}
                    for n in ("manifest.jsonl", "derived.jsonl", *text_files)]
         outputs += [{"path": r["file"], "sha256": _sha((batch_dir / r["file"]).read_bytes())}
@@ -903,6 +954,8 @@ def main(argv: list[str] | None = None, *, routes_enabled: Mapping[str, bool] | 
     parser.add_argument("--batch", required=True, type=Path, help="inbox directory with the images/PDFs, or one PDF")
     parser.add_argument("--project", type=Path, default=None, help="data project directory (default: cwd)")
     parser.add_argument("--routes", default=None, help="comma-separated subset of vision,mlx,claude,codex")
+    parser.add_argument("--type", dest="record_type", choices=RECORD_TYPES, default=None,
+                        help="document type, written to the batch receipt (decides records/<date>-<type>.md)")
     parser.add_argument("--redo", action="store_true", help="always start new attempts (never reuse done ones)")
     parser.add_argument("--isolation-receipt", action="append", default=[], metavar="ROUTE=PATH",
                         help="stored isolation receipt of a cloud route "
@@ -925,7 +978,7 @@ def main(argv: list[str] | None = None, *, routes_enabled: Mapping[str, bool] | 
         routes = list(dict.fromkeys(r.strip() for r in args.routes.split(",") if r.strip()))
     try:
         return run(project, args.batch, routes, redo=args.redo, routes_enabled=routes_enabled,
-                   cloud=CloudOptions(isolation_receipts=receipts_by_route))
+                   cloud=CloudOptions(isolation_receipts=receipts_by_route), record_type=args.record_type)
     except config_mod.ConfigError as exc:
         print(f"kb-ocr: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code

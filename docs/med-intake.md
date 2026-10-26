@@ -13,7 +13,9 @@ holds no data.
 ## What one run does
 
 1. **Register** the inbox: the document type (`lab` | `rx`), the date and the source.
-   - *Type*: `--type` wins. Otherwise the title keyword read by the OCR routes decides, deterministically and with the
+   - *Type*: `--type` wins, and it is written to the OCR batch receipt (`kb-ocr --type`, WI-13c: `record_type` on every page),
+     so the writeback files the records under `records/<date>-<type>.md` of that type even when the page has no keyword;
+     a later `klode-kit pipeline` run without `--type` keeps it. Otherwise the title keyword read by the OCR routes decides, deterministically and with the
      same rule the record views use (`audit/record_meta.py`: `处方` -> `rx`; `检验` / `化验` -> `lab`; the most common
      type across routes wins). A page without a keyword, or pages that disagree (some `lab`, some `rx`), stop the run
      with exit 2 and the message to give `--type`; nothing is aliased and the audit does not start.
@@ -53,10 +55,14 @@ The batch id is a hash; the paths people expect are dates. `med-intake` keeps tw
 - **Same date, different images** (a second batch on the day): the first free name is used, `<yyyymmdd>-2`, then `-3` ...
   An existing alias, a real directory or a stray link with the wanted name is never overwritten. Rerunning a batch keeps
   the name it already has.
-- The confirm page is a sealed file whose small images are referenced relative to its own directory. Open it by its real
-  path (printed on stderr as `confirm page: ...`) if the browser does not show the crops through the link: the `file:`
-  URL of a link resolves `crops/...` beside the link, not beside the target. The link is for finding the page, not
-  for rendering it.
+- The confirm page is a sealed file whose small images are referenced relative to its own directory (`crops/...`). The
+  `confirm/<yyyymmdd>.html` link is for finding the page: opened through that link by a `file:` URL the browser looks
+  for `crops/` beside the link and the thumbnails are broken. Open **`confirm/<yyyymmdd>/confirm.html`** instead
+  (printed on stderr as `confirm page (with crops): ...`): `confirm/<yyyymmdd>/` is a real folder holding two links,
+  `confirm.html` and `crops`, into the same `work/<batch_id>/audit/a<N>/`, so the page and its crops sit side by side.
+  The folder follows the rules of the other links (moves with a new audit revision, never overwrites anything that is
+  not its own, same result after a crash and a rerun). Why a folder and not a link to the audit directory: the
+  recorded link set of the first version (`work/<alias>`, `confirm/<alias>.html`) stays exactly as it was.
 
 ## Receipt
 
@@ -64,7 +70,8 @@ The batch id is a hash; the paths people expect are dates. `med-intake` keeps tw
 equal bytes): `batch_id`, `alias`, `confirm`, `record_type` + `type_source` (`header` | `explicit`), `date` +
 `date_source` (`inbox_dir` | `page` | `today`), `source` (`inbox`, `files`), `pages`, `routes`, `ocr_failures`, `disputes`,
 `status`, `exit_code`, `stages` (name, status, exit code of each pipeline stage). Times are in the stage receipts
-`work/<batch_id>/pipeline/receipts/<stage>.json`.
+`work/<batch_id>/pipeline/receipts/<stage>.json`; the time each OCR route took and its failed pages are in the OCR batch
+receipt `work/<batch_id>/receipt.json`, `route_stats.<route>.{elapsed_ms, failed_pages}` (WI-13c).
 
 ## Exit codes
 

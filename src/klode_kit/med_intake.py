@@ -125,7 +125,7 @@ def allocate_alias(project: str | os.PathLike, date: str, batch_id: str) -> str:
             if link.is_symlink() and os.readlink(link) == batch_id:
                 return name
             continue
-        if os.path.lexists(project / "confirm" / f"{name}.html"):
+        if os.path.lexists(project / "confirm" / f"{name}.html") or os.path.lexists(project / "confirm" / name):
             continue
         os.symlink(batch_id, link)  # one writer at a time (``work/.med-intake.lock``): the name is still free
         return name
@@ -135,22 +135,51 @@ def allocate_alias(project: str | os.PathLike, date: str, batch_id: str) -> str:
 def link_confirm(project: str | os.PathLike, alias: str, batch_id: str, rev: int) -> Path:
     """``confirm/<alias>.html`` -> ``../work/<batch_id>/audit/a<rev>/confirm.html`` (relative). A link that already has
     this target is left alone (same inode); a link of this batch at an older revision is replaced in one rename; anything
-    else at that name -> ``AliasConflict`` and nothing is touched."""
+    else at that name -> ``AliasConflict`` and nothing is touched. WI-13c adds the folder ``confirm/<alias>/`` holding the
+    links ``confirm.html`` and ``crops`` into the same audit revision (so the relative thumbnails of the sealed page
+    resolve); it follows the same rules."""
     confirm = Path(project) / "confirm"
     confirm.mkdir(parents=True, exist_ok=True)
-    page = confirm / f"{alias}.html"
-    target = f"../work/{batch_id}/audit/a{rev}/confirm.html"
-    if os.path.lexists(page):
-        if not page.is_symlink() or not os.readlink(page).startswith(f"../work/{batch_id}/audit/"):
-            raise AliasConflict(f"{page} exists and is not a link to a confirm page of batch {batch_id}")
-        if os.readlink(page) == target:
-            return page
-    tmp = confirm / f".{alias}.html.tmp"
+    page, folder = confirm / f"{alias}.html", confirm / alias
+    prefix = f"../work/{batch_id}/audit/"
+    inner = f"../{prefix}"
+    # refuse before anything is changed: no half-made set
+    if os.path.lexists(page) and (not page.is_symlink() or not os.readlink(page).startswith(prefix)):
+        raise AliasConflict(f"{page} exists and is not a link to a confirm page of batch {batch_id}")
+    if os.path.lexists(folder) and not _own_folder(folder, inner):
+        raise AliasConflict(f"{folder} exists and is not a folder of links to batch {batch_id}")
+    _relink(page, f"{prefix}a{rev}/confirm.html")
+    # WI-13c: the sealed page's small images are relative (``crops/...``); in this real folder the page and the crops
+    # sit side by side as links, so ``confirm/<alias>/confirm.html`` renders where the ``.html`` link does not. It is
+    # a folder of links, not a link: the recorded link set of 13b stays what it was.
+    folder.mkdir(exist_ok=True)
+    _relink(folder / "confirm.html", f"{inner}a{rev}/confirm.html")
+    if (confirm.parent / "work" / batch_id / "audit" / f"a{rev}" / "crops").is_dir():
+        _relink(folder / "crops", f"{inner}a{rev}/crops")
+    return page
+
+
+def _own_folder(folder: Path, inner: str) -> bool:
+    """A real folder that holds only this tool's links (``confirm.html``, ``crops`` and killed runs' ``.tmp`` leftovers)."""
+    if folder.is_symlink() or not folder.is_dir():
+        return False
+    for entry in folder.iterdir():
+        if entry.name.endswith(".tmp") and entry.name.startswith("."):
+            continue
+        if entry.name not in ("confirm.html", "crops") or not entry.is_symlink() \
+                or not os.readlink(entry).startswith(inner):
+            return False
+    return True
+
+
+def _relink(path: Path, target: str) -> None:
+    if os.path.lexists(path) and os.readlink(path) == target:
+        return
+    tmp = path.parent / f".{path.name}.tmp"
     if os.path.lexists(tmp):
         os.unlink(tmp)  # the leftover link of a killed run (we hold the lock): a link, not data
     os.symlink(target, tmp)
-    os.replace(tmp, page)
-    return page
+    os.replace(tmp, path)
 
 
 # --------------------------------------------------------------------------- the two lines
@@ -297,7 +326,8 @@ def _locked(inbox: Path, project: Path, images: Sequence[Any], skipped: Sequence
             record_type: str | None, routes: str | None, launcher: str | os.PathLike | None,
             env: Mapping[str, str] | None, out: TextIO, stdout: TextIO, today: _date) -> int:
     first = io.StringIO()
-    code = P.run(project, inbox, stage="ocr", routes=routes, launcher=launcher, env=env, out=out, stdout=first)
+    code = P.run(project, inbox, stage="ocr", routes=routes, launcher=launcher, env=env, out=out, stdout=first,
+                 record_type=record_type)
     if code != 0:
         return _stopped(first, code, out)
     batch_id = _json_line(first.getvalue()).get("batch_id")
@@ -319,7 +349,8 @@ def _locked(inbox: Path, project: Path, images: Sequence[Any], skipped: Sequence
     crashpoint("med_intake.aliased")
 
     second = io.StringIO()
-    code = P.run(project, inbox, stage="audit", routes=routes, launcher=launcher, env=env, out=out, stdout=second)
+    code = P.run(project, inbox, stage="audit", routes=routes, launcher=launcher, env=env, out=out, stdout=second,
+                 record_type=record_type)
     if code not in (0, AWAITING_EXIT):
         return _stopped(second, code, out)
     summary = _json_line(second.getvalue())
@@ -341,6 +372,7 @@ def _locked(inbox: Path, project: Path, images: Sequence[Any], skipped: Sequence
         crashpoint("med_intake.linked")
         confirm = f"confirm/{alias}.html"
         print(f"confirm page: {page}", file=out)
+        print(f"confirm page (with crops): confirm/{alias}/confirm.html", file=out)
     status = "awaiting_confirm" if code == AWAITING_EXIT else "nothing_to_confirm"
 
     source: dict[str, Any] = {"inbox": inbox.resolve().name, "files": [s.name for s in images]}
