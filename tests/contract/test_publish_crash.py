@@ -12,6 +12,7 @@ check receipt). 00s-16 pairs the publish list with the hooked run of ``pipeline 
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import stat
@@ -142,14 +143,23 @@ def test_switch_no_window(tmp_path):
         kind = "symlink" if stat.S_ISLNK(mode) else "dir" if stat.S_ISDIR(mode) else "file" if stat.S_ISREG(mode) else "other"
         return f"lstat type={kind}"
 
+    def retry_einval(fn, *a):  # WI-15f: a transient EINVAL while the link is renamed over is retried; other errors are not
+        for attempt in range(6):
+            try:
+                return fn(*a)
+            except OSError as exc:
+                if exc.errno != errno.EINVAL or attempt == 5:
+                    raise
+                time.sleep(0.002)
+
     def reader():
         while not stop.is_set():
             call = "readlink"
             try:
-                target = os.readlink(kb / "current")
+                target = retry_einval(os.readlink, kb / "current")
                 seen.add(os.path.basename(target))
                 call = "stat"
-                os.stat(kb / "current")  # resolves through the link: dangling raises
+                retry_einval(os.stat, kb / "current")  # resolves through the link: dangling raises
             except OSError as exc:
                 errors.append(f"{repr(exc)} in os.{call}(current), errno={exc.errno}, {describe(kb / 'current')}, "
                               f"fs={describe(kb)}")

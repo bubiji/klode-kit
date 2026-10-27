@@ -24,7 +24,9 @@ from _support.flows import REPO
 FAKES_BIN = (REPO / "tests" / "fakes" / "bin").resolve()
 LAB = REPO / "tests" / "host" / "_lab"
 EVIDENCE = REPO / "work" / "host-spike"
-WI_CAP_USD = 10.0
+# Cumulative cap over work/host-spike/costs.jsonl. 10 for WI-00d2; 12.5 for WI-32d (user 2026-10-27: G2 total $20, this WI
+# at most $4 on top of the $8.22 booked when it started; the U3 test reserves 2 x $2 before it calls).
+WI_CAP_USD = 12.5
 
 
 def real_claude() -> str:
@@ -79,13 +81,13 @@ class Ledger:
 
 
 def run_claude_p(args: list[str], *, cwd: Path, cap: float, label: str, ledger: Ledger, evidence: Path,
-                 timeout: float = 900) -> tuple[subprocess.CompletedProcess, dict | None]:
+                 timeout: float = 900, env: dict[str, str] | None = None) -> tuple[subprocess.CompletedProcess, dict | None]:
     """``claude -p <args> --max-budget-usd <cap>``; raw stdout/stderr saved; cost booked. Returns (proc, json)."""
     ledger.reserve(label, cap)
     argv = [real_claude(), "-p", *args[:-1], "--max-budget-usd", f"{cap:.2f}", args[-1]]
     (evidence / f"{label}.argv.json").write_text(json.dumps(argv, ensure_ascii=False, indent=1), encoding="utf-8")
     t0 = time.monotonic()
-    proc = subprocess.run(argv, cwd=cwd, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
+    proc = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, timeout=timeout, stdin=subprocess.DEVNULL)
     (evidence / f"{label}.stdout.json").write_bytes(proc.stdout)
     (evidence / f"{label}.stderr.txt").write_bytes(proc.stderr)
     try:

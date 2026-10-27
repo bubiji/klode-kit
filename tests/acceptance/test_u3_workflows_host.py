@@ -16,10 +16,10 @@ workflow's result - plus the files the commands wrote (stage receipts: preflight
 is going).
 
 The second segment (matrix 14-04) is a test of its own: the choices the confirm page's own exporter gives (run by
-node) -> ``resume`` -> writeback done, the first segment's audit receipt untouched, nothing published. Observed
-2026-10-27: it stops when the workflow's agent tries ``${CLAUDE_PLUGIN_ROOT}/bin/klode-kit`` (the variable is not
-substituted in a workflow script; the Bash permission refuses a command that "Contains expansion") - see the xfail
-reason. ``tests/host/test_workflow_two_stage.py`` (14-04 as written) fails earlier for a setup reason: its project
+node) -> ``resume`` -> writeback done, the first segment's audit receipt untouched, nothing published. WI-31
+found it stopping when the workflow's agent tried ``${CLAUDE_PLUGIN_ROOT}/bin/klode-kit`` (not substituted in a workflow
+script; Bash refuses "Contains expansion"); WI-32d makes the workflow name ``klode-kit`` and the case passes (user
+approved removing its xfail, 2026-10-27). ``tests/host/test_workflow_two_stage.py`` (14-04 as written) fails earlier for a setup reason: its project
 has no ``.gitignore`` entries and the session's ``KLODE_KIT_TEST_SEAMS`` reaches ``claude``, so the workflow's
 ``preflight`` answers exit 40 (observed 2026-10-27, $0.35).
 
@@ -130,12 +130,6 @@ def test_u3_workflows_host(first_segment):
     assert not (project / "records").exists() and not list(project.glob("kb/*/current"))
 
 
-@pytest.mark.xfail(strict=False, reason="WI-31 finding (observed 2026-10-27): the workflow's prompts name the launcher "
-                   "as ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit; that variable is not substituted in a workflow script, "
-                   "the agent expands it in the shell and Claude Code's Bash permission refuses a command that "
-                   "'Contains expansion' - some runs fall back to plain klode-kit (plugin bin/ is on PATH) and work, "
-                   "others stop. Fix = the workflow names klode-kit, which needs the recorded WI-14 static tests changed "
-                   "(user approval); strict=False because the outcome varies run to run")
 def test_u3_second_segment_writes_back(first_segment):
     """U3-03, second segment (matrix 14-04): the choices the page's own exporter gives, ``resume`` -> writeback is done,
     the first segment's audit receipt is reused untouched, nothing is published."""

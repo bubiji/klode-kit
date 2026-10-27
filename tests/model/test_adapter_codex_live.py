@@ -25,6 +25,7 @@ from decimal import Decimal
 
 import pytest
 
+from _support import accept_fx as A
 from _support.flows import REPO
 from _support.mask_replay import make_batch
 from klode_kit.audit import mask
@@ -57,7 +58,8 @@ def test_live_vs_replay_shape_codex(tmp_path):
     image = project / "_masked" / row["path"]
     ledger = Ledger(2.0, reserve_usd=Decimal("1.0"))
     live = AX.read_page(image, row["der_sha256"], page_id=row["page_id"], project=project,
-                        receipt_dir=tmp_path / "receipts", isolation_receipt=RECEIPT, ledger=ledger)
+                        receipt_dir=tmp_path / "receipts", isolation_receipt=RECEIPT, ledger=ledger,
+                        source_env=A.real_env())
     assert live.rows, "the live call returned no lines"
     for r in live.rows:
         schema.validate("ocr_line", r)

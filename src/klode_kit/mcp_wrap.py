@@ -42,6 +42,7 @@ Crash / pause point: ``mcp.after_resolve``.
 from __future__ import annotations
 
 import argparse
+import errno
 import functools
 import json
 import os
@@ -58,7 +59,7 @@ from pathlib import Path
 from typing import Any, Mapping, TextIO
 
 from klode_kit import __version__, mcp_render
-from klode_kit.publish import LOG_NAME, current_build, reader_lease_dir
+from klode_kit.publish import BUILD_RE, LOG_NAME, reader_lease_dir
 from klode_kit.seams import crashpoint, startup
 
 PROTOCOL_VERSION = "2025-06-18"
@@ -77,6 +78,35 @@ CLI_VERSION_TIMEOUT = 30.0
 MAX_LOOKS = 5  # a build can move away under us this many times in a row before the call gives up
 LEVEL_NAMES = {0: "in-process", 1: "subprocess-proxy", 2: "cli"}
 _SCRUBBED_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONSAFEPATH")
+
+
+# A macOS runner can fail readlink/stat of ``current`` with EINVAL while ``publish.switch_pointer`` renames a fresh link
+# over it (WI-15f; the link is intact right after). EINVAL is therefore retried a few times, a few ms apart; every other
+# error, and a link that is not one of our builds, answers at once as before.
+RETRIES = 5
+RETRY_DELAY_S = 0.002
+_readlink = os.readlink
+_sleep = time.sleep
+
+
+def resolve_current(kb, *, _readlink=None, _sleep=None) -> str | None:
+    """The build id ``kb/current`` points to (``None``: no link, or one that is not ours); retries a transient EINVAL.
+
+    ``_readlink`` / ``_sleep`` are injection points for the tests; by default the module's own."""
+    read = _readlink or globals()["_readlink"]
+    sleep = _sleep or globals()["_sleep"]
+    path = os.path.join(kb, "current")
+    for attempt in range(RETRIES + 1):
+        try:
+            target = read(path)
+        except OSError as exc:
+            if exc.errno == errno.EINVAL and attempt < RETRIES:
+                sleep(RETRY_DELAY_S)
+                continue
+            return None
+        name = os.path.basename(target.rstrip("/"))
+        return name if BUILD_RE.fullmatch(name) else None
+    return None  # unreachable: the last attempt returns above
 
 
 class NotPublished(Exception):
@@ -429,7 +459,7 @@ class Wrapper:
     def ensure(self) -> str:
         """The build id this call serves; loads it (lease first) when it is not the one already loaded."""
         for _ in range(MAX_LOOKS):
-            build_id = current_build(self.kb)
+            build_id = resolve_current(self.kb)
             if build_id is None:
                 self.invalidate()
                 raise NotPublished(f"kb not published: {self.kb / 'current'} is missing or not a build link")
@@ -459,7 +489,7 @@ class Wrapper:
 
     def settle(self) -> None:
         """After a call: when ``current`` has moved on, let go of the build just served (and its lease)."""
-        if self.cached is not None and current_build(self.kb) != self.cached:
+        if self.cached is not None and resolve_current(self.kb) != self.cached:
             self.invalidate()
 
     def close(self) -> None:

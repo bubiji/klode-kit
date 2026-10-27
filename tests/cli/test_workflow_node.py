@@ -125,10 +125,11 @@ def test_every_stage_is_one_agent_with_the_output_schema_and_one_launcher_comman
         assert schema["required"] == ["stage", "exit_code", "stdout"]
         assert schema["properties"]["exit_code"] == {"type": "integer"}
         stage = call["opts"]["label"]
-        command = ("${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline --batch '/data/inbox' --project '/data/proj' "
+        command = ("klode-kit pipeline --batch '/data/inbox' --project '/data/proj' "
                    f"--stage {stage}")
         assert f"\n\n{command}\n\n" in call["prompt"]
-        assert call["prompt"].count("${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline") == 1
+        assert call["prompt"].count("klode-kit pipeline") == 1
+        assert "CLAUDE_PLUGIN_ROOT" not in call["prompt"]
         assert "--force" not in call["prompt"]
 
 

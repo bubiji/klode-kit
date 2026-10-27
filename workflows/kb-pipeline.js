@@ -20,7 +20,8 @@ export const meta = {
 //   publish   optional  true: run the publish stage after check. Publishing writes .mcp.json, the registry, agents
 //                       and settings, so it is a manual gate (deviations WI-09d / WI-13a): never implied by resume.
 
-const LAUNCHER = '${CLAUDE_PLUGIN_ROOT}/bin/klode-kit'
+// The plugin bin/ folder is on PATH (WI-00d2); the plugin-root variable is not substituted inside a workflow (WI-31 G2).
+const LAUNCHER = 'klode-kit'
 
 const RESULT = {
   type: 'object',
@@ -73,8 +74,6 @@ for (const stage of stages) {
   const r = await agent(
     'Run exactly this one shell command with the Bash tool, once, and do nothing else. Do not retry it, do not run any ' +
       'other command, do not edit any file:\n\n' + commandFor(stage) + '\n\n' +
-      'If the shell has no CLAUDE_PLUGIN_ROOT, run the same command with `klode-kit` in place of ' +
-      '`${CLAUDE_PLUGIN_ROOT}/bin/klode-kit` (the plugin bin/ folder is on PATH). ' +
       'Return the stage name "' + stage + '", the exit code of the command, and its complete standard output verbatim.',
     { label: stage, schema: RESULT, effort: 'low' },
   )

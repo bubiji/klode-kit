@@ -248,9 +248,11 @@ def test_publish_is_a_manual_gate_never_implied_by_resume():
 
 
 def test_agents_only_run_the_plugin_launcher_with_the_pipeline_command():
-    """The one command each agent runs is ``${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline ...`` (no python, no shell tricks)."""
+    """The one command each agent runs is ``klode-kit pipeline ...`` (plugin bin/ is on PATH; ``${CLAUDE_PLUGIN_ROOT}`` is not
+    substituted inside a workflow, WI-31 G2) - no python, no shell tricks."""
     src = script()
-    assert "const LAUNCHER = '${CLAUDE_PLUGIN_ROOT}/bin/klode-kit'" in src
+    assert "const LAUNCHER = 'klode-kit'" in src
+    assert "CLAUDE_PLUGIN_ROOT" not in src
     raw = re.findall(r"LAUNCHER \+ ' pipeline --batch", src)
     assert len(raw) == 1
     built = src[src.index("function commandFor"):src.index("const results")]
