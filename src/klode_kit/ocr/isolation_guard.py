@@ -113,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"isolation_guard: cannot write log: {exc}", file=sys.stderr)
         allowed = False  # an unlogged allow is not evidence; refuse
+        decision = "deny"
     if allowed:
         return ALLOW_EXIT
     print(f"isolation_guard: {decision} {fields.get('file_path')!r}: {reason}", file=sys.stderr)
