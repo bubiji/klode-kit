@@ -12,13 +12,12 @@ model says (the skill renders the command at invocation time; the model only rep
 
 ``release_sha`` is computed here from the release definition (design r3.4 / R3-08: the run files of the published
 package, ``sorted(relpath)``, ``sha256(relpath + "\\0" + content)`` each, then the sha of the concatenated hex
-digests; ``__pycache__``, ``*.pyc`` and ``.DS_Store`` are build artefacts and not run files). WI-15b's
-``release_manifest`` is that same definition as a tool; when it exists this oracle should call it.
+digests; ``__pycache__``, ``*.pyc`` and ``.DS_Store`` are build artefacts and not run files), taken from WI-15b's
+``release_manifest``.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -28,25 +27,10 @@ from _support import kb_check_fx as K
 from _support.flows import REPO
 from _support.host import Ledger, evidence_dir, lab_dir, run_claude_p
 from klode_kit.contract import schema as contract
+from klode_kit.devtools.release_manifest import release_sha  # user-approved 2026-10-27: one release definition
 
 PLUGIN = json.loads((REPO / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
-RUN_FILES = (".claude-plugin/plugin.json", "pyproject.toml", "uv.lock")
-RUN_DIRS = ("skills", "agents", "workflows", "hooks", "bin", "src", "prompts", "schemas", "config")
 CAP_USD = 1.0
-
-
-def release_sha(root: Path) -> str:
-    rels = [r for r in RUN_FILES if (root / r).is_file()]
-    for d in RUN_DIRS:
-        if (root / d).is_dir():
-            for p in (root / d).rglob("*"):
-                rel = p.relative_to(root)
-                if p.is_file() and "__pycache__" not in rel.parts and p.suffix != ".pyc" and p.name != ".DS_Store":
-                    rels.append(rel.as_posix())
-    total = hashlib.sha256()
-    for rel in sorted(rels):
-        total.update(hashlib.sha256(rel.encode("utf-8") + b"\0" + (root / rel).read_bytes()).hexdigest().encode("ascii"))
-    return total.hexdigest()
 
 
 @pytest.fixture(scope="module")

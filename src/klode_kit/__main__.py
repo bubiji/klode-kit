@@ -18,6 +18,10 @@ USAGE_EXIT = 2
 COMMANDS: dict[str, tuple[str, str]] = {
     "dev lane": ("klode_kit.devtools.run_lane:main", "run one test lane and write work/lanes/<lane>.json"),
     "dev privacy-scan": ("klode_kit.devtools.privacy_scan:main", "scan the repository for personal data"),
+    "dev release-manifest": ("klode_kit.devtools.release_manifest:main",
+                             "write / check RELEASE.sha256 (the release sha over the run files, R3-08)"),
+    "dev release-check": ("klode_kit.devtools.release_check:main",
+                          "release gate: lane receipts, sha, clean tree, privacy, doctor, mutation; lists every unmet item"),
     "dev coverage-gate": ("klode_kit.devtools.coverage_gate:main", "judge a coverage.py JSON report"),
     "config": ("klode_kit.config:main", "config show [--project DIR]: effective configuration as JSON"),
     "hook isolation-guard": ("klode_kit.ocr.isolation_guard:main", "PreToolUse hook: deny file reads outside cwd"),

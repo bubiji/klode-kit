@@ -1,9 +1,13 @@
 # CI runs only the lanes with zero real model calls (plan section 0.2).
 # - Order: privacy_scan -> unit -> contract_replay -> coverage gate (merged unit + contract_replay).
 # - Receipts are tagged not-release; release_check (WI-15b) never accepts them as release evidence.
-# - V1: everything runs as `.venv/bin/python -m <module>`; no venv console scripts.
-# - No macOS cli_integration job yet: it is only created once klode==0.5.0 installs from a public
-#   source (a job that skips would pass as green without running anything).
+# - V1: everything runs as `.venv/bin/python -m <module>`; no venv console scripts of ours.
+# - The contract_replay build/loops tests drive the REAL klode 0.5.0 found on PATH (`shutil.which("klode")`).
+#   klode==0.5.0 is a locked runtime dependency (WI-15a), so `uv sync --locked` puts `klode` / `klode-mcp` into
+#   .venv/bin; the PATH step below makes them findable and the preflight step proves it before any lane runs.
+#   Only the macOS OCR extras (ocrmac, mlx-vlm) are left out - they are extras/groups, not installed by default.
+# - No macOS cli_integration job yet: a job that skips would pass as green without running anything; the cli
+#   receipt is produced locally and judged by release_check.
 # - model_integration and host_acceptance never run in CI.
 name: ci
 
@@ -28,8 +32,14 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Create .venv with dev dependencies
-        run: uv sync --python 3.12 --frozen
+      - name: Create .venv from the lock (runtime + dev, klode 0.5.0 included)
+        run: uv sync --python 3.12 --locked
+
+      - name: Put the venv bin on PATH
+        run: echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: klode on PATH (preflight)
+        run: .venv/bin/python -c "import shutil, sys; found = [shutil.which(n) for n in ('klode', 'klode-mcp')]; print(found); sys.exit(0 if all(found) else 1)"
 
       - name: privacy_scan
         run: .venv/bin/python -m klode_kit.devtools.privacy_scan

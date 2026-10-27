@@ -29,11 +29,9 @@ contract (also a changed tree), 40 environment, 50 no progress (the same problem
 ``plugin`` block (R2-11): ``{name, version}`` from ``.claude-plugin/plugin.json``, ``entry`` as passed (the SKILL.md
 passes ``skill:/klode-kit:kb-check``), ``root_sha`` (R3-08 release sha).
 
-``root_sha``: over the run files - ``.claude-plugin/plugin.json``, ``skills/**``,
-``agents/**``, ``workflows/**``, ``hooks/**``, ``bin/**``, ``src/**``, ``prompts/**``, ``schemas/**``,
-``config/**``, ``pyproject.toml``, ``uv.lock`` - ``sha256`` of the concatenated
-``sha256(relpath + "\\0" + content)`` hex digests in ``sorted(relpath)`` order. ``__pycache__`` directories,
-``*.pyc`` and ``.DS_Store`` are build/OS artefacts, not run files, and are skipped.
+``root_sha``: the release sha of ``klode_kit.devtools.release_manifest`` (WI-15b: the single definition - the run files
+of R3-08, ``sha256`` of the concatenated ``sha256(relpath + "\\0" + content)`` hex digests in ``sorted(relpath)`` order;
+byte-code caches, ``.DS_Store`` and ``*.egg-info`` are not run files).
 """
 
 from __future__ import annotations
@@ -59,38 +57,21 @@ from klode_kit import config as config_mod
 from klode_kit import loops, receipts
 from klode_kit.build import check_cards, check_published, desk_build, run_build, smoke_mcp, write_card
 from klode_kit.contract import schema as contract
+from klode_kit.devtools import release_manifest
 from klode_kit.pipeline import write_receipt_verdict
 from klode_kit.receipts import dumps
 from klode_kit.seams import crashpoint
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[3]
-RUN_FILES = (".claude-plugin/plugin.json", "pyproject.toml", "uv.lock")
-RUN_DIRS = ("skills", "agents", "workflows", "hooks", "bin", "src", "prompts", "schemas", "config")
-
-
-def _is_artefact(rel: Path) -> bool:
-    return "__pycache__" in rel.parts or rel.suffix == ".pyc" or rel.name == ".DS_Store"
 
 
 def run_files(root: Path) -> list[str]:
-    root = Path(root)
-    rels = [r for r in RUN_FILES if (root / r).is_file()]
-    for d in RUN_DIRS:
-        base = root / d
-        if base.is_dir():
-            for path in base.rglob("*"):
-                rel = path.relative_to(root)
-                if path.is_file() and not _is_artefact(rel):
-                    rels.append(rel.as_posix())
-    return sorted(rels)
+    return release_manifest.run_files(Path(root))
 
 
 def root_sha(root: Path) -> str:
-    total = hashlib.sha256()
-    for rel in run_files(root):
-        entry = hashlib.sha256(rel.encode("utf-8") + b"\0" + (Path(root) / rel).read_bytes()).hexdigest()
-        total.update(entry.encode("ascii"))
-    return total.hexdigest()
+    """The release sha (WI-15b: one definition, ``devtools.release_manifest``)."""
+    return release_manifest.release_sha(Path(root))
 
 
 def plugin_block(root: Path, entry: str) -> dict:

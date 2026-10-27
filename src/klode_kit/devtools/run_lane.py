@@ -59,8 +59,13 @@ def release_sha(root: Path) -> str:
 
 
 def env_fingerprint(root: Path) -> dict:
+    from klode_kit.devtools import release_manifest
+
     return {
         "release_sha": release_sha(root),
+        # WI-15b: content digest of the run files (R3-08); release_check compares it with the current tree, so a
+        # receipt dies with any change to any run file - including a single template - not only with a new commit.
+        "code_tree_sha": release_manifest.release_sha(root),
         "repo_root": os.path.realpath(root),
         "python": os.path.realpath(sys.executable),
         "python_version": platform.python_version(),
