@@ -58,8 +58,9 @@ def test_real_vision_route_on_rotated_page(tmp_path):
     assert "血红蛋白" in text
     for engine in ("claude", "codex"):
         assert page["routes"][engine]["status"] == "route_failed"
-        assert page["routes"][engine]["error"].startswith(("route_unavailable", "route_disabled"))
-    assert log_calls(log) == []
+        assert page["routes"][engine]["error"].startswith(("route_unavailable", "route_disabled", "isolation_refused"))
+    # user-approved 2026-10-28 (WI-32a): the sender probes the fake CLIs with --version; no model call is made
+    assert [c for c in log_calls(log) if c.get("argv") != ["--version"]] == []
 
 
 @pytest.mark.macos

@@ -74,10 +74,8 @@ def test_workflow_two_stage(ledger):
     inbox = project / "inbox"
     shutil.copytree(REPO / "tests" / "fixtures" / "fx-u3-mixed" / "images", inbox)
 
-    # No user command runs the masker (WI-31 finding; WI-32a wires it): without masked pages the cloud routes answer
-    # ``route_unavailable`` and the confirm page cannot offer them. Same preparation as WI-31's U3 test.
+    # ``kb-ocr`` masks by itself before the cloud routes read (WI-32a); only the stored isolation receipts are staged.
     A.stage_isolation_receipts(project)
-    A.premask(project, inbox, A.real_env())
 
     first, _ = _workflow(project, {"project": str(project), "inbox": str(inbox)}, "stage1", ledger, evidence)
     batch = _batch_dir(project)

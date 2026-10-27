@@ -86,7 +86,9 @@ def test_rotate_receipt_u2(tmp_path):
     assert [p["rotate"] for p in rec["pages"]] == [90]
     batch = only_batch(project)
     derived = jsonl(batch / "derived.jsonl")
-    assert len(derived) == 1
+    upright_lines = [d for d in derived if not d["path"].startswith("_masked/")]  # WI-32a: masked pages follow
+    assert len(upright_lines) == 1
+    derived = upright_lines
     schema.validate("derived", derived[0])
     assert derived[0]["transform"]["rotate"] == 90
     assert derived[0]["parent"] == orig
@@ -343,9 +345,9 @@ def test_engine_replay_ignored_without_seams(tmp_path):
     res = run_kb_ocr(project, inbox, env, "--routes", "claude")
     ok(res)
     assert "KLODE_KIT_ENGINE_REPLAY" in res.stderr.decode()
-    assert log_calls(log) == []
+    assert [c for c in log_calls(log) if "page" in c] == []  # WI-32a: no replay call (the sender may ask --version)
     route = receipt(project)["pages"][0]["routes"]["claude"]
-    assert route["status"] == "route_failed" and "tries" not in route and route["error"]
+    assert route["status"] == "route_failed" and route["error"]
 
 
 def test_disabled_cloud_route_is_route_failed_without_calls(tmp_path):

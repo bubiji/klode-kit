@@ -23,8 +23,7 @@ approved removing its xfail, 2026-10-27). ``tests/host/test_workflow_two_stage.p
 has no ``.gitignore`` entries and the session's ``KLODE_KIT_TEST_SEAMS`` reaches ``claude``, so the workflow's
 ``preflight`` answers exit 40 (observed 2026-10-27, $0.35).
 
-The masking step is run beforehand (``accept_fx.premask``): no user command runs the masker (WI-31 finding), so without
-it the cloud routes of the workflow's ``ocr`` stage answer ``route_unavailable``.
+No masking step is run beforehand: the workflow's ``ocr`` stage (``kb-ocr``) masks by itself (WI-32a).
 """
 
 from __future__ import annotations
@@ -86,8 +85,10 @@ def first_segment():
         shutil.copyfile(img, inbox / img.name)
     A.stage_isolation_receipts(project)
     env = A.real_env()
-    batch_id = A.premask(project, inbox, env)
     _proc, events = workflow(project, {"project": str(project), "inbox": str(inbox)}, "stage1", ledger, evidence, env)
+    (batch_dir,) = [p for p in (project / "work").iterdir() if p.is_dir() and not p.is_symlink()
+                    and (p / "derived.jsonl").is_file()]
+    batch_id = batch_dir.name
     ocr_spent = 0.0
     cloud_ledger = project / "work" / batch_id / "receipts" / "cloud_ledger.json"
     if cloud_ledger.is_file():

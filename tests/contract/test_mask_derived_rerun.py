@@ -20,11 +20,12 @@ pytestmark = pytest.mark.contract_replay
 FIXTURE = REPO / "tests" / "fixtures" / "fx-labs-1x"
 
 
-def kb_ocr(project, tmp_path):
+def kb_ocr(project, tmp_path, routes="vision,mlx"):  # WI-32a: local routes only, so kb-ocr itself does not mask
     env = base_env({"KLODE_KIT_ENGINE_REPLAY": str(FIXTURE / "engine"), "KLODE_KIT_TEST_SEAMS": "1",
                     "KLODE_KIT_FAKE_LOG": str(tmp_path / "calls.jsonl")})
     env.pop("KLODE_KIT_REAL", None)
-    res = run_module("klode_kit", ["kb-ocr", "--batch", str(FIXTURE / "images"), "--project", str(project)], env,
+    res = run_module("klode_kit", ["kb-ocr", "--batch", str(FIXTURE / "images"), "--project", str(project), "--routes", routes],
+                     env,
                      timeout=120)
     assert res.returncode == 0, res.stderr.decode()
     [batch] = [p.name for p in (project / "work").iterdir() if p.is_dir()]

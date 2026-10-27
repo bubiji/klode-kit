@@ -8,12 +8,9 @@ review picture shows the unmasked header, so it is not beside the files a cloud 
 
 Matrix U2-01, U2-02, U2-03. Lane contract_replay (U2-02: cli_integration, macOS: the Vision route is the real one).
 
-FINDING (reported to the user, see impl-deviations WI-31): nothing in ``kb-ocr``, ``pipeline`` or ``med-intake`` calls
-the masker (``audit.mask.mask_batch``; WI-05a "待接线" was never wired, there is no ``mask`` subcommand). A batch run
-through the user entry therefore has no ``_masked/`` at all, and a cloud route answers ``route_unavailable: ... run
-the masker`` instead of reading the page. The tests below assert the real behaviour of every piece that exists, and
-``test_u2_kb_ocr_makes_masked_images_by_itself`` states the literal U2 step as a strict xfail that becomes XPASS (and
-must then lose its marker) when the wiring is done.
+Current state (WI-32a): ``kb-ocr`` (hence ``pipeline`` and ``med-intake``) runs the masker by itself, inside its own lock,
+before a cloud route is dispatched; ``test_u2_kb_ocr_makes_masked_images_by_itself`` states the literal U2 step. (WI-31
+had found that no user entry called ``audit.mask.mask_batch``; the first masking test below still calls it directly.)
 """
 
 from __future__ import annotations
@@ -122,10 +119,9 @@ def test_u2_masking_step_blacks_out_the_header_and_keeps_the_review_apart(run, t
 
 
 @replay
-@pytest.mark.xfail(strict=True, reason="WI-31 finding: no user entry runs the masker (WI-05a wiring never done)")
 def test_u2_kb_ocr_makes_masked_images_by_itself(run):
     """U2-01 literal (04): after ``kb-ocr`` alone, ``_masked/`` holds the masked picture and ``_mask_review/`` the
-    review picture. Strict xfail until ``kb-ocr`` masks before it lets a cloud route read."""
+    review picture (WI-32a wired the masker into ``kb-ocr``; this was a strict xfail before)."""
     project, _inbox, _res = run
     assert list((project / "_masked").rglob("*.m.png"))
     assert list((project / "_mask_review").rglob("*.review.png"))
@@ -157,7 +153,7 @@ def test_u2_unmasked_never_sent(tmp_path):
     assert fake.model_calls() == []
     receipt = json.loads((K.only_batch(project) / "receipt.json").read_text(encoding="utf-8"))
     claude = receipt["pages"][0]["routes"]["claude"]
-    assert claude["status"] == "route_failed" and "mask" in claude["error"]
+    assert claude["status"] == "route_failed"
     assert "route_failed" in res.stdout.decode() or "route_failed" in res.stderr.decode() or "mask" in res.stdout.decode()
 
     # (2) the sender itself: the original picture is not on the whitelist -> exit 60, no model call

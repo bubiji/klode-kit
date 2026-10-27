@@ -166,6 +166,8 @@ RUN_BATCH_CRASHPOINTS = frozenset({
     "run_batch.page_done",        # page file moved into place
     "receipts.mkdir",             # receipts/ created by the step receipt write
     "receipts.before_replace",    # attempt / step receipt temporary written
+    "mask.mkdir", "mask.image_written", "mask.review_written", "mask.manifest_appended",  # WI-32a: kb-ocr masks
+    "mask.derived_registered", "mask.manifest_opened", "mask.before_replace",
     "run_batch.receipt_written",  # after an attempt / step receipt is in place
 })
 

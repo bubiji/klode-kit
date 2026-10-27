@@ -95,6 +95,19 @@ Batch receipt ``klode-kit.ocr_batch/1`` (no wall-clock fields, so equal runs giv
 ``text_layer`` is true when every page is a PDF ``text`` page, ``"partial"`` when some are, false otherwise;
 ``routes_skipped`` lists the requested routes when no page needs them (U4), else is empty.
 
+WI-32a, masking before the cloud routes: ``main`` (hence ``kb-ocr``, ``pipeline`` and ``med-intake``) runs the masker
+(``audit.mask.mask_batch``) inside the same critical section as the OCR - under the one ``work/.lock`` this run holds,
+after ``derived.jsonl`` is written and before any cloud route is dispatched - when the requested routes include an
+enabled cloud route (claude, codex). Only pages that go to the routes are masked (text-layer PDF pages are not). The
+pictures land in ``_masked/`` (whitelist: ``_masked/MANIFEST.jsonl``) and ``_mask_review/``; a page already masked from
+the same upright image under the same rules is left alone (no Vision call, no byte rewritten), so a rerun - or a run killed
+at any crash point and rerun - ends in the state of an uninterrupted run. Under the replay seam the masker reads the
+recorded Vision rows (``<replay>/vision/<key>.jsonl``, none -> header band only) and logs no call. If masking fails,
+both cloud routes are ``route_failed`` (``route_unavailable: masking failed (...)``, zero calls, no earlier mask is
+used), the local routes run as usual and the exit code is unchanged. Batch receipt increment ``mask: {status: done|failed,
+pages, error?}`` (absent when no cloud route was requested; no clock, no absolute path). ``run(..., auto_mask=False)``
+keeps the library behaviour of before (``mask_engine`` injects the masker's Vision boundary for tests).
+
 WI-13c, optional increments of the batch receipt: ``route_stats: {engine: {elapsed_ms, failed_pages}}`` for every
 requested route (``elapsed_ms``: non-negative integer, measured around the route and stored in the attempt receipt, so a
 reused attempt reports the same number and equal runs give equal bytes; a replayed run measures 0 with a logical
@@ -151,6 +164,7 @@ BUDGET_EXIT = 50
 LEDGER_FILE = "receipts/cloud_ledger.json"
 CLOUD_RECEIPTS = "receipts/cloud"
 NOT_MASKED = "cloud routes send only _masked/ images - run the masker (WI-05a) on this batch, then rerun kb-ocr"
+MASK_FAILED = "masking failed"
 CRASHPOINTS = (
     "run_batch.mkdir", "run_batch.lock", "run_batch.cleanup", "run_batch.meta_tmp", "run_batch.meta_replaced",
     "run_batch.before_replace", "run_batch.page_done", "run_batch.receipt_written",
@@ -605,6 +619,9 @@ def _uncertain(page: Page, engine: str, result: dict) -> dict:
     error = result.get("error") or ""
     if NOT_MASKED in error:
         fix = "run the masker (WI-05a) on this batch, then rerun kb-ocr; cloud routes send only _masked/ images"
+    elif MASK_FAILED in error:
+        fix = (f"{error.split('; ')[0].removeprefix('route_unavailable: ')}; fix the cause and rerun kb-ocr - "
+               "cloud routes send only _masked/ images, nothing unmasked leaves")
     elif error.startswith("budget_exceeded"):
         fix = "raise cloud.max_cost_usd_per_batch in klode-kit.toml and rerun kb-ocr, then kb-audit"
     elif error.startswith("effort_locked"):
@@ -811,10 +828,55 @@ def _receipt_type(path: Path) -> str | None:
     return value if value in RECORD_TYPES else None
 
 
+class _ReplayMasker:
+    """The masker's Vision boundary under the replay seam: the recorded Vision rows of the page (no rows recorded ->
+    none, so only the header band is masked). Reads the recording directly - no call is logged or counted."""
+
+    name = "vision"
+
+    def __init__(self, root: Path, pages: list[Page]):
+        self.root = root
+        self.keys = {p.page_id: p.key for p in pages}
+
+    def ocr_page(self, png: Any, *, page_id: str, der_sha256: str) -> list[dict]:
+        path = self.root / "vision" / f"{self.keys.get(page_id, '')}.jsonl"
+        if not path.is_file():
+            return []
+        rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+        return [{**r, "page_id": page_id, "der_sha256": der_sha256} for r in rows]
+
+
+def _mask_for_cloud(project: Path, batch: Batch, routed: list[Page], names: list[str], specs: dict[str, Route],
+                    replay: _Replay | None, engine: Any, out: TextIO) -> dict | None:
+    """WI-32a: mask the routed pages before a cloud route may read (the caller holds ``work/.lock``).
+
+    Returns the batch receipt's ``mask`` block, or ``None`` when no enabled cloud route is requested (nothing is
+    masked then). A failure makes both cloud routes ``route_failed`` (nothing unmasked is ever sent) and leaves the
+    local routes alone."""
+    cloud = [n for n in names if n in CLOUD_ROUTES and specs[n].problem is None]
+    if not routed or not cloud:
+        return None
+    if engine is None and replay is not None:
+        engine = _ReplayMasker(replay.root, routed)
+    try:
+        rows = mask.mask_batch(project, batch.batch_id, engine=engine, page_ids=[p.page_id for p in routed],
+                               reuse=True, lock_held=True)
+    except Exception as exc:  # the engine, the image or the files: whatever it is, no cloud route may go on
+        detail = f"{type(exc).__name__}: {exc}".replace(str(project), "<project>")
+        detail = " ".join(detail.split())
+        for name in cloud:
+            specs[name].problem = (f"route_unavailable: {MASK_FAILED} ({detail}); "
+                                   f"cloud routes send only _masked/ images, nothing was sent")
+        print(f"kb-ocr: {MASK_FAILED}: {detail}; the cloud routes ({','.join(cloud)}) are not run", file=out)
+        return {"status": "failed", "pages": len(routed), "error": detail}
+    print(f"kb-ocr: masked pictures ready for the cloud routes: {len(rows)} page(s) in _masked/", file=out)
+    return {"status": "done", "pages": len(rows)}
+
+
 def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bool = False,
         routes_enabled: Mapping[str, bool] | None = None, out: TextIO | None = None,
         cloud: CloudOptions | None = None, record_type: str | None = None,
-        clock: Callable[[], float] | None = None) -> int:
+        clock: Callable[[], float] | None = None, auto_mask: bool = False, mask_engine: Any = None) -> int:
     out = sys.stderr if out is None else out
     if record_type is not None and record_type not in RECORD_TYPES:
         print(f"kb-ocr: unknown document type {record_type!r}; types: {', '.join(RECORD_TYPES)}", file=out)
@@ -893,12 +955,14 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
                     dumps_jsonl([*batch.derived, *_masked_lines(batch_dir / "derived.jsonl", batch.derived)]))
         text_files = _text_outputs(batch, project, batch_dir)
         started = _now()
+        mask_block = (_mask_for_cloud(project, batch, routed, names, specs, replay, mask_engine, out)
+                      if auto_mask else None)
         cloud_opts = cloud or CloudOptions()
         ledger = None
         if routed and any(specs[n].cloud for n in names):
             ledger = _load_ledger(batch_dir, cfg, cloud_opts)
             for name in names:
-                if specs[name].cloud:
+                if specs[name].cloud and specs[name].problem is None:
                     _attach_cloud(specs[name], project, batch_dir, cfg, cloud_opts, ledger)
         runs: dict[str, RouteRun] = {}
         stop: str | None = None
@@ -916,6 +980,8 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
                            "calls": ledger.calls, "stop": stop}
         kept = record_type or _receipt_type(batch_dir / "receipt.json")  # sticky: a rerun without --type keeps it
         rec = _batch_receipt(batch, project, names, cfg["route_retry"], skipped, runs, batch_dir, cloud_block, kept)
+        if mask_block is not None:
+            rec["mask"] = mask_block
         outputs = [{"path": n, "sha256": _sha((batch_dir / n).read_bytes())}
                    for n in ("manifest.jsonl", "derived.jsonl", *text_files)]
         outputs += [{"path": r["file"], "sha256": _sha((batch_dir / r["file"]).read_bytes())}
@@ -978,7 +1044,8 @@ def main(argv: list[str] | None = None, *, routes_enabled: Mapping[str, bool] | 
         routes = list(dict.fromkeys(r.strip() for r in args.routes.split(",") if r.strip()))
     try:
         return run(project, args.batch, routes, redo=args.redo, routes_enabled=routes_enabled,
-                   cloud=CloudOptions(isolation_receipts=receipts_by_route), record_type=args.record_type)
+                   cloud=CloudOptions(isolation_receipts=receipts_by_route), record_type=args.record_type,
+                   auto_mask=True)
     except config_mod.ConfigError as exc:
         print(f"kb-ocr: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code

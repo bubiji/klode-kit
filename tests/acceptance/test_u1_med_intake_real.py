@@ -15,8 +15,8 @@ per route and no failed page, and the confirm page opened through its folder lis
 literal "5 条分歧" is the replay fixture's number (designed disagreements); real readings differ, and the number that
 was printed is reported.
 
-The masking step is run beforehand by this test (``accept_fx.premask``): no user command runs the masker (WI-31
-finding), so without it the cloud routes answer ``route_unavailable``.
+No masking step is run beforehand: ``med-intake`` (its ``kb-ocr`` stage) masks by itself before the cloud routes read
+(WI-32a; before that the test had to call ``accept_fx.premask``).
 """
 
 from __future__ import annotations
@@ -58,7 +58,6 @@ def test_u1_med_intake_real():
         shutil.copyfile(img, inbox / img.name)
     A.stage_isolation_receipts(project)
     env = A.real_env()
-    batch = A.premask(project, inbox, env)
 
     done = subprocess.run([sys.executable, "-m", "klode_kit", "med-intake", "--inbox", str(inbox), "--project",
                            str(project)], env={**env, "PYTHONPATH": str(REPO / "src")}, capture_output=True,
@@ -66,6 +65,9 @@ def test_u1_med_intake_real():
     (evidence / "stdout.txt").write_bytes(done.stdout)
     (evidence / "stderr.txt").write_bytes(done.stderr)
     lines = done.stdout.decode().splitlines()
+    (batch_dir,) = [p for p in (project / "work").iterdir() if p.is_dir() and not p.is_symlink()
+                    and (p / "derived.jsonl").is_file()]
+    batch = batch_dir.name
     receipt_path = project / "work" / "20261022" / "receipt.json"
     if receipt_path.is_file():
         shutil.copyfile(receipt_path, evidence / "batch_receipt.json")

@@ -40,6 +40,11 @@ The masked image has the upright image's pixel grid, hence its rotate (and rende
 also takes; kb-ocr keeps these lines when it rewrites the file. Lines under ``_masked/`` are never masked again.
 Like the MANIFEST, registration is append-only: a page masked again under other rules gets a new line.
 
+WI-32a: ``kb-ocr`` calls ``mask_batch(..., page_ids=, reuse=True, lock_held=True)`` while it holds ``work/.lock`` (the
+registration then does not lock again; ``flock`` on a second descriptor of the same file would wait for the first one
+forever). ``reuse`` leaves a page whose masked picture (same page, same upright image, same rules) is on disk with the
+listed bytes alone - the engine is not asked.
+
 Durability and concurrency: all writes of a page happen while holding an exclusive ``flock`` on
 ``_masked/MANIFEST.jsonl`` (no extra lock file, so ``_masked/`` holds only images and the MANIFEST). Under the
 lock a run first removes temporary files a killed run left (``.<name>.<hex>.tmp``) and cuts a torn last MANIFEST
@@ -78,7 +83,7 @@ RULES_FILE = "mask_rules.toml"
 TOOL = "mask/1"
 CRASHPOINTS = (
     "mask.mkdir", "mask.cleanup", "mask.manifest_repaired", "mask.image_written", "mask.review_written",
-    "mask.manifest_appended", "mask.derived_registered",
+    "mask.manifest_appended", "mask.derived_registered", "mask.manifest_opened", "mask.before_replace",
 )
 ROW_FIELDS = ("der_sha256", "parent", "page_id", "mask_boxes", "tool_version", "path")
 MODES = ("L", "RGB", "RGBA")
@@ -299,6 +304,7 @@ def _atomic(path: Path, data: bytes, after: str) -> None:
             _write_all(fd, data)
         finally:
             os.close(fd)
+        crashpoint("mask.before_replace")
         os.replace(tmp, path)
     except BaseException:
         with contextlib.suppress(FileNotFoundError):
@@ -373,6 +379,7 @@ def _manifest_locked(project: Path):
     path = masked / MANIFEST_NAME
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o644)
     try:
+        crashpoint("mask.manifest_opened")  # the MANIFEST may have just been created: one durable write per segment
         fcntl.flock(fd, fcntl.LOCK_EX)
         _cleanup([masked, project / REVIEW_DIR])
         with os.fdopen(os.dup(fd), "rb") as fh:
@@ -459,13 +466,37 @@ def _derived_rows(project: Path, batch_id: str) -> list[dict]:
         raise MaskError(f"{path}: not JSON lines: {exc}") from exc
 
 
+def _reusable_row(project: Path, manifest: Sequence[dict], der: dict, rules: MaskRules) -> dict | None:
+    """The MANIFEST row of ``der``'s page made from this very upright image under these rules whose picture is on
+    disk with the listed bytes (the newest such row), else ``None``."""
+    for row in reversed(manifest):
+        if (row["page_id"] == der.get("page_id") and row["parent"] == der.get("parent")
+                and row["tool_version"] == rules.tool_version):
+            try:
+                data = (project / MASKED_DIR / row["path"]).read_bytes()
+            except OSError:
+                continue
+            if _sha(data) == row["der_sha256"]:
+                return row
+    return None
+
+
 def mask_batch(project: str | os.PathLike, batch_id: str, *, engine: Any = None,
-               rules: MaskRules | None = None) -> list[dict]:
+               rules: MaskRules | None = None, page_ids: Iterable[str] | None = None, reuse: bool = False,
+               lock_held: bool = False) -> list[dict]:
     """Mask every page of ``work/<batch_id>/derived.jsonl``; returns the MANIFEST rows in page order.
 
-    Every derived image is checked against its ``der_sha256`` before anything is written."""
+    Every derived image is checked against its ``der_sha256`` before anything is written.
+
+    ``page_ids`` restricts the run to those pages. ``reuse`` (kb-ocr, WI-32a) leaves a page alone - the engine is not
+    asked - when its masked picture made from the same upright image under the same rules is on disk and listed.
+    ``lock_held``: the caller already holds the batch lock ``work/.lock`` (kb-ocr masks inside its own critical
+    section); the derived lines are then registered without taking it again."""
     project = Path(project)
     rows = [der for der in _derived_rows(project, batch_id) if not _is_masked_line(der)]
+    if page_ids is not None:
+        wanted = set(page_ids)
+        rows = [der for der in rows if der.get("page_id") in wanted]
     pages = []
     for der in rows:
         src = Path(der.get("path", ""))
@@ -477,14 +508,19 @@ def mask_batch(project: str | os.PathLike, batch_id: str, *, engine: Any = None,
         if _sha(data) != der.get("der_sha256"):
             raise MaskError(f"{src}: bytes do not match der_sha256 (changed since the batch)")
         pages.append((src, der))
-    if engine is None:
+    rules = rules or load_rules()
+    manifest = read_manifest(project) if reuse else []
+    done = [_reusable_row(project, manifest, der, rules) if reuse else None for _src, der in pages]
+    if engine is None and any(row is None for row in done):
         from klode_kit.ocr.engines import OcrMacEngine
 
         engine = OcrMacEngine()
-    rules = rules or load_rules()
-    masked = [mask_page(project, src, parent=der["parent"], page_id=der["page_id"], der_sha256=der["der_sha256"],
-                        engine=engine, rules=rules) for src, der in pages]
-    register_derived(project, batch_id, [(der, row) for (_src, der), row in zip(pages, masked)])
+    masked = [row if row is not None else
+              mask_page(project, src, parent=der["parent"], page_id=der["page_id"], der_sha256=der["der_sha256"],
+                        engine=engine, rules=rules)
+              for (src, der), row in zip(pages, done)]
+    register = _register_locked if lock_held else register_derived
+    register(project, batch_id, [(der, row) for (_src, der), row in zip(pages, masked)])
     return masked
 
 
@@ -506,26 +542,32 @@ def masked_line(upright: dict, row: dict) -> dict:
 def register_derived(project: str | os.PathLike, batch_id: str, pairs: Sequence[tuple[dict, dict]]) -> list[dict]:
     """Append the derived lines of masked pages (``(upright line, MANIFEST row)`` pairs) that are not listed yet,
     under the batch lock ``work/.lock``; returns the lines added."""
-    from klode_kit.ocr.manifest import dumps_jsonl
     from klode_kit.ocr.run_batch import LOCK_NAME
 
-    project = Path(project)
-    work = project / "work"
-    path = work / batch_id / "derived.jsonl"
-    fd = os.open(work / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o644)
+    fd = os.open(Path(project) / "work" / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o644)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
-        data = path.read_bytes()
-        listed = {line["der_sha256"] for line in _derived_rows(project, batch_id) if isinstance(line, dict)}
-        added: list[dict] = []
-        for upright, row in pairs:
-            if row["der_sha256"] not in listed:
-                listed.add(row["der_sha256"])
-                added.append(masked_line(upright, row))
-        if added:
-            if data and not data.endswith(b"\n"):
-                data += b"\n"
-            _atomic(path, data + dumps_jsonl(added), "mask.derived_registered")
-        return added
+        return _register_locked(project, batch_id, pairs)
     finally:
         os.close(fd)
+
+
+def _register_locked(project: str | os.PathLike, batch_id: str, pairs: Sequence[tuple[dict, dict]]) -> list[dict]:
+    """``register_derived`` for a caller that holds ``work/.lock`` (a second ``flock`` on a second descriptor of the
+    same file would wait for the first one forever)."""
+    from klode_kit.ocr.manifest import dumps_jsonl
+
+    project = Path(project)
+    path = project / "work" / batch_id / "derived.jsonl"
+    data = path.read_bytes()
+    listed = {line["der_sha256"] for line in _derived_rows(project, batch_id) if isinstance(line, dict)}
+    added: list[dict] = []
+    for upright, row in pairs:
+        if row["der_sha256"] not in listed:
+            listed.add(row["der_sha256"])
+            added.append(masked_line(upright, row))
+    if added:
+        if data and not data.endswith(b"\n"):
+            data += b"\n"
+        _atomic(path, data + dumps_jsonl(added), "mask.derived_registered")
+    return added

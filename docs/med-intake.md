@@ -79,7 +79,9 @@ receipt `work/<batch_id>/receipt.json`, `route_stats.<route>.{elapsed_ms, failed
 directory); 30 contract problem; 40 environment, configuration or another `med-intake` / `pipeline` holding the project
 lock (`work/.med-intake.lock`); 50, 60, 61 as the pipeline kernel (budget, privacy, isolation or the real-call gate).
 Cloud routes only ever leave the machine through the existing sender (masked, registered images, gate G2); this command
-adds no second path.
+adds no second path. The ocr stage runs `kb-ocr`, which masks the pages itself before the cloud routes read: `_masked/` (the
+only pictures that may leave) and `_mask_review/` (before/after pictures, local only) appear without a separate step; if
+masking fails both cloud routes are `route_failed` and nothing is sent.
 
 ## After the click
 

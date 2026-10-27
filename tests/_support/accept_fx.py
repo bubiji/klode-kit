@@ -176,7 +176,7 @@ def stage_isolation_receipts(project: Path) -> None:
 
 
 def premask(project: Path, inbox: Path, env: dict[str, str]) -> str:
-    """The masking step the user entries do not run by themselves (WI-31 finding: ``mask.mask_batch`` is called by no
+    """Kept for reference, no caller since WI-32a (``kb-ocr`` masks by itself). The masking step the user entries did not run by themselves (WI-31 finding: ``mask.mask_batch`` is called by no
     command): ``kb-ocr`` with the local Vision route makes the batch and its derived pages, then the real Vision masker
     registers the masked pictures; the cloud routes of the next ``kb-ocr`` / ``med-intake`` / ``pipeline`` run read
     those. Returns the batch id."""

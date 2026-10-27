@@ -23,7 +23,7 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-ocr $ARGUMENTS
    - 每页 `rotate`（歪斜页转正了多少度）、`status`（`done`、`incomplete` 或 `failed`）；
    - 每路 `route_stats`：耗时 `elapsed_ms` 与失败页数 `failed_pages`；`issues` 里列出的每一项都要说；
    - PDF：`text_layer`（`true` 表示整份有文字层）与 `routes_skipped`（文字层页不走 OCR，四路都被跳过）；
-   - 云端路只读 `_masked/` 下登记过的打码图，汇报里说明打码图在哪、打码对照图（`_mask_review/`）只给人看。
+   - 请求了云端路时，`kb-ocr` 会在云端路之前自动打码（批次回执 `mask.status`：`done` 或 `failed`）；云端路只读 `_masked/` 下登记过的打码图，汇报里说明打码图在哪、打码对照图（`_mask_review/`）只给人看。只跑本机路（`--routes vision,mlx`）不打码。
 4. 告诉用户下一步：单据批次走 `/klode-kit:kb-audit --batch <批次号>`（对齐、投票、出确认页）；文字层 PDF 想建库走 `/klode-kit:kb-build`。
 
 重跑（例如「2025 年那批重新 OCR 一遍」）：同一个 `--batch` 再跑一次，加 `--redo` 才会强制开新一轮尝试；
@@ -46,7 +46,7 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-ocr $ARGUMENTS
 | 编号 | 现象 | 原因 | 处理 |
 | --- | --- | --- | --- |
 | O01 | 云端路（claude、codex）整路 `route_failed`，信息含 `isolation_refused` 或 exit 61 | 真实调用闸门没开，或还没有隔离回执 | 不要绕过；告诉用户需要他授权；本机 vision、mlx 两路照常出结果 |
-| O02 | 云端路某页 `route_failed`，提示先打码 | 云端路只发 `_masked/` 里登记过的打码图，这页没有 | 先让打码步骤跑完再重跑；绝不把原图路径直接交给云端路 |
+| O02 | 云端路 `route_failed`，信息含 `masking failed`，批次回执 `mask.status` 为 `failed` | 云端路只发 `_masked/` 里登记过的打码图；打码本身没做成（多为 Apple Vision 不可用或图读不了），所以两路云端一张都没发 | 按信息里的原因修好再重跑（已打好的页不会重打）；绝不把原图路径直接交给云端路 |
 | O03 | 某一路 `route_unavailable` | 本机引擎没装全：ocrmac、MLX 权重、tesseract 语言包 | 跑 doctor 看缺项和修复命令；其余路的结果照常可用，这不是整批失败 |
 | O04 | 重跑后读数没变 | 输入和配置没变时复用已完成的尝试 | 想强制开新一轮就加 `--redo`；旧指纹目录不要手动删 |
 | O05 | exit 2，提示没有图片 | 路径写错，或目录里没有图片和 PDF | 核对路径；非图片文件会被跳过并列在回执的 `skipped` 里 |
