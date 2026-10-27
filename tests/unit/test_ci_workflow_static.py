@@ -66,14 +66,13 @@ def index(fragment: str) -> int:
     raise AssertionError(f"no step mentions {fragment!r}")
 
 
-def test_job_runs_on_linux_and_installs_locked_dependencies_without_mac_extras():
+def test_job_runs_on_macos_and_installs_locked_dependencies_without_mac_extras():
     text = CI.read_text(encoding="utf-8")
-    assert "runs-on: ubuntu-latest" in text
+    assert "runs-on: macos-latest" in text  # user-approved 2026-10-27: CI on the target platform
     sync = [s["run"] for s in steps() if "uv sync" in s["run"]]
     assert len(sync) == 1 and "--locked" in sync[0] and "--frozen" not in sync[0]
     for banned in ("ocr-mac", "mlx", "ocr-local", "--with-mlx"):
         assert banned not in sync[0]
-    assert "macos" not in text.lower() or "No macOS" in text  # no macOS job (comment mention allowed)
 
 
 def test_venv_bin_is_on_path_before_the_replay_lane():

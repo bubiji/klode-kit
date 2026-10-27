@@ -6,8 +6,10 @@
 #   klode==0.5.0 is a locked runtime dependency (WI-15a), so `uv sync --locked` puts `klode` / `klode-mcp` into
 #   .venv/bin; the PATH step below makes them findable and the preflight step proves it before any lane runs.
 #   Only the macOS OCR extras (ocrmac, mlx-vlm) are left out - they are extras/groups, not installed by default.
-# - No macOS cli_integration job yet: a job that skips would pass as green without running anything; the cli
-#   receipt is produced locally and judged by release_check.
+# - Runs on macOS, the only supported platform (Apple Vision / MLX OCR); derived-image PNG bytes, the key of the
+#   OCR recordings, differ between macOS and Linux Pillow builds (user decision 2026-10-27).
+# - cli_integration is not run in CI (needs local OCR models); its receipt is produced locally and judged by
+#   release_check.
 # - model_integration and host_acceptance never run in CI.
 name: ci
 
@@ -21,12 +23,12 @@ permissions:
 
 jobs:
   offline-lanes:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      # pytest's tmp dirs follow TMPDIR; on Linux the default is /tmp, which the sender refuses as a data-project
+      # pytest's tmp dirs follow TMPDIR; the default may be /tmp, which the sender refuses as a data-project
       # location (RR-7, WI-05b: the codex :minimal profile can read /tmp). The runner temp dir is outside /tmp.
       # (The runner context is not available in job-level env, so it is exported from a step.)
       - name: TMPDIR outside /tmp
