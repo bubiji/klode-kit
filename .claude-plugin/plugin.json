@@ -1,5 +1,5 @@
 {
   "name": "klode-kit",
   "version": "0.1.0-dev",
-  "description": "Scanned documents to a citable klode knowledge base. Minimal manifest from the WI-00d2 host spike."
+  "description": "Turn books, PDFs and scanned documents into a citable klode knowledge base: multi-engine OCR with a cross-engine audit and local confirmation page, shelf/desk build with verbatim-anchor gates, repair loops, check and publish. Medical records are the first scenario."
 }
