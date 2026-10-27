@@ -7,6 +7,8 @@ Chapter heads use the English form ``Chapter N: <title>`` that the vendored spli
 
 from __future__ import annotations
 
+import copy
+
 import gen_common as C
 
 CHAPTERS = [
@@ -73,6 +75,32 @@ HOLDOUT = [
 ]
 
 
+# The words the card writers give the three chapters as ``aliases`` (the replayed writers of the tests use exactly these:
+# tests/_support/desk_fx.ALIASES, and ``test_l1_desk_aliases_are_the_replay_writers`` says so).
+CARD_ALIASES = {
+    "ch01": ["copper shell", "kettle shell", "annealing", "brass rim", "domed base", "tinning", "retinning",
+             "food-safe layer", "hammered copper", "kettle body"],
+    "ch02": ["whistle valve", "reed", "spring steel", "valve cap", "two-tone note", "vinegar soak", "spare reed",
+             "pitch", "steam pressure", "spout"],
+    "ch03": ["night market", "ember bed", "wool cloth", "salt and lemon", "waxed cord", "winter storage",
+             "crumpled paper", "covered jug", "darkened shell", "spring boil"],
+}
+
+
+def l1_desk() -> dict:
+    """``DESK`` with the tuning set widened *by rule, not by looking at the holdout*: for every alias of a dimension's card
+    that is not yet one of its cues, one tuning question ``What does the book say about <alias>?``. The questions that
+    miss are the L1 loop's input (``cue-suggest`` reads the tuning set only and proposes the aliases that occur in the
+    missed questions as cues, ``build --loops`` applies them). The holdout file is not read and not changed."""
+    desk = copy.deepcopy(DESK)
+    for dim, cid in (("construction", "ch01"), ("whistle", "ch02"), ("night-market-care", "ch03")):
+        d = next(x for x in desk["dimensions"] if x["dimension"] == dim)
+        taken = {c.lower() for c in d["cues"]}
+        d["tests"] += [f"What does the book say about {alias}?" for alias in CARD_ALIASES[cid]
+                       if alias.lower() not in taken]
+    return desk
+
+
 def book_text() -> str:
     parts = ["The Aurora Kettle: A Small Synthetic Handbook\n\n"]
     for n, (_, title, paras) in enumerate(CHAPTERS, start=1):
@@ -85,6 +113,7 @@ def build() -> dict[str, bytes]:
     return {
         "fx-book-aurora/aurora-kettle.txt": C.text(book_text()),
         "fx-book-aurora/src/desk.json": C.jdump(DESK),
+        "fx-book-aurora/src/desk.l1.json": C.jdump(l1_desk()),
         "fx-book-aurora/src/holdout.jsonl": C.jlines(HOLDOUT),
         "fx-book-aurora/scenario.json": C.jdump({
             "name": "fx-book-aurora", "synthetic": True, "kind": "book", "source": "aurora-kettle.txt",

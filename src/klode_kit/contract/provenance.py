@@ -425,6 +425,9 @@ class _Chain:
     def load_audit(self) -> None:
         audit = self.lay.audit_dir
         revs = sorted(audit.glob(self.lay.audit_glob)) if audit is not None and audit.is_dir() else []
+        # a date alias (``work/<yyyymmdd>`` -> the batch, WI-13b) is the same audit revisions under a second name: count
+        # each revision once, through the real directory (a decision seen twice would be "2 effective decisions")
+        revs = [r for r in revs if not any(a.is_symlink() for a in r.parents if audit in a.parents)]
         if not revs:
             self.ctx.missing(audit if audit is not None else self.lay.root / "audit")
             return

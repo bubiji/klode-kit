@@ -119,6 +119,9 @@ receipt 记 `pdf_unreadable`、不产出任何 text 产物（04c-06）。
 
 3 章合成英文小书 `aurora-kettle.txt`（虚构的 aurora kettle，不含人名），章头 `Chapter N: <title>`；
 `src/desk.json` 三维度各 1 题调优题，`src/holdout.jsonl` 5 题冻结留出集（U7、02a/02c）。
+`src/desk.l1.json`（WI-31）= `desk.json` 加一道调优题规则：每个章卡别名里还不是线索词的，各一题
+`What does the book say about <别名>?`；不读、不改留出集。`build --loops` 的 L1 回路（`cue-suggest` 只读调优集）
+从它起步，把漏掉的别名补成线索词，书桌在留出集上过 ≥ 0.8（U7）。
 
 ## `synth_project`
 

@@ -1,9 +1,9 @@
 {
  "files": [
   {
-   "bytes": 10118,
+   "bytes": 10473,
    "path": "README.md",
-   "sha256": "e7f9e20fa64bc11a22d86fd26d874cfe1e2bb74e2be3a19e968818ce16e75e93"
+   "sha256": "99dfa912392ecd41cd587e8f7f8e076ea7d376201cb880cfa0b104b900de6060"
   },
   {
    "bytes": 2016,
@@ -54,6 +54,11 @@
    "bytes": 1219,
    "path": "fx-book-aurora/src/desk.json",
    "sha256": "15610f75e52db914783ad3991a1b33b7f58239c4aa262c5c6cd9856b9a74812a"
+  },
+  {
+   "bytes": 2070,
+   "path": "fx-book-aurora/src/desk.l1.json",
+   "sha256": "a3a58eb5fcb3dfeacff2b2c2573b4aeba8b0d513a1f44c51452b44440b08a222"
   },
   {
    "bytes": 409,
@@ -2686,14 +2691,14 @@
    "sha256": "56aa9bb6881e3ab373317d51505cbf3fad3dd15c7c2f1ea8df5a45cacf577cf1"
   },
   {
-   "bytes": 12089,
+   "bytes": 12477,
    "path": "gen_all.py",
-   "sha256": "e53fc99744d1dc554119201c25f9bcc83ee793075a878473666feebdb2b5e927"
+   "sha256": "f931fd843648fe3d5eb7fee79fb20bae37c6c092658cc49f999077627081ad5b"
   },
   {
-   "bytes": 5970,
+   "bytes": 7726,
    "path": "gen_book.py",
-   "sha256": "ad447d683f7ca00b6783e7f11ea4c31bc9d551a83edf92b593fc7f009798836f"
+   "sha256": "c5bdd6ada65957d6f0365a09126b5b1197563ede054a1e1e61c2ae4f1fcf19e9"
   },
   {
    "bytes": 20184,

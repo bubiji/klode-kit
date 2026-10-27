@@ -1,0 +1,80 @@
+{
+ "dimensions": [
+  {
+   "cards": [
+    "ch01"
+   ],
+   "cues": [
+    "copper shell",
+    "annealing",
+    "annealed",
+    "domed base",
+    "tinning",
+    "brass rim"
+   ],
+   "dimension": "construction",
+   "question": "How is the kettle body built, and why does it survive an open flame?",
+   "tests": [
+    "Why is the copper shell annealed twice?",
+    "What does the book say about kettle shell?",
+    "What does the book say about retinning?",
+    "What does the book say about food-safe layer?",
+    "What does the book say about hammered copper?",
+    "What does the book say about kettle body?"
+   ],
+   "title": "Construction: the copper shell"
+  },
+  {
+   "cards": [
+    "ch02"
+   ],
+   "cues": [
+    "whistle",
+    "reed",
+    "valve cap",
+    "pitch",
+    "two tones"
+   ],
+   "dimension": "whistle",
+   "question": "How does the two-tone whistle work, and how is it kept in tune?",
+   "tests": [
+    "What makes the whistle produce two tones?",
+    "What does the book say about whistle valve?",
+    "What does the book say about spring steel?",
+    "What does the book say about two-tone note?",
+    "What does the book say about vinegar soak?",
+    "What does the book say about spare reed?",
+    "What does the book say about steam pressure?",
+    "What does the book say about spout?"
+   ],
+   "title": "The whistle valve"
+  },
+  {
+   "cards": [
+    "ch03"
+   ],
+   "cues": [
+    "night market",
+    "ember bed",
+    "salt and lemon",
+    "winter",
+    "wool cloth",
+    "waxed cord"
+   ],
+   "dimension": "night-market-care",
+   "question": "How is the kettle kept, cleaned and stored when it works every night?",
+   "tests": [
+    "How do vendors keep the kettle warm at night markets?",
+    "What does the book say about winter storage?",
+    "What does the book say about crumpled paper?",
+    "What does the book say about covered jug?",
+    "What does the book say about darkened shell?",
+    "What does the book say about spring boil?"
+   ],
+   "title": "Night market care"
+  }
+ ],
+ "kb": "demo-klode",
+ "synthetic": true,
+ "threshold": 0.8
+}
