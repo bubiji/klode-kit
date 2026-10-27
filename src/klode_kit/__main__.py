@@ -22,6 +22,8 @@ COMMANDS: dict[str, tuple[str, str]] = {
                              "write / check RELEASE.sha256 (the release sha over the run files, R3-08)"),
     "dev release-check": ("klode_kit.devtools.release_check:main",
                           "release gate: lane receipts, sha, clean tree, privacy, doctor, mutation; lists every unmet item"),
+    "dev mutation-gate": ("klode_kit.devtools.mutation_gate:main",
+                          "manual pre-release mutation gate over criticalPaths; writes work/mutation.json"),
     "dev coverage-gate": ("klode_kit.devtools.coverage_gate:main", "judge a coverage.py JSON report"),
     "config": ("klode_kit.config:main", "config show [--project DIR]: effective configuration as JSON"),
     "hook isolation-guard": ("klode_kit.ocr.isolation_guard:main", "PreToolUse hook: deny file reads outside cwd"),

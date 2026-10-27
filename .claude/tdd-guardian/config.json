@@ -224,7 +224,7 @@
   ],
   "coverageMode": "absolute",
   "requireMutation": false,
-  "mutationCommand": "",
+  "mutationCommand": ".venv/bin/python -m klode_kit.devtools.mutation_gate --jobs 6",
   "mutationGateOn": [
     "manual"
   ]
