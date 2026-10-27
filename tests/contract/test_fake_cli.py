@@ -75,3 +75,55 @@ def test_fake_different_argv_is_a_different_scenario(tmp_path, monkeypatch):
 
     assert (hit.returncode, hit.stdout) == (0, b"A")
     assert miss.returncode != 0 and miss.stdout == b""
+
+
+def _stamp_events(path):
+    import json
+
+    return [json.loads(x) for x in path.read_text().splitlines()]
+
+
+def test_wait_starts_barrier_holds_every_call_until_k_have_started(tmp_path, monkeypatch):
+    """WI-15d: with ``wait_starts: 3`` no call ends before the third has written its start stamp, however late
+    that process came up (calls are started 0.5 s apart)."""
+    import json
+    import time
+
+    stamps = tmp_path / "stamps.jsonl"
+    scen = tmp_path / "scen.json"
+    scen.write_text(json.dumps({"steps": [{"stamps": str(stamps), "wait_starts": 3, "stdout": "ok"}]}))
+    monkeypatch.setenv("KLODE_KIT_FAKE_SCENARIO", str(scen))
+    procs = []
+    for _ in range(3):
+        procs.append(subprocess.Popen(["claude", "-p", "x"], stdout=subprocess.PIPE))
+        time.sleep(0.5)
+    outs = [p.communicate(timeout=60)[0] for p in procs]
+
+    assert outs == [b"ok"] * 3 and [p.returncode for p in procs] == [0, 0, 0]
+    events = _stamp_events(stamps)
+    last_start = max(e["t"] for e in events if e["event"] == "start")
+    assert sorted(e["event"] for e in events) == ["end"] * 3 + ["start"] * 3
+    assert all(e["t"] >= last_start for e in events if e["event"] == "end")
+
+
+def test_wait_starts_gives_up_after_its_timeout(tmp_path, monkeypatch):
+    """WI-15d: when the K-th start never comes, the call goes on after ``wait_starts_timeout_s`` (not at once, not
+    never) and still ends normally."""
+    import json
+    import time
+
+    stamps = tmp_path / "stamps.jsonl"
+    scen = tmp_path / "scen.json"
+    scen.write_text(json.dumps({"steps": [{"stamps": str(stamps), "wait_starts": 2, "wait_starts_timeout_s": 0.6,
+                                           "stdout": "done"}]}))
+    monkeypatch.setenv("KLODE_KIT_FAKE_SCENARIO", str(scen))
+    t0 = time.monotonic()
+
+    res = call("claude", "-p", "x")
+
+    elapsed = time.monotonic() - t0
+    assert (res.returncode, res.stdout) == (0, b"done")
+    events = _stamp_events(stamps)
+    assert [e["event"] for e in events] == ["start", "end"]
+    assert events[1]["t"] - events[0]["t"] >= 0.55
+    assert elapsed < 20

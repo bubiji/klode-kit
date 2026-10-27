@@ -85,9 +85,31 @@ def test_live_claude_recording_replays_byte_for_byte(tmp_path, env):
     sha = IP.sha256_bytes(PNG.read_bytes())
     rec = json.loads((REPO / "tests" / "recordings" / "claude" / f"{sha}.json").read_text(encoding="utf-8"))
     args = _claude_args(tmp_path, "max")
-    assert IC.argv_sha(["claude", *args]) == rec["argv_sha"]
+    # the recording keeps its argv with the recording machine's repository location as a placeholder (its argv_sha
+    # was taken over the real path, so it only holds on that checkout): compare the argv, path mapped to this checkout
+    recorded_root = "<home>/Documents/Claude/Projects/klode-kit"
+    assert [a.replace(str(REPO), recorded_root, 1) if a.startswith(str(REPO) + "/") else a
+            for a in ["claude", *args]] == rec["argv"]
     proc = _run(args, env)
     assert proc.returncode == rec["exit_code"] == 0
     assert proc.stdout.decode("utf-8") == rec["stdout"]
     assert json.loads(proc.stdout)["structured_output"]["lines"]
     assert _run(_claude_args(tmp_path, "high"), env).returncode == 97
+
+
+def test_recording_with_home_placeholder_matches_on_another_checkout(tmp_path, env):
+    """WI-15d: a recording stores the repository location as ``<home>/Documents/Claude/Projects/klode-kit`` while its
+    argv_sha was taken over the recording machine's real path; on another checkout (CI) the argv still matches once
+    the placeholder is mapped to this checkout, and a different argument or a different tail still gets exit 97."""
+    settings = str(REPO / "src" / "klode_kit" / "config" / "cloud_settings.json")
+    args = ["-p", "x", "--settings", settings]
+    rec_dir = tmp_path / "recordings"
+    (rec_dir / "claude").mkdir(parents=True)
+    rec = {"recorded": True, "argv_sha": "0" * 64, "stdout": "from-placeholder-recording", "exit_code": 0,
+           "argv": ["claude", "-p", "x", "--settings",
+                    "<home>/Documents/Claude/Projects/klode-kit/src/klode_kit/config/cloud_settings.json"]}
+    (rec_dir / "claude" / "r.json").write_text(json.dumps(rec), encoding="utf-8")
+    env["KLODE_KIT_RECORDINGS_DIR"] = str(rec_dir)
+    assert _run(args, env).stdout == b"from-placeholder-recording"
+    assert _run(["-p", "y", "--settings", settings], env).returncode == 97
+    assert _run(["-p", "x", "--settings", settings + "2"], env).returncode == 97

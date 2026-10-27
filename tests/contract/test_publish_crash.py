@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import signal
 import subprocess
 import threading
@@ -133,14 +134,25 @@ def test_switch_no_window(tmp_path):
     seen: set[str] = set()
     errors: list[str] = []
 
+    def describe(path) -> str:  # diagnostics only: what the path is at the moment after a failure
+        try:
+            mode = os.lstat(path).st_mode
+        except OSError as exc:
+            return f"lstat failed: {exc!r}"
+        kind = "symlink" if stat.S_ISLNK(mode) else "dir" if stat.S_ISDIR(mode) else "file" if stat.S_ISREG(mode) else "other"
+        return f"lstat type={kind}"
+
     def reader():
         while not stop.is_set():
+            call = "readlink"
             try:
                 target = os.readlink(kb / "current")
                 seen.add(os.path.basename(target))
+                call = "stat"
                 os.stat(kb / "current")  # resolves through the link: dangling raises
             except OSError as exc:
-                errors.append(repr(exc))
+                errors.append(f"{repr(exc)} in os.{call}(current), errno={exc.errno}, {describe(kb / 'current')}, "
+                              f"fs={describe(kb)}")
 
     t = threading.Thread(target=reader)
     t.start()
@@ -150,7 +162,7 @@ def test_switch_no_window(tmp_path):
     finally:
         stop.set()
         t.join()
-    assert errors == [] and seen == set(ids)
+    assert errors == [] and seen == set(ids), (errors[:5], len(errors), sorted(seen))
     assert not os.path.lexists(kb / "current.tmp")
 
 

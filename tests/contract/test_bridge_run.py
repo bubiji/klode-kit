@@ -191,7 +191,7 @@ def test_concurrency_bound(tmp_path, monkeypatch, n, limit):
     root = tmp_path / f"ex-{next(_seq)}"
     root.mkdir()
     stamps = root / "stamps.jsonl"
-    scenario(root, monkeypatch, {"steps": [ok_step(stamps=str(stamps), sleep_s=0.4)]})
+    scenario(root, monkeypatch, {"steps": [ok_step(stamps=str(stamps), sleep_s=0.4, wait_starts=min(n, limit))]})
     tasks = tasks_in(root, n)
 
     receipt = bridge.run(tasks, opts(concurrency=limit))

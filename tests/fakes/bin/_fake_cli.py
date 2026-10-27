@@ -27,6 +27,8 @@ Usage (via the sh wrappers): ``_fake_cli.py <tool> <args...>``.
   cwd), ``sleep_s``, ``write_files_after``, then ``stdout`` / ``stderr`` / ``exit_code``. In paths, contents and
   stdout the literal ``{card}`` is replaced by the card.
   A card named in the last argument (the prompt) is preferred over earlier ones (``--json-schema`` holds a pattern).
+  ``wait_starts: K`` (WI-15d, needs ``stamps``) is a barrier: after its start stamp the call waits until the stamps file
+  holds K start events (at most ``wait_starts_timeout_s``, default 30 s), then goes on (``sleep_s`` ...).
   ``ignore_sigterm`` (bool, applied first) makes this process and the child it spawns ignore SIGTERM.
   A step may carry ``if_prompt_has`` (WI-09c): a text the prompt (last argument) must contain. When the prompt contains
   the text of at least one such step, only those steps are played (in order, counted per prompt); otherwise only the
@@ -62,6 +64,21 @@ def _home_settings() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+# A recording's ``argv`` is stored with the recording machine's repository location replaced by this placeholder
+# (privacy), but its ``argv_sha`` was taken over the real absolute path (``--settings <repo>/src/.../cloud_settings.json``).
+# On another checkout (CI) the sha therefore differs; the argv itself, with the placeholder mapped to this
+# checkout, still equals the one being replayed.
+RECORDED_ROOT = "<home>/Documents/Claude/Projects/klode-kit"
+
+
+def _same_argv(recorded: object, tool: str, args: list[str]) -> bool:
+    if not isinstance(recorded, list) or not all(isinstance(x, str) for x in recorded):
+        return False
+    root = str(Path(__file__).resolve().parents[3])
+    mapped = [root + x[len(RECORDED_ROOT):] if x.startswith(RECORDED_ROOT + "/") else x for x in recorded]
+    return mapped == [tool, *args]
+
+
 def _recording(tool: str, args: list[str], home: dict) -> Path | None:
     default_dir = Path(__file__).resolve().parents[2] / "recordings"
     root = Path(os.environ.get("KLODE_KIT_RECORDINGS_DIR") or home.get("recordings_dir") or default_dir) / tool
@@ -71,7 +88,9 @@ def _recording(tool: str, args: list[str], home: dict) -> Path | None:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if isinstance(data, dict) and data.get("argv_sha") == key and "stdout" in data:
+        if not isinstance(data, dict) or "stdout" not in data:
+            continue
+        if data.get("argv_sha") == key or _same_argv(data.get("argv"), tool, args):
             return path
     return None
 
@@ -131,6 +150,21 @@ def _stamp(path: str, event: str) -> None:
         fh.write(json.dumps({"event": event, "t": time.time(), "pid": os.getpid()}) + "\n")
 
 
+def _starts(path: str) -> int:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return sum(1 for line in fh if '"event": "start"' in line)
+    except OSError:
+        return 0
+
+
+def _wait_starts(path: str, count: int, timeout_s: float) -> None:
+    """Barrier: return once ``count`` start stamps are in the stamps file (or after ``timeout_s``)."""
+    deadline = time.monotonic() + timeout_s
+    while _starts(path) < count and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+
 def _append(path: str, line: str) -> None:
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(line + "\n")
@@ -162,6 +196,8 @@ def _behave(scenario: Path, args: list[str]) -> int:
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
     if step.get("stamps"):
         _stamp(sub(step["stamps"]), "start")
+        if step.get("wait_starts"):
+            _wait_starts(sub(step["stamps"]), int(step["wait_starts"]), float(step.get("wait_starts_timeout_s", 30)))
     if step.get("pid_file"):
         _append(sub(step["pid_file"]), str(os.getpid()))
     if step.get("spawn_child_pid_file"):
