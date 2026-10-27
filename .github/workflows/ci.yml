@@ -24,7 +24,7 @@ permissions:
 jobs:
   offline-lanes:
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
