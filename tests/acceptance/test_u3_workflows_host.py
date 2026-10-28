@@ -128,7 +128,12 @@ def test_u3_workflows_host(first_segment):
     assert sorted(p.name for p in (batch / "pipeline" / "receipts").glob("*.json")) == ["audit.json", "ocr.json",
                                                                                          "preflight.json"]
     assert (batch / "audit" / "a1" / "confirm.html").is_file()
-    assert not (project / "records").exists() and not list(project.glob("kb/*/current"))
+    # user-approved 2026-10-28 (WI-32c): the first segment already writes the records - a disputed page is
+    # pending_confirm - and nothing is published
+    views = {f.name: f.read_text(encoding="utf-8") for f in (project / "records").glob("*.md")}
+    statuses = sorted(json.loads(t[4:t.index("\n---", 4)])["status"] for t in views.values())
+    assert "pending_confirm" in statuses, statuses
+    assert not list(project.glob("kb/*/current"))
 
 
 def test_u3_second_segment_writes_back(first_segment):

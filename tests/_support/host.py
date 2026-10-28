@@ -27,7 +27,7 @@ EVIDENCE = REPO / "work" / "host-spike"
 # Cumulative cap over work/host-spike/costs.jsonl. 10 for WI-00d2; 12.5 for WI-32d (user 2026-10-27: G2 total $20, this WI
 # at most $4 on top of the $8.22 booked when it started; the U3 test reserves 2 x $2 before it calls).
 # 13.5 for WI-32a: the ledger stood at $9.595 when it started, this WI may add at most $4 (G2 total stays $20).
-WI_CAP_USD = 13.5
+WI_CAP_USD = 21.1  # user G2 authorisation 2026-10-27: $20 for this round on top of the $1.50 booked before it (minus $0.33 in costs-wi11b.jsonl)
 
 
 def real_claude() -> str:
