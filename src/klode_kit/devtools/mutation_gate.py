@@ -31,6 +31,11 @@ do not tolerate. Instead:
 
 Score = (killed + timeout) / all mutants, per file and pooled over the files for the receipt.
 
+Explicit test map (WI-15j): modules that tests reach only through a subprocess (``bin/klode-kit mcp`` ...) are never
+named in a test file, so ``[tool.klode_kit.mutation.extra_tests]`` in pyproject.toml lists, per source file, the test
+files / directories to add (unioned with the static and coverage maps; ``tests/cli`` only with ``cli_integration`` in
+``--markers``; a missing path is an error).
+
 Known limits: mutmut mutates inside functions and methods only (module-level constants are not mutated); a test that
 reaches a mutated function only through a process that scrubs the environment will not see the mutant (the pytest
 plugin pins it in-process as well).
@@ -363,8 +368,37 @@ def static_tests(root: Path, rel: str, markers: str) -> list[str]:
     return out
 
 
+def extra_tests(root: Path, rel: str, markers: str) -> list[str]:
+    """Explicit test mapping: ``[tool.klode_kit.mutation.extra_tests]`` in pyproject.toml, ``<source rel path> = [test
+    file or directory, ...]``. For modules that tests reach only through a subprocess (so no test names them). Files are
+    kept only when their lane is selected by ``markers`` (same rule as ``static_tests``); every listed path of every
+    key must exist, else ValueError (a typo must not silently shrink the test set)."""
+    import tomllib
+
+    root = Path(root)
+    pyproject = root / "pyproject.toml"
+    if not pyproject.is_file():
+        return []
+    table = tomllib.loads(pyproject.read_text(encoding="utf-8")).get("tool", {}).get("klode_kit", {}).get("mutation", {}).get("extra_tests", {})
+    for key, paths in table.items():
+        for t in paths:
+            if not (root / t).exists():
+                raise ValueError(f"mutation extra_tests: {key}: path does not exist: {t}")
+    tests = root / "tests"
+    out: set[str] = set()
+    for t in table.get(rel, []):
+        path = root / t
+        for p in ([path] if path.is_file() else sorted(path.rglob("test_*.py"))):
+            parts = p.resolve().relative_to(tests.resolve()).parts if tests.is_dir() and p.resolve().is_relative_to(tests.resolve()) else ()
+            sub = parts[0] if len(parts) > 1 else ""
+            if sub not in STATIC_DIRS or (STATIC_DIRS[sub] and "cli_integration" not in markers):
+                continue
+            out.add(p.relative_to(root).as_posix())
+    return sorted(out)
+
+
 def _with_static(root: Path, rel: str, entry: dict, markers: str) -> dict:
-    static = static_tests(root, rel, markers)
+    static = sorted(set(static_tests(root, rel, markers)) | set(extra_tests(root, rel, markers)))
     whole = set(static)
     covered = sorted({t for ids in entry["funcs"].values() for t in ids if t.split("::")[0] not in whole})
     return {**entry, "static": static, "all": covered + static}

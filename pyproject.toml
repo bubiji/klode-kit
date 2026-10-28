@@ -88,3 +88,59 @@ show_missing = true
 venvPath = "."
 venv = ".venv"
 extraPaths = ["src", "tests", "tests/fixtures"]
+
+# WI-15j: explicit test mapping for the mutation gate (devtools/mutation_gate.py). Source file -> tests that exercise it
+# but never name it (subprocess / CLI only) or name it too indirectly for the static + coverage mapping. Entries under
+# tests/cli only count when the gate's --markers include cli_integration.
+[tool.klode_kit.mutation.extra_tests]
+"src/klode_kit/mcp_wrap.py" = [
+    "tests/cli/test_mcp_wrap.py",
+    "tests/unit/test_mcp_wrap_einval_retry.py",
+    "tests/unit/test_reader_lease_places.py",
+    "tests/unit/test_mcp_render.py",
+]
+"src/klode_kit/u5_probe.py" = [
+    "tests/cli/test_u5_probe_cli.py",
+    "tests/cli/test_u5_probe_check_edges.py",
+    "tests/unit/test_u5_probe.py",
+    "tests/unit/test_u5_probe_edges.py",
+]
+"src/klode_kit/publish.py" = [
+    "tests/cli/test_publish_real_klode.py",
+    "tests/contract/test_publish_protocol.py",
+    "tests/contract/test_publish_edges.py",
+    "tests/contract/test_publish_prune.py",
+    "tests/contract/test_publish_crash.py",
+    "tests/unit/test_publish_logic.py",
+    "tests/unit/test_publish_edges.py",
+    "tests/unit/test_publish_lease_places.py",
+]
+"src/klode_kit/register.py" = [
+    "tests/unit/test_register.py",
+    "tests/unit/test_register_wi15e.py",
+    "tests/cli/test_doctor_cli.py",
+]
+"src/klode_kit/registry_write.py" = [
+    "tests/unit/test_register.py",
+    "tests/unit/test_register_wi15e.py",
+]
+"src/klode_kit/audit/reopen.py" = [
+    "tests/cli/test_reopen_u5_klode.py",
+    "tests/contract/test_reopen_chain.py",
+    "tests/contract/test_reopen_crash.py",
+    "tests/unit/test_reopen.py",
+]
+"src/klode_kit/audit/writeback.py" = [
+    "tests/contract/test_writeback.py",
+    "tests/contract/test_writeback_chain.py",
+    "tests/contract/test_writeback_crash.py",
+    "tests/contract/test_writeback_guards.py",
+    "tests/contract/test_writeback_props.py",
+    "tests/unit/test_writeback_edges.py",
+]
+"src/klode_kit/build/deident.py" = [
+    "tests/cli/test_build_real_klode.py",
+    "tests/unit/test_deident.py",
+    "tests/unit/test_deident_edges.py",
+    "tests/unit/test_deident_text_edges.py",
+]
