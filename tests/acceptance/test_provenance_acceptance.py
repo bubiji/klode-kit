@@ -104,7 +104,8 @@ def _copy(flow: A.Flow, build: Path, dest: Path) -> tuple[Path, Path]:
 
 
 def _body_path(project: Path, rec: str) -> Path:
-    return project / "records" / "_rev" / f"{rec}.r1.md"
+    front = A.front(project / "records" / "_by_id" / f"{rec}.md")
+    return project / "records" / "_rev" / f"{rec}.r{front['effective']['rev']}.md"
 
 
 def _read_body(path: Path) -> dict:

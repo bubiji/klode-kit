@@ -76,9 +76,9 @@ def test_u1_stdout_and_receipt(rig: IntakeRig) -> None:
     for name in ("preflight", "ocr", "audit"):
         assert issues("receipt", rig.receipt(name)) == []
     # replay only: the commands that ran are the launcher's own subcommands, never a bare claude / codex
-    assert {c["argv"][0] for c in rig.calls()} == {"doctor", "kb-ocr", "kb-audit", "confirm-page"}
-    # and it stopped at the human: nothing was written back
-    assert not (rig.project / "records").exists()
+    assert {c["argv"][0] for c in rig.calls()} == {"doctor", "kb-ocr", "kb-audit", "confirm-page", "views"}
+    # and it stopped at the human: the first segment ingested, nothing of the human was written back (WI-32c)
+    assert (rig.project / "records").is_dir()
 
 
 def test_stdout_counts_follow_the_batch_not_the_example(tmp_path: Path) -> None:

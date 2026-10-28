@@ -10,10 +10,15 @@ Stages, in this order (``--stage S`` runs up to and including ``S``; default: al
 
     preflight   ``doctor --project P --receipt <preflight_receipt.json>``
     ocr         ``kb-ocr --batch INBOX --project P [--routes R] [--type T]``
-    audit       ``kb-audit --batch B --project P``; when records await the human, ``confirm-page --batch B``
-                (WI-08b: the kernel, not kb-audit, writes the confirm page). Awaiting = exit 10, the first
-                segment of the two-segment flow (U1/U3): the run ends here until the human's ``choices.json``
-                is given with ``--choices``.
+    audit       ``kb-audit --batch B --project P``; when records await the human (exit 10): the ingest
+                ``kb-audit --batch B --writeback`` (WI-32c: a page without disagreement becomes ``verified``
+                (auto), one with disagreements a ``pending_confirm`` candidate with no effective revision), then
+                ``confirm-page --batch B`` (WI-08b: the kernel, not kb-audit, writes the page; made after the
+                ingest so its ``rev_base`` is the ingested rev), then ``views``. Awaiting = exit 10, the first
+                segment of the two-segment flow (U1/U3): the run ends here, with ``records/`` and ``verified/``
+                already showing what awaits, until the human's ``choices.json`` is given with ``--choices``.
+                Records and views are not products of this stage (the second segment changes them; the stage's
+                inputs/outputs hashes, hence its reuse, are those of the audit artifacts as before).
     writeback   ``kb-audit --batch B --writeback <choices>`` (the human's choices, when given), then
                 ``kb-audit --batch B --writeback`` (ingest), then ``views`` (WI-08d: views are rebuilt after
                 every writeback).
@@ -353,9 +358,21 @@ def _audit_run(ctx: Ctx) -> Outcome:
     code, _ = ctx.child("kb-audit", "--batch", ctx.batch_id, "--project", str(ctx.project))
     reason = classify_child_exit(code)
     if reason is Reason.awaiting_confirm:
+        # WI-32c: the first segment ends with the records on disk. The ingest (the writeback without choices) comes
+        # BEFORE the confirm page so the page's rev_base is the record's current rev (the ingested r1); the second
+        # segment's choices then go on from it. Records and views are not products of this stage (the second segment
+        # changes them, which must not make the audit receipt stale).
+        code, _ = ctx.child("kb-audit", "--batch", ctx.batch_id, "--project", str(ctx.project), "--writeback")
+        if classify_child_exit(code) not in _CONTINUE:
+            return Outcome(classify_child_exit(code), f"kb-audit --writeback (ingest) exit {code}",
+                           _audit_outputs(ctx))
         code, _ = ctx.child("confirm-page", "--batch", ctx.batch_id, "--project", str(ctx.project))
         if code != 0:
             return Outcome(classify_child_exit(code), f"confirm-page exit {code}", _audit_outputs(ctx))
+        code, _ = ctx.child("views", "--project", str(ctx.project))
+        if code != 0:
+            return Outcome(classify_child_exit(code), f"views exit {code}", _audit_outputs(ctx))
+        code = EXIT_CODE[Reason.awaiting_confirm]
     return Outcome(reason, f"kb-audit exit {code}", _audit_outputs(ctx))
 
 

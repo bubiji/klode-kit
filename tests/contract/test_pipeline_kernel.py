@@ -48,7 +48,7 @@ def test_stage_order(rig: F.Rig) -> None:
     assert [rig.receipt(s)["status"] for s in ("preflight", "ocr", "audit")] == ["done"] * 3
     assert [rig.receipt(s)["exit_code"] for s in ("preflight", "ocr", "audit")] == [0, 0, 10]
     # the children, in order: doctor, kb-ocr, kb-audit, then the confirm page (WI-08b); no writeback yet
-    assert [c["argv"][0] for c in rig.calls()] == ["doctor", "kb-ocr", "kb-audit", "confirm-page"]
+    assert [c["argv"][0] for c in rig.calls()] == ["doctor", "kb-ocr", "kb-audit", "kb-audit", "confirm-page", "views"]
     assert (rig.batch_dir / "audit" / "a1" / "confirm.html").is_file()
     summary = json.loads(res.stdout.decode().strip().splitlines()[-1])
     assert summary["exit_code"] == 10 and summary["reason"] == "awaiting_confirm"
@@ -121,14 +121,14 @@ def test_rerun_with_identical_products_keeps_downstream(rig: F.Rig) -> None:
     """The audit step's inputs are the ocr step's recorded products: an ocr rerun that reproduces them leaves
     the audit reusable."""
     assert rig.run().returncode == 10
-    assert len(rig.calls("kb-audit")) == 1
+    assert len(rig.calls("kb-audit")) == 2  # the audit and the ingest of the first segment (WI-32c)
     rec = rig.receipt("ocr")
     rec["outputs"][0]["sha256"] = "b" * 64  # ocr no longer matches its product -> reruns, same bytes again
     (rig.receipts_dir / "ocr.json").write_text(json.dumps(rec), encoding="utf-8")
     assert rig.run().returncode == 10
     assert len(rig.calls("kb-ocr")) == 2
     # the rerun reproduced identical products, so the audit inputs are unchanged: audit is reused
-    assert len(rig.calls("kb-audit")) == 1
+    assert len(rig.calls("kb-audit")) == 2  # audit + its ingest, once each (WI-32c)
 
 
 # ---------------------------------------------------------------- 09a-03 / 09a-04: the project lock
@@ -186,7 +186,7 @@ def test_crash_recovery_dead_pid(rig: F.Rig) -> None:
     now = rig.receipt("preflight")
     assert now["status"] == "done" and now["pid"] != first.pid
     assert rig.receipt_names() == ["preflight", "ocr", "audit"]
-    assert [c["argv"][0] for c in rig.calls()] == ["doctor", "kb-ocr", "kb-audit", "confirm-page"]
+    assert [c["argv"][0] for c in rig.calls()] == ["doctor", "kb-ocr", "kb-audit", "kb-audit", "confirm-page", "views"]
 
 
 def test_running_live_pid_not_stolen(rig: F.Rig) -> None:
@@ -301,7 +301,6 @@ def _all_verified_inbox(rig: F.Rig) -> Path:
 
 def test_resume_with_choices_writes_back_and_rebuilds_views(rig: F.Rig) -> None:
     assert rig.run().returncode == 10
-    assert not (rig.project / "records").exists()  # nothing is written back before the human decides
     choices = _choices(rig)
     res = rig.run("--choices", str(choices), "--stage", "writeback")
     assert res.returncode == 0, res.stderr.decode()
@@ -309,8 +308,8 @@ def test_resume_with_choices_writes_back_and_rebuilds_views(rig: F.Rig) -> None:
     _all_valid(rig)
     cmds = [c["argv"][0] for c in rig.calls()]
     # audit and its confirm page were reused (done), writeback = kb-audit --writeback (choices, ingest), then views
-    assert cmds == ["doctor", "kb-ocr", "kb-audit", "confirm-page", "kb-audit", "kb-audit", "views"]
-    wb = [c["argv"] for c in rig.calls("kb-audit")][1:]
+    assert cmds == ["doctor", "kb-ocr", "kb-audit", "kb-audit", "confirm-page", "views", "kb-audit", "kb-audit", "views"]
+    wb = [c["argv"] for c in rig.calls("kb-audit")][2:]
     stored = rig.batch_dir / "pipeline" / "choices.json"  # the kernel keeps the human's file next to its receipts
     assert stored.read_bytes() == choices.read_bytes()
     assert any("--writeback" in a and str(stored) in a for a in wb)  # choices mode
@@ -324,7 +323,7 @@ def test_resume_without_choices_still_awaits(rig: F.Rig) -> None:
     assert rig.run().returncode == 10
     assert rig.run("--stage", "writeback").returncode == 10
     assert rig.receipt_names() == ["preflight", "ocr", "audit"]
-    assert rig.calls("views") == [] and len(rig.calls("kb-audit")) == 1
+    assert len(rig.calls("views")) == 1 and len(rig.calls("kb-audit")) == 2
 
 
 def test_forged_choices_are_refused_with_30_and_nothing_written(rig: F.Rig) -> None:
@@ -336,8 +335,10 @@ def test_forged_choices_are_refused_with_30_and_nothing_written(rig: F.Rig) -> N
     res = rig.run("--choices", str(path), "--stage", "writeback")
     assert res.returncode == 30
     assert rig.receipt("writeback")["status"] == "failed"
-    assert not (rig.project / "records").exists()
-    assert rig.calls("views") == []
+    # nothing of the human was written: the records are still the first segment's pending/auto ones, no views rerun
+    for p in (rig.project / "records" / "_by_id").glob("*.md"):
+        assert [c["rev"] for c in json.loads(p.read_text(encoding="utf-8")[4:].split("\n---", 1)[0])["candidates"]] == [1]
+    assert len(rig.calls("views")) == 1
 
 
 # ---------------------------------------------------------------- 09a-10

@@ -10,14 +10,13 @@ disagreements). Replay boundary: recorded OCR rows, ``doctor`` stub (the pipelin
 
 Facts the tests state, and one question for the user (impl-deviations "WI-31 待定"):
 
-- the first segment (preflight, ocr, audit) ends at ``awaiting_confirm`` (exit 10) and writes **no** ``records/`` yet:
-  records and their views appear when ``kb-audit --writeback`` ingests the audit (the second segment does it, with or
-  without clicks) and ``views`` rebuilds ``records/``;
+- the first segment (preflight, ocr, audit) ends at ``awaiting_confirm`` (exit 10) and, since WI-32c, has already
+  ingested the audit and rebuilt the views: ``records/`` holds the verified(auto) page and the pending_confirm one;
+  the ingest the helper runs afterwards is idempotent;
 - in ``fx-u3-mixed`` the file ``records/2026-10-22-lab.md`` is the **verified** record of page 1; the pending record of
   page 2 is ``records/2026-10-22-lab-2.md`` (two records of one type and date get ``-2``). 04's wording ("the" file is
   ``pending_confirm``) is read here as "the view of the pending record": the tests find it by its status, and
-  ``test_u3_first_segment_leaves_a_pending_view`` states the literal reading (a pending view at the end of the first
-  segment) as a strict xfail.
+  ``test_u3_first_segment_leaves_a_pending_view`` states it (a pending view at the end of the first segment).
 """
 
 from __future__ import annotations
@@ -74,7 +73,7 @@ def test_u3_pipeline_first_stage(tmp_path):
     assert [(s["stage"], s["exit_code"]) for s in stages] == [("preflight", 0), ("ocr", 0), ("audit", 10)]
     confirm = rig.batch_dir / "audit" / "a1" / "confirm.html"
     assert confirm.is_file()
-    assert not (rig.project / "records").exists()  # nothing is written back before the human (or the ingest)
+    assert (rig.project / "records").is_dir()  # WI-32c: the first segment already ingested and built the views
 
     views = ingest_and_views(rig)
     assert sorted(views) == ["2026-10-22-lab-2.md", "2026-10-22-lab.md"]
@@ -94,15 +93,17 @@ def test_u3_pipeline_first_stage(tmp_path):
     assert todo == {verified["rec_id"]: [], pending["rec_id"]: ["majority", "majority"]}
 
 
-@pytest.mark.xfail(strict=True, reason="04 U3 literal: the first segment writes no records/ yet (WI-31 finding)")
 def test_u3_first_segment_leaves_a_pending_view(tmp_path):
     """U3-01 literal (04): at the end of the first segment ``records/2026-10-22-lab.md`` exists as ``pending_confirm``.
-    Today the first segment ends before any writeback; strict xfail until the user decides what 04 meant."""
+    Since WI-32c the first segment ingests and rebuilds the views (the lab record named in 04 is the verified page 1;
+    the test reads 04's \"the file is pending_confirm\" as the pending record's view, see the module docstring)."""
     rig = F.Rig(tmp_path, "fx-u3-mixed")
     first_segment(rig)
     names = sorted(p.name for p in (rig.project / "records").glob("*.md"))
-    assert "2026-10-22-lab.md" in names
-    assert _front(rig.project / "records" / "2026-10-22-lab.md")["status"] == "pending_confirm"
+    assert names == ["2026-10-22-lab-2.md", "2026-10-22-lab.md"]
+    # 04 names ``2026-10-22-lab.md``; in this fixture that is page 1 (verified), the pending view is ``-lab-2.md``
+    assert _front(rig.project / "records" / "2026-10-22-lab-2.md")["status"] == "pending_confirm"
+    assert _front(rig.project / "records" / "2026-10-22-lab.md")["status"] == "verified"
 
 
 def _flip_one_value(engine: Path, route: str = "claude", page: str = "p001", old: str = "128", new: str = "129") -> int:

@@ -92,7 +92,7 @@ def test_forgiven_fields_keep_their_trace(recorded_run):
             assert "no_geometry" in f["notes"] and f["crop"] is None
         for u in cand["uncertain"]:
             assert u["field_id"] in dispute
-    assert not (rig.project / "records").exists()
+    assert (rig.project / "records").is_dir()  # WI-32c: the first segment ingested
 
 
 def test_a_page_where_all_routes_agree_is_verified_auto(tmp_path):

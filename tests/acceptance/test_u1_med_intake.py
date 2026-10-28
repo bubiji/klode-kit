@@ -74,7 +74,7 @@ def test_u1_med_intake(tmp_path):
         assert sorted(f.name for f in attempts[0].glob("p00*.jsonl")) == ["p001.jsonl", "p002.jsonl", "p003.jsonl"]
 
     # it stopped at the human: the confirm page is the only thing waiting, nothing is written back
-    assert not (rig.project / "records").exists()
+    assert (rig.project / "records").is_dir()  # WI-32c: the first segment ingested; nothing of the human yet
     # the page opened through its folder shows the crops (WI-13c): the link files exist and resolve
     assert (rig.project / "confirm" / "20261022" / "confirm.html").resolve() == (
         rig.batch_dir / "audit" / "a1" / "confirm.html").resolve()
