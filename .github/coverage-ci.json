@@ -1,0 +1,139 @@
+{
+  "coverageThresholds": {
+    "lines": 90,
+    "functions": 0,
+    "branches": 85,
+    "statements": 90
+  },
+  "criticalPaths": [
+    {
+      "glob": "src/klode_kit/contract/provenance.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/audit/align.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S6"
+    },
+    {
+      "glob": "src/klode_kit/contract/ids.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/ocr/isolation_check.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/ocr/isolation_guard.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/ocr/send.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/audit/compare.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S6"
+    },
+    {
+      "glob": "src/klode_kit/audit/writeback.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/audit/reopen.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/build/records_to_txt.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/build/check_cards.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/build/deident.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/build/fix_anchors.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S4"
+    },
+    {
+      "glob": "src/klode_kit/publish.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/register.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    },
+    {
+      "glob": "src/klode_kit/registry_write.py",
+      "thresholds": {
+        "branches": 95,
+        "functions": 0
+      },
+      "requireSpecLevel": "S5"
+    }
+  ],
+  "_note": "CI runs only unit + contract_replay. mcp_wrap.py and u5_probe.py are exercised by the cli_integration lane (real klode-mcp / wrapper processes), which runs locally; their critical-path thresholds are enforced by the local commit gate (.claude/tdd-guardian/config.json), not here."
+}
