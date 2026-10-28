@@ -13,14 +13,16 @@ weakness whitelist on text cells only (``whitelist.Whitelist.key``; numbers and 
 first engine comes first in ``align.ENGINE_ORDER``); a group's ``value`` is its most common ``norm`` (ties: the
 one equal to the key, then ``ENGINE_ORDER``), so it is always one of the candidates.
 
-- ``agree``: exactly one group, every voting route present, and no uncertain code (below).
+- ``agree``: exactly one group, every voting route present, and no *blocking* uncertain code (below). WI-32b: the
+  advisory codes ``no_geometry`` and ``ordinal_shift:<e>`` do not block - they are display / placement doubts, and
+  every route reads the same value (``CellVote.notes`` keeps them, ``uncertain`` is empty).
 - ``majority``: one strictly largest group that does not ``agree``; its value is ``recommended``.
 - ``tie``: two or more groups share the largest size >= 2; ``all_differ``: every present route reads a different
   value (>= 2 present); ``none``: no voting candidate. These three never recommend a value.
 
 ``recommended`` is only a recommendation: ``readings`` keep every voting candidate's ``norm`` as read.
 
-**Uncertain codes** (``CellVote.uncertain``, sorted; any code blocks ``agree``):
+**Uncertain codes** (``CellVote.uncertain``, sorted; any code blocks ``agree`` except the advisory ones):
 
 - the cell's own codes from the alignment, passed through unchanged (``unaligned:<e>``, ``merged_rows:<e>``,
   ``no_geometry``) - design v2 gap 2: alignment doubt is never swallowed;
@@ -36,6 +38,21 @@ one equal to the key, then ``ENGINE_ORDER``), so it is always one of the candida
   holds a number, date or drug (``Alignment.extra_values``): a value nobody placed could belong to any cell, so
   nothing on the page is auto-agreed. These are also listed page-level in ``Comparison.uncertain`` as
   ``(code, route row seq)``.
+
+**Advisory codes (WI-32b, user decision 2026-10-27).** ``no_geometry`` (no exact box to crop with; and, from
+WI-07d, ``no_bbox_crop`` which only exists for cells that are cropped, i.e. not ``agree``) and ``ordinal_shift:<e>``
+only affect how the cell is displayed or where a route's k-th value of a row sits. When every voting route is
+present and they all read one value, the cell agrees anyway: the codes are moved from ``uncertain`` to ``notes``
+(trace; the audit data keeps saying the doubt existed) and the confirm page does not list the cell. They stay
+ordinary ``uncertain`` codes on every cell that does not agree, so a real dispute still lists all its doubts.
+Never advisory: ``unaligned`` / ``merged_rows`` (the row pairing itself is in doubt), ``swap_suspect``,
+``extra_values`` (a value nobody placed), ``missing_cell`` and the tie verdicts. Why ``ordinal_shift`` with equal
+readings is safe: a route that lost a field of a kind on a row has no value in the last cell of that
+``(row, kind)``; that cell lacks the route, so it is a ``missing_cell`` dispute and is still listed (the row's
+crop shows the user the whole row). A cell where the shifted route still has a value and equals the three others
+means that either its value is its own k-th one, or it is the next field's value, which then equals this one -
+in both cases the value every route reports for the cell is the value of this cell, and no wrong value can pass
+that three independent routes did not already agree on.
 
 Every ordering uses ``align.ENGINE_ORDER`` and cell keys, never the order of ``routes`` or of the candidates:
 permuting them changes nothing (matrix 07c-06).
@@ -72,6 +89,7 @@ class CellVote:
     verdict: str
     recommended: str | None
     uncertain: tuple[str, ...]
+    notes: tuple[str, ...] = ()          # advisory doubts of an agreeing cell (trace, never a reason to confirm)
 
     @property
     def agree(self) -> bool:
@@ -89,6 +107,11 @@ class Comparison:
 
     def cell(self, row: int, kind: str, k: int) -> CellVote | None:
         return next((c for c in self.cells if (c.row, c.kind, c.k) == (row, kind, k)), None)
+
+
+def is_advisory(code: str) -> bool:
+    """True for a doubt that never blocks an all-routes-equal cell (module docstring, "Advisory codes")."""
+    return code in ("no_geometry", "no_bbox_crop") or code.startswith("ordinal_shift:")
 
 
 def _rank(engine: str) -> int:
@@ -180,6 +203,7 @@ def compare(al: A.Alignment, *, routes: Sequence[str], routes_enabled: Mapping[s
         grouped = _groups(c.kind, r, wl)
         cell_codes = set(c.uncertain) | codes[key] | page_codes | {f"missing_cell:{e}" for e in missing}
         recommended = None
+        notes: tuple[str, ...] = ()
         if not grouped:
             verdict = NONE
         elif len(grouped) > 1 and len(grouped[0][2]) == len(grouped[1][2]):
@@ -187,10 +211,13 @@ def compare(al: A.Alignment, *, routes: Sequence[str], routes_enabled: Mapping[s
             cell_codes.add(verdict)
         else:
             recommended = grouped[0][1]
-            verdict = AGREE if len(grouped) == 1 and not cell_codes else MAJORITY
+            blocking = [code for code in cell_codes if not is_advisory(code)]
+            verdict = AGREE if len(grouped) == 1 and not blocking else MAJORITY
+            if verdict == AGREE:
+                notes, cell_codes = tuple(sorted(cell_codes)), set()
         out.append(CellVote(c.row, c.kind, c.k, c.col, c.item_label, c.ordinal, c.count,
                             tuple((e, r[e]) for e in _ordered(r)),
                             tuple((value, engines) for _, value, engines in grouped),
-                            missing, verdict, recommended, tuple(sorted(cell_codes))))
+                            missing, verdict, recommended, tuple(sorted(cell_codes)), notes))
     out.sort(key=lambda v: (v.row, v.kind, v.k))
     return Comparison(configured, tuple(out), page)

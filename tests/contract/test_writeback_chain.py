@@ -255,7 +255,7 @@ def check(project: Path, pages: list[dict]) -> None:
                 verified_rows = sum(1 for r in rid if r == run) if auto else 0
                 assert verified_rows <= min(present(p["spec"], route, run) for route in ROUTES), (run, p["spec"])
         else:
-            expected = all(len(rd) == 1 for rd in readings(p["spec"])) and not any(approx)
+            expected = all(len(rd) == 1 for rd in readings(p["spec"]))   # WI-32b: approx geometry no longer blocks
             assert auto == expected, (p["spec"], front["candidates"][-1])
 
 
@@ -281,11 +281,11 @@ def test_example_approx_record_not_verified_exact_record_verified(tmp_path):
     """08c-10 ``@example`` stated directly (S1): the approx-only record is pending, the exact one verified(auto)."""
     specs = [(["血红蛋白 128 g/L"], [True], _keep_all(1)), (["尿素 7.3 mmol/L"], [False], _keep_all(1))]
     project, b, pages = build(tmp_path, specs)
-    assert stage.run(project, b, out=io.StringIO()) == 10
-    assert WB.run(project, b, None, out=io.StringIO(), stdout=io.StringIO()) == 10
+    assert stage.run(project, b, out=io.StringIO()) == 0     # WI-32b: both records verify
+    assert WB.run(project, b, None, out=io.StringIO(), stdout=io.StringIO()) == 0
     fronts = [W.front(project, ids.rec_id({"doc_id": p["doc_id"], "page_id": p["page_id"], "record_idx": 0}))
               for p in pages]
-    assert "effective" not in fronts[0] and fronts[0]["status"] == "pending_confirm"
+    assert fronts[0]["effective"]["verified_by"] == "auto" and fronts[0]["status"] == "verified"
     assert fronts[1]["effective"]["verified_by"] == "auto" and fronts[1]["status"] == "verified"
 
 
@@ -300,11 +300,12 @@ def test_no_geometry_row_never_auto_verified(tmp_path):
     project.mkdir()
     b, adir = W.audited(project, W.APPROX)
     code, receipt, err = W.submit(project, None, tmp_path, batch_id=b)
-    assert code == 10, err
+    assert code == 0, err     # WI-32b: four equal routes verify despite approx-only geometry
     (cand,) = W.candidates(adir)
     front = W.front(project, cand["rec_id"])
-    assert "effective" not in front
-    assert front["candidates"][-1]["status"] == "pending_confirm"
-    assert any(u["reason"] == "no_geometry" for u in front["candidates"][-1]["uncertain"])
-    assert front["status"] == "pending_confirm"
+    assert front["effective"]["verified_by"] == "auto"
+    assert front["candidates"][-1]["status"] == "verified"
+    assert front["candidates"][-1]["uncertain"] == []
+    assert any("no_geometry" in f["notes"] for f in cand["fields"])
+    assert front["status"] == "verified"
     assert receipt["per_record"][0]["result"] == "committed"

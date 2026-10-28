@@ -86,11 +86,9 @@ def voting(c: A.Cell) -> dict[str, str]:
 
 def law_agree(c: A.Cell, al: A.Alignment) -> bool:
     reads = voting(c)
-    group = [g for g in al.cells if (g.row, g.kind) == (c.row, c.kind)]
-    route_sets = {frozenset(voting(g)) for g in group}
     extras = any(e in ROUTES4 and seqs for e, seqs in al.extra_values.items())
-    return (set(reads) == set(ROUTES4) and len(set(reads.values())) == 1 and c.uncertain == ()
-            and len(route_sets) == 1 and not extras)
+    return (set(reads) == set(ROUTES4) and len(set(reads.values())) == 1 and all(u == "no_geometry" for u in c.uncertain)
+            and not extras)   # WI-32b: no_geometry / ordinal_shift are advisory
 
 
 # --------------------------------------------------------------------------- 07c-05 / 06 / 07 properties
@@ -262,8 +260,8 @@ def test_alignment_uncertain_passes_through():
     assert flagged
     for c in flagged:
         v = res.cell(c.row, c.kind, c.k)
-        assert "no_geometry" in v.uncertain
-        assert not v.agree
+        assert "no_geometry" in v.notes     # WI-32b: kept as a note, not a reason to confirm
+        assert v.agree and v.uncertain == ()
         assert len(set(voting(c).values())) == 1 and len(voting(c)) == 4
 
 
@@ -304,10 +302,10 @@ def test_ordinal_shift_marks_row_kind():
         cell(1, "number", 0, {"vision": "7", "mlx": "7", "claude": "7", "codex": "7"}),
     ])
     res = C.compare(al, routes=ROUTES4, whitelist=W.EMPTY)
-    for k in (0, 1):
-        v = res.cell(0, "number", k)
-        assert "ordinal_shift:mlx" in v.uncertain and not v.agree
-    assert "missing_cell:mlx" in res.cell(0, "number", 1).uncertain
+    first = res.cell(0, "number", 0)       # WI-32b: all four read 5 -> agrees, the shift is a note
+    assert first.agree and first.notes == ("ordinal_shift:mlx",) and first.uncertain == ()
+    last = res.cell(0, "number", 1)
+    assert not last.agree and {"ordinal_shift:mlx", "missing_cell:mlx"} <= set(last.uncertain)
     assert res.cell(0, "unit", 0).agree
     assert res.cell(1, "number", 0).agree
 

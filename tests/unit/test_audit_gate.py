@@ -246,7 +246,7 @@ def test_candidate_verified_implies_clean(scene):
     v = G.judge(cmp, rec_id=REC_ID, page_id=PAGE_ID, cell_codes=crop,
                 page_uncertain=[page_entry(r, e) for r, e in page])
 
-    clean = (bool(grid) and not codes and not crop and not extra and not page
+    clean = (bool(grid) and not any(c != "no_geometry" for cs in codes.values() for c in cs) and not crop and not extra and not page
              and all(set(reads) == set(VOTERS) and len(set(reads.values())) == 1 for reads in grid.values()))
     assert (v.status == G.VERIFIED) == clean
     if v.status == G.VERIFIED:

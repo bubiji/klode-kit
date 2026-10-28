@@ -21,6 +21,10 @@ and for every extra cell code (``no_bbox_crop`` from the crop index). Status:
   missing route, and the uncertain list is empty (K1, r2.3 source 1: decided by the vote, never relaxed here);
 - ``pending_confirm`` otherwise.
 
+WI-32b: the advisory doubts of an agreeing cell (``no_geometry``, ``ordinal_shift:<e>``; see ``compare``) are
+not uncertain entries: they ride on the field as ``notes`` (trace), so a page whose cells all agree is still
+``verified`` with an empty uncertain list and the confirm page does not list those cells.
+
 The gate decides a **candidate** only; ``effective`` is advanced by WI-08c writeback alone (r4.1).
 """
 
@@ -188,7 +192,8 @@ def judge(comparison: Any, *, rec_id: str, page_id: str, page_uncertain: Iterabl
             e = entry(code, page_id=page_id, field_id=fid, row=v.row)
             entries.setdefault(e["id"], e)
         fields.append({"field_id": fid, "verdict": v.verdict, "recommended": v.recommended,
-                       "missing": list(v.missing), "uncertain": codes})
+                       "missing": list(v.missing), "uncertain": codes,
+                       "notes": list(v.notes)})
     uncertain = tuple(entries.values())
     if any(e["scope"] == PAGE for e in uncertain):
         status, by = DISPUTED, None
