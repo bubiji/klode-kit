@@ -57,13 +57,33 @@
    "at": "2026-10-22T21:32"
   },
   "5": {
-   "status": "pending"
+   "status": "pass",
+   "input_digest": "abca8c7f2cfab96a",
+   "inputs": [
+    "07-TDD计划.md"
+   ],
+   "note": "M0–M3 全部 WI DONE（含 13c、15c–15m、32a–32d），实现模型 Sonnet 5.5（主会话 Opus）；release-mode lanes: unit 3487 / contract_replay 916 / cli_integration 306 全 PASS；关键路径变异池化 0.844（18 文件 14700 变异体）；CI macOS 全绿；release_check 仅缺 model_integration/host_acceptance 两条 G2 lane 回执（预算所限，遗留）",
+   "at": "2026-10-30T06:09"
   },
   "6": {
-   "status": "pending"
+   "status": "pass",
+   "input_digest": "eb2206c3c0f8edaf",
+   "inputs": [
+    "04-需求摘要与usercase.md",
+    "07-TDD计划.md"
+   ],
+   "artifact": "08-验收对照表.md",
+   "note": "U1–U8 自动化+G2 真跑全过；U5/U8 用户亲手复核未做——用户授权自主收口（「超时就自动决策 我不管了」），列为遗留 issue",
+   "at": "2026-10-30T06:10"
   },
   "7": {
-   "status": "pending"
+   "status": "pass",
+   "input_digest": "8c7d08dbede2f9da",
+   "inputs": [
+    "08-验收对照表.md"
+   ],
+   "note": "遗留转 issue #3–#7；复盘写入 08；README/目录说明已在 WI-30 更新",
+   "at": "2026-10-30T06:10"
   }
  }
 }
