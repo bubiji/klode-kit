@@ -1,5 +1,9 @@
 {
   "lanes": {
+    "cli_integration": {
+      "ever_had_tests": true,
+      "first_seen": "2026-10-29T21:07:33+00:00"
+    },
     "contract_replay": {
       "ever_had_tests": true,
       "first_seen": "2026-10-22T12:57:33+00:00"
