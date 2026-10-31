@@ -39,8 +39,10 @@ cloud routes), ``der_sha256``, ``run_id``. ``col`` is the cluster of token ``x0`
 ``geom`` names that route. Approx tokens count only on rows that also carry an exact token (R3-05); on a row
 without exact geometry ``col``/``geom`` are ``None`` and the cell is ``no_geometry``. ``ordinal``/``count``
 number the cells of one kind with the same reference value (the most common candidate ``norm``) in row order,
-so repeated values stay separate cells. ``item_label`` is the row's item slug: the leftmost non-numeric
-whitespace piece (cut at a colon, so ``姓名：<name>`` labels as ``姓名``) by majority over the routes (a label a
+so repeated values stay separate cells. ``item_label`` is the row's item slug: the whole label prefix
+(WI-33k: from the leftmost non-numeric piece to the first number/date/unit/drug field, pieces joined without
+whitespace beside CJK or after ``-``, cut at a colon, so ``姓名：<name>`` labels as ``姓名`` and pdftotext's
+``D- 二聚体测定`` as ``D-二聚体测定``) by majority over the routes (a label a
 single route split, like tesseract's ``血红 蛋白``, loses), resolved through ``items.yaml``; unknown items of rows
 holding a number or drug cell are ``Alignment.new_items``.
 
@@ -76,6 +78,7 @@ LINE_SIM_TAU = 0.6
 COL_GAP_PX = 20
 NO_GEOMETRY = "no_geometry"
 VALUE_KINDS = ("number", "date", "drug")
+LABEL_STOPS = ("number", "date", "drug", "unit")
 
 _WS = re.compile(r"\s+")
 _COLON = re.compile(r"[:：]")
@@ -419,12 +422,38 @@ def _place(fields: list[F.Field], rr: _RRow, row: int, engine: str, out: dict) -
         out.setdefault((row, f.kind, k), {})[engine] = _candidate(rr, f)
 
 
-def _label(text: str) -> str | None:
-    """The leftmost whitespace piece (cut at a colon) with a word character and no digit."""
-    for piece in text.split():
-        piece = _COLON.split(piece, 1)[0]
-        if _WORD.search(piece) and not any(ch.isdigit() for ch in F.fold(piece)):
-            return piece
+_CJK = re.compile(r"[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]")
+
+
+def _joined(left: str, right: str) -> str:
+    """Whitespace between label pieces goes when either side is CJK or the left piece ends with ``-``."""
+    if _CJK.search(left[-1:]) or _CJK.search(right[:1]) or left.endswith("-"):
+        return left + right
+    return left + " " + right
+
+
+def _label(text: str, fields: Sequence[F.Field] = ()) -> str | None:
+    """The whole label prefix: from the first word piece (no digit) up to the first value field, cut at a colon.
+
+    Pieces are joined by :func:`_joined` (pdftotext splits ``D- 二聚体测定`` and ``B 型钠尿肽``).
+    """
+    pieces = list(re.finditer(r"\S+", text))
+    for i, m in enumerate(pieces):
+        piece = _COLON.split(m.group(), 1)[0]
+        if not (_WORD.search(piece) and not any(ch.isdigit() for ch in F.fold(piece))):
+            continue
+        stop = min((f.start for f in fields if f.kind in LABEL_STOPS and f.start >= m.start()), default=len(text))
+        label = piece
+        if piece == m.group():
+            for n in pieces[i + 1:]:
+                if n.start() >= stop:
+                    break
+                tail = _COLON.split(n.group(), 1)[0]
+                if tail:
+                    label = _joined(label, tail)
+                if tail != n.group():
+                    break
+        return label
     return None
 
 
@@ -514,7 +543,7 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
             fields = F.extract(rr.text)
             if len(rows) == 1:
                 _place(fields, rr, rows[0], engine, found)
-                label = _label(rr.text)
+                label = _label(rr.text, fields)
                 if label is not None:
                     labels.setdefault(rows[0], []).append((engine, label))
                 continue
