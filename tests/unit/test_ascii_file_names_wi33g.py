@@ -120,5 +120,5 @@ def test_file_stem_is_total_ascii_safe_stable_idempotent(label):
     assert SRC_PATH_NAME.match(stem) and not stem.startswith(".")
     assert stem == items_mod.file_stem(slug)
     assert items_mod.file_stem(stem) == stem
-    if SRC_PATH_NAME.match(slug) and not slug.startswith("."):
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{2,}", slug):  # spec change WI-33j (klode card-name rule)
         assert stem == slug

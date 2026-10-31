@@ -577,7 +577,15 @@ class Build:
 
     def step_desk_verify(self) -> Result:
         rc, _, _ = self.kit("desk-build", str(self.dir), "--verify", "--project", str(self.project))
-        return Result(rc_reason(rc, Reason.content_gate), f"desk-build --verify exit {rc}" if rc else "desk verified")
+        if rc:
+            return Result(rc_reason(rc, Reason.content_gate), f"desk-build --verify exit {rc}")
+        # check_strict (step 9) runs before the desk syntheses exist: run it again so what they introduce is seen (P16)
+        src, text, err = self.klode_run("check", "--strict")
+        last = (text.strip().splitlines() or [""])[-1]
+        if src == 0 and "0 errors, 0 warning(s)" in last:
+            return Result(Reason.ok, f"desk verified; strict after desk: {last}")
+        return Result(Reason.content_gate, f"strict after desk: klode check --strict exit {src}: {last}"[:300],
+                      report=text + err)
 
     def step_gen_agent(self) -> Result:
         out = self.dir / "agent" / f"{self.kb_id}-klode-expert.md"

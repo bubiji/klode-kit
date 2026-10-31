@@ -74,6 +74,7 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit build --kb kb/KB_ID --source BOOK.txt --shel
    库登记表、专家 agent 文件和 `settings.local.json`，写的是用户全局目录的部分属于手动闸门：只在用户明确同意后做，不要自己发布。
 
 书桌验收以**留出集**为准（`desk_verify` 步，至少 5 题、命中率不低于 0.8）。留出集在首次 `desk-build --verify` 时冻结（`src/holdout.freeze.json`），
+书桌综合（desk syntheses）在 `check_strict` 之后才生成，所以 `desk_verify` 步在留出集验收后会**再跑一次** `klode check --strict`，有任何警告即失败（与 kb-check 的 strict 行一致，回执 detail 为 `strict after desk: …`）。卡片名需符合 klode 的 `[A-Za-z0-9][A-Za-z0-9-]{2,}`，过短或含 `.`/`_` 的项目名文件名用 `u-<10位hex>`（WI-33j）。
 之后改动要加 `--refreeze --reason` 并写明原因。记录路径的合成是程序按卡片锚点机械生成的索引，不需要 worker。
 
 ## 三、顺序约束
