@@ -40,10 +40,10 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit med-intake --inbox INBOX_DIR
 ## 第二段：写回（用户说「分歧我点完了」之后）
 
 ```
-${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline --batch INBOX_DIR --choices choices.json --stage writeback
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline --batch INBOX_DIR --choices choices.json --stage writeback [--type T] [--routes R]
 ```
 
-`INBOX_DIR` 与第一段是同一个目录；第一段带过 `--type` 的，这里原样再带一次。**必须带 `--stage writeback`**：流水线默认一路跑到建库和发布，这里只做写回。
+`INBOX_DIR` 与第一段是同一个目录；第一段带过 `--type`、`--routes` 的，这里原样再带一次（漏了 `--routes` 时 doctor 按可能用云端要求工作区信任，可能停在 preflight，exit 40）。**必须带 `--stage writeback`**：流水线默认一路跑到建库和发布，这里只做写回。
 写回顺序是：先落点选、再入账其余已一致的候选、最后重建 `records/` 与 `verified/` 视图。输出最后是一行 JSON（批次号、各阶段、退出码）。
 
 - 0 全部 verified；10 还有记录在等（比如留了「都不对」没手输，那条是 `disputed`，不会进构建输入）。
