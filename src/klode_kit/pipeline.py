@@ -30,6 +30,12 @@ Stages, in this order (``--stage S`` runs up to and including ``S``; default: al
                 rollback is not undone by a resume). A registration that fails ends the run with exit 21 and the
                 pointer stays; the next ``--resume`` repeats only that action.
 
+WI-33d (real-data pilot P8): the audit stage ends with exit 20 (content gate) when pages were read and the audit made
+no record for them - for a batch with a record type (``--type`` / ``audit_type``) every page counts, text-layer pages
+included; without a type only pages that are not text-layer pages count (a text-layer book or guide has none, U4).
+Never "ok". ``audit_type`` is the type ``med-intake`` decided from the headers; it goes to ``kb-audit --type`` and into
+the audit stage's inputs, never to ``kb-ocr``.
+
 A stage without a ``run`` (a registry entry replaced by a test) is reported and the run ends with exit 2 - it never
 writes a receipt and never passes.
 
@@ -264,6 +270,11 @@ class Ctx:
     done: dict[str, dict] = field(default_factory=dict)
     last_stage: str | None = None  # WI-33b: the last stage of this run; doctor skips project_trust for local-only runs
     record_type: str | None = None  # WI-13c: explicit document type, handed to kb-ocr (``--type``)
+    audit_type: str | None = None  # WI-33d: the type med-intake decided (header), handed to kb-audit only (``--type``)
+
+    @property
+    def effective_type(self) -> str | None:
+        return self.audit_type or self.record_type
 
     @property
     def batch_dir(self) -> Path:
@@ -361,9 +372,49 @@ def _audit_outputs(ctx: Ctx) -> list[str]:
             if (adir / n).is_file()]
 
 
+def _audit_inputs(ctx: Ctx) -> Any:
+    inputs = _after("ocr")(ctx)
+    if ctx.audit_type:  # only when given: a run that audited nothing without the type is not reused for it (WI-33d)
+        inputs["type"] = ctx.audit_type
+    return inputs
+
+
+def _candidate_count(batch_dir: Path) -> int:
+    adir = newest_audit_rev(batch_dir)
+    path = None if adir is None else adir / "candidates.jsonl"
+    if path is None or not path.is_file():
+        return 0
+    return sum(1 for x in path.read_text(encoding="utf-8").splitlines() if x.strip())
+
+
+def zero_record_message(batch_dir: Path, record_type: str | None) -> str | None:
+    """WI-33d (real-data pilot P8): the failure text when pages were read but the audit made no record for them, else
+    ``None``. A page that must yield a record is every page of a batch with a record type (lab / rx) and every page
+    that is not a text-layer page; a text-layer batch without a type is a book or a guide (U4) and legitimately has
+    none. Success with nothing ingested is never reported."""
+    try:
+        pages = json.loads((batch_dir / "receipt.json").read_text(encoding="utf-8")).get("pages") or []
+    except (OSError, ValueError):
+        return None
+    wanted = [p for p in pages if record_type or p.get("text_class") != "text"]
+    if not wanted or _candidate_count(batch_dir) > 0:
+        return None
+    kind = f"a {record_type} batch" if record_type else "a batch"
+    return (f"kb-audit produced 0 records for the {len(wanted)} page(s) of {kind}: nothing was ingested "
+            f"(batch {batch_dir.name}); this is not 'nothing to confirm'")
+
+
 def _audit_run(ctx: Ctx) -> Outcome:
-    code, _ = ctx.child("kb-audit", "--batch", ctx.batch_id, "--project", str(ctx.project))
+    args = ["kb-audit", "--batch", ctx.batch_id, "--project", str(ctx.project)]
+    if ctx.audit_type:
+        args += ["--type", ctx.audit_type]
+    code, _ = ctx.child(*args)
     reason = classify_child_exit(code)
+    if reason in _CONTINUE:
+        lost = zero_record_message(ctx.batch_dir, ctx.effective_type)
+        if lost is not None:
+            print(f"pipeline: {lost}", file=ctx.out)
+            return Outcome(Reason.content_gate, "audit produced no record", _audit_outputs(ctx))
     if reason is Reason.awaiting_confirm:
         # WI-32c: the first segment ends with the records on disk. The ingest (the writeback without choices) comes
         # BEFORE the confirm page so the page's rev_base is the record's current rev (the ingested r1); the second
@@ -485,7 +536,7 @@ def default_registry() -> dict[str, Stage]:
     return {
         "preflight": Stage("preflight", _preflight_inputs, _preflight_run),
         "ocr": Stage("ocr", _ocr_inputs, _ocr_run),
-        "audit": Stage("audit", _after("ocr"), _audit_run),
+        "audit": Stage("audit", _audit_inputs, _audit_run),
         "writeback": Stage("writeback", _writeback_inputs, _writeback_run),
         "build": Stage("build", _after("writeback"), _build_run),
         "check": Stage("check", _after("build"), _check_run),
@@ -574,14 +625,15 @@ def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | No
         choices: str | os.PathLike | None = None, routes: str | None = None,
         launcher: str | os.PathLike | None = None, registry: Mapping[str, Stage] | None = None,
         env: Mapping[str, str] | None = None, out: TextIO | None = None, stdout: TextIO | None = None,
-        record_type: str | None = None) -> int:
+        record_type: str | None = None, audit_type: str | None = None) -> int:
     out = sys.stderr if out is None else out
     stdout = sys.stdout if stdout is None else stdout
     project, inbox = Path(project), Path(inbox)
     last = stage or STAGE_NAMES[-1]
-    if record_type is not None and record_type not in RECORD_TYPES:
-        print(f"pipeline: unknown document type {record_type!r}; types: {', '.join(RECORD_TYPES)}", file=out)
-        return _finish(Reason.usage, None, None, [], stdout, f"unknown type {record_type!r}")
+    for given in (record_type, audit_type):
+        if given is not None and given not in RECORD_TYPES:
+            print(f"pipeline: unknown document type {given!r}; types: {', '.join(RECORD_TYPES)}", file=out)
+            return _finish(Reason.usage, None, None, [], stdout, f"unknown type {given!r}")
     if last not in STAGE_NAMES:
         print(f"pipeline: unknown stage {last!r}; stages: {', '.join(STAGE_NAMES)}", file=out)
         return _finish(Reason.usage, None, None, [], stdout, f"unknown stage {last!r}")
@@ -614,7 +666,7 @@ def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | No
     shas = [s.sha256 for s in images]
     batch_id = ids.batch_id(shas)
     ctx = Ctx(project, inbox, batch_id, shas, launcher_path, routes, dict(os.environ if env is None else env),
-              cfg, out, choices_path, record_type=record_type, last_stage=last)
+              cfg, out, choices_path, record_type=record_type, last_stage=last, audit_type=audit_type)
     reg = dict(default_registry() if registry is None else registry)
     work = project / "work"
     os.makedirs(work, exist_ok=True)

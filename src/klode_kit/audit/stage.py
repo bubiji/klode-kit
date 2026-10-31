@@ -2,12 +2,11 @@
 
 Usage::
 
-    klode-kit kb-audit --batch <batch_id> [--project <data project>]
+    klode-kit kb-audit --batch <batch_id> [--project <data project>] [--type lab|rx]
     klode-kit kb-audit --writeback [<choices.json>] ...        (WI-08c, audit/writeback.py)
     klode-kit kb-audit --reopen <field_id> [--reason ...] ...  (WI-08e, audit/reopen.py)
 
-It reads the kb-ocr batch receipt ``work/<batch>/receipt.json`` (WI-04b) and, for every page the routes read
-(text-layer PDF pages are not audited), aligns the routes' lines (WI-07b), votes every cell (WI-07c), crops the
+It reads the kb-ocr batch receipt ``work/<batch>/receipt.json`` (WI-04b) and, for every page the routes read, aligns the routes' lines (WI-07b), votes every cell (WI-07c), crops the
 cells that do not agree (WI-07d) and gates the page's record (``audit.gate``). Layout::
 
     work/.lock                                  the project lock kb-ocr also takes (fcntl, pid + batch)
@@ -21,10 +20,22 @@ cells that do not agree (WI-07d) and gates the page's record (``audit.gate``). L
 
 Rules
 
+- **Text-layer pages** (WI-33d, real-data pilot P8). A PDF page with a text layer makes no OCR route call; its
+  ``pdftext`` rows (``text/<key>.jsonl``, exact word boxes, design R2-08) are the page's one voting route. They are
+  audited only when the batch has a record type (``--type`` or the receipt's ``record_type``: a lab report or a
+  prescription, whose fields are records). Without a type the pages are book / guide text (U4) and are not audited:
+  "every page has a text layer; nothing to audit", exit 0, no audit revision. Trust (decision D-35): the gate is
+  unchanged - a page is ``verified`` (auto) when it has a cell, every cell agrees and nothing is uncertain, and
+  the voting route (pdftext, the PDF's own characters: no recognition error) is present on every cell. The gate asks
+  for every voting route, not for two; a rule "at least two routes" would leave a pending record with no field the
+  confirm page lists (it lists disagreeing cells only), a state nobody can resolve. What one route cannot see is the
+  cross-route checks (swap, shift, extra value); only the row alignment's own doubts (``unaligned``, ``merged_rows``)
+  can still send a text-layer record to the human. ``runs.json`` then names the route: ``"pdftext": "text-layer"``.
 - **Audit revision** (r3.2): the run set is ``{route: run_id}`` of the receipt's ``attempts`` (``null`` for a
   route that made no attempt, e.g. disabled). It is compared with the latest ``a<N>``: equal -> ``a<N>`` is
   reused (only artifacts a killed run left missing are written; a complete ``a<N>`` is not written at all);
-  different -> a new ``a<N+1>``. ``a<N>`` is never rewritten: ``runs.json``, ``cells.jsonl``,
+  different -> a new ``a<N+1>``; a revision whose records do not cover the pages now to audit (a text-layer
+  page that a record type has just made auditable) is not reused. ``a<N>`` is never rewritten: ``runs.json``, ``cells.jsonl``,
   ``candidates.jsonl`` and ``confirm.html`` go through ``write_once`` (a second write raises
   ``WriteOnceViolation``; the files are made read-only).
 - **Candidates only** (r4.1): kb-audit writes candidate records under ``a<N>``; it never writes ``records/`` and
@@ -60,6 +71,8 @@ from klode_kit.audit import gate as G
 from klode_kit.contract import ids, schema
 from klode_kit.seams import crashpoint
 
+RECORD_TYPES = ("lab", "rx")
+TEXT_RUN = "text-layer"  # runs.json value of the pdftext route: its rows have no run of their own (``text/<key>``)
 WRITE_ONCE = ("runs.json", "cells.jsonl", "candidates.jsonl", "confirm.html")
 LOG_NAME = "uncertain_log.jsonl"
 LOCK_NAME = ".lock"
@@ -247,15 +260,25 @@ def _lock(work: Path, batch: str) -> int:
 # --------------------------------------------------------------------------- the stage
 
 
-def _claim(root: Path, runs: Mapping[str, str | None]) -> tuple[int, bool]:
-    """``(n, new)``: the latest revision when its run set is ``runs`` (or it was claimed by a killed run before
-    its runs.json was written), else a new ``a<N+1>``."""
+def _covers(adir: Path, page_ids: Iterable[str]) -> bool:
+    """False when the revision's records (if it has them yet) are not exactly the pages to audit."""
+    path = adir / "candidates.jsonl"
+    if not path.exists():
+        return True
+    done = {json.loads(x)["page_id"] for x in path.read_text(encoding="utf-8").splitlines() if x.strip()}
+    return done == set(page_ids)
+
+
+def _claim(root: Path, runs: Mapping[str, str | None], page_ids: Iterable[str] | None = None) -> tuple[int, bool]:
+    """``(n, new)``: the latest revision when its run set is ``runs`` and it covers ``page_ids`` (or it was claimed
+    by a killed run before its runs.json was written), else a new ``a<N+1>``."""
     found = sorted(int(m.group(1)) for p in root.iterdir() if p.is_dir() and (m := _REV_DIR.fullmatch(p.name))) \
         if root.is_dir() else []
     if found:
         last = found[-1]
         rp = root / f"a{last}" / "runs.json"
-        if not rp.exists() or json.loads(rp.read_text(encoding="utf-8")) == dict(runs):
+        if not rp.exists() or (json.loads(rp.read_text(encoding="utf-8")) == dict(runs)
+                               and (page_ids is None or _covers(root / f"a{last}", page_ids))):
             return last, False
     n = (found[-1] + 1) if found else 1
     _ensure_dir(root)
@@ -284,6 +307,23 @@ def _rows(batch_dir: Path, page: Mapping[str, Any]) -> dict[str, list[dict]]:
     return out
 
 
+def _text_rows(batch_dir: Path, page: Mapping[str, Any]) -> dict[str, list[dict]]:
+    """``{"pdftext": rows}`` of a text-layer page: the rows of ``text/<key>.jsonl``, traced by ``run_id`` =
+    ``text/<key>`` (contract: a text-layer line has no run of its own)."""
+    path = batch_dir / str(page.get("text_file") or f"text/{page.get('key')}.jsonl")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise AuditError(f"{page['page_id']}: text-layer file is missing: {exc}") from exc
+    rows = []
+    for line in text.splitlines():
+        if line.strip():
+            row = json.loads(line)
+            row["run_id"] = f"text/{path.stem}"
+            rows.append(row)
+    return {"pdftext": rows}
+
+
 def _cell_line(rec_id: str, vote: C.CellVote, cell: A.Cell) -> dict:
     return {"field_id": f"{rec_id}/{G.slot(vote.row, vote.kind, vote.k)}", "rec_id": rec_id,
             "slot": G.slot(vote.row, vote.kind, vote.k),
@@ -296,7 +336,10 @@ def _cell_line(rec_id: str, vote: C.CellVote, cell: A.Cell) -> dict:
 
 def _audit_page(project: Path, batch_id: str, n: int, batch_dir: Path, page: Mapping[str, Any],
                 routes: list[str], write_crops: bool) -> tuple[list[dict], dict]:
-    rows = _rows(batch_dir, page)
+    if page.get("text_class") == "text":
+        rows, routes = _text_rows(batch_dir, page), ["pdftext"]  # WI-33d: the text layer is the page's one route
+    else:
+        rows = _rows(batch_dir, page)
     al = A.align(rows) if rows else A.Alignment(None, (), {}, (), ())
     cmp = C.compare(al, routes=routes)
     crops: dict[tuple[int, str, int], dict] = {}
@@ -328,7 +371,7 @@ def _audit_page(project: Path, batch_id: str, n: int, batch_dir: Path, page: Map
     return lines, candidate
 
 
-def run(project: Path, batch_id: str, *, out: TextIO | None = None) -> int:
+def run(project: Path, batch_id: str, *, out: TextIO | None = None, record_type: str | None = None) -> int:
     out = sys.stderr if out is None else out
     work = project / "work"
     batch_dir = work / batch_id
@@ -346,13 +389,16 @@ def run(project: Path, batch_id: str, *, out: TextIO | None = None) -> int:
         if rec.get("schema") != BATCH_RECEIPT or rec.get("batch_id") != batch_id:
             raise AuditError(f"{receipt_path} is not the kb-ocr receipt of batch {batch_id}")
         routes = list(rec["routes"])
-        pages = [p for p in rec["pages"] if p.get("text_class") != "text"]
+        typed = record_type or rec.get("record_type")  # WI-33d: a lab / rx batch audits its text-layer pages too
+        pages = [p for p in rec["pages"] if typed or p.get("text_class") != "text"]
         if not pages:
             print(f"kb-audit: batch {batch_id}: every page has a text layer; nothing to audit", file=out)
             return 0
         runs = {r: (rec.get("attempts", {}).get(r) or {}).get("run_id") for r in routes}
+        if any(p.get("text_class") == "text" for p in pages):
+            runs["pdftext"] = TEXT_RUN  # a route of this revision (the writeback and the confirm page read it here)
         root = batch_dir / "audit"
-        n, new = _claim(root, runs)
+        n, new = _claim(root, runs, [p["page_id"] for p in pages])
         adir = root / f"a{n}"
         audit_rev = ids.audit_rev(batch_id, n)
         if not (adir / "runs.json").exists():
@@ -391,6 +437,9 @@ def main(argv: list[str] | None = None) -> int:
                                                  "(WI-08c).")
     parser.add_argument("--batch", default=None, help="batch id (12 hex characters, the work/<batch> directory)")
     parser.add_argument("--project", type=Path, default=None, help="data project directory (default: cwd)")
+    parser.add_argument("--type", dest="record_type", choices=RECORD_TYPES, default=None,
+                        help="document type of the batch (lab / rx): its text-layer pages are audited as records "
+                             "(WI-33d); default: the type kb-ocr recorded, else text-layer pages are not audited")
     parser.add_argument("--writeback", nargs="?", const="", default=None, metavar="CHOICES",
                         help="writeback (audit.writeback): without CHOICES ingest the newest audit revision's "
                              "candidates of --batch; with a choices.json commit the human choices")
@@ -424,7 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     if not _BATCH.fullmatch(args.batch):
         print(f"kb-audit: --batch must be a batch id (12 hex characters): {args.batch!r}", file=sys.stderr)
         return USAGE_EXIT
-    return run(project, args.batch)
+    return run(project, args.batch, record_type=args.record_type)
 
 
 if __name__ == "__main__":  # pragma: no cover - entry is ``klode-kit kb-audit``

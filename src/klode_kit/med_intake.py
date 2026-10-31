@@ -18,8 +18,15 @@ registration, the date aliases and the two terminal lines; see ``docs/med-intake
 6. ``pipeline`` up to ``audit`` (reuses the stages already done); print ``audit: 5 条分歧 → confirm/<alias>.html``;
 7. link ``confirm/<alias>.html`` -> the newest audit revision's confirm page; write ``work/<batch_id>/med_intake.json``.
 
-Exit codes: 10 awaiting the human's choices, 0 nothing to confirm, 2 usage / type required, 30 contract, 40 environment
-or lock, and the pipeline kernel's own for a failed stage (50, 60, 61).
+Exit codes: 10 awaiting the human's choices, 0 nothing to confirm, 2 usage / type required, 20 the audit made no record
+for the pages read (WI-33d: never reported as "nothing to confirm"), 30 contract, 40 environment or lock, and the pipeline
+kernel's own for a failed stage (50, 60, 61).
+
+Text-layer PDFs (WI-33d, real-data pilot P8): pages with a text layer go to no OCR route; their ``pdftext`` reading is
+audited as the page's one route (``audit.stage``), so a lab or prescription PDF yields records like an image does. The
+type decided in step 4 is handed to ``kb-audit`` (``pipeline.run(audit_type=...)``). The ``ocr:`` line says
+``ocr: 13 页文字层，跳过 OCR`` - a skip is not a failure - and the receipt lists such pages in ``ocr_skipped``, never in
+``ocr_failures``.
 
 Crash points (all after the lock, so a killed run is rerun by running it again): ``med_intake.lock`` (lock taken),
 ``med_intake.aliased`` (``work/`` link made), ``med_intake.linked`` (``confirm/`` link made), ``med_intake.receipt``
@@ -185,13 +192,19 @@ def _relink(path: Path, target: str) -> None:
 # --------------------------------------------------------------------------- the two lines
 
 def ocr_failures(receipt: Mapping[str, Any]) -> list[str]:
-    """``route:page`` of every page route that is not ``done``, sorted."""
+    """``route:page`` of every page route that is neither ``done`` nor ``skipped``, sorted. A route skipped because
+    the page has a text layer made no attempt and is not a failure (WI-33d, real-data pilot P8)."""
     out = []
     for page in receipt.get("pages", []):
         for route, res in (page.get("routes") or {}).items():
-            if (res or {}).get("status") != "done":
+            if (res or {}).get("status") not in ("done", "skipped"):
                 out.append(f"{route}:{page.get('key')}")
     return sorted(out)
+
+
+def ocr_skipped(receipt: Mapping[str, Any]) -> list[str]:
+    """Page keys, sorted, of the pages that went to no OCR route because they have a text layer."""
+    return sorted(str(p.get("key")) for p in receipt.get("pages", []) if p.get("text_class") == "text")
 
 
 def _routes(receipt: Mapping[str, Any]) -> list[str]:
@@ -203,9 +216,14 @@ def _routes(receipt: Mapping[str, Any]) -> list[str]:
 
 
 def ocr_line(receipt: Mapping[str, Any]) -> str:
-    pages, routes, failed = len(receipt.get("pages", [])), len(_routes(receipt)), ocr_failures(receipt)
-    head = f"ocr: {pages} 页 × {routes} 路"
-    return f"{head}，{len(failed)} 处失败（{', '.join(failed)}）" if failed else f"{head} OK"
+    """``ocr: 3 页 × 4 路 OK``; a text-layer page is named as skipped, never as a failure: ``ocr: 13 页文字层，跳过 OCR``
+    when no page needed a route, ``ocr: 2 页 × 4 路 OK，1 页文字层跳过 OCR`` when some did (WI-33d)."""
+    total, skipped, failed = len(receipt.get("pages", [])), len(ocr_skipped(receipt)), ocr_failures(receipt)
+    if skipped and skipped == total:
+        return f"ocr: {total} 页文字层，跳过 OCR"
+    head = f"ocr: {total - skipped} 页 × {len(_routes(receipt))} 路"
+    line = f"{head}，{len(failed)} 处失败（{', '.join(failed)}）" if failed else f"{head} OK"
+    return f"{line}，{skipped} 页文字层跳过 OCR" if skipped else line
 
 
 def audit_line(n: int, alias: str | None) -> str:
@@ -350,9 +368,13 @@ def _locked(inbox: Path, project: Path, images: Sequence[Any], skipped: Sequence
 
     second = io.StringIO()
     code = P.run(project, inbox, stage="audit", routes=routes, launcher=launcher, env=env, out=out, stdout=second,
-                 record_type=record_type)
+                 record_type=record_type, audit_type=rtype)
     if code not in (0, AWAITING_EXIT):
         return _stopped(second, code, out)
+    lost = P.zero_record_message(batch_dir, rtype)  # WI-33d: pages but no record is never "nothing to confirm"
+    if lost is not None:
+        print(f"med-intake: {lost}", file=out)
+        return P.EXIT_CODE[P.Reason.content_gate]
     summary = _json_line(second.getvalue())
 
     disputes, confirm = 0, None
@@ -383,6 +405,7 @@ def _locked(inbox: Path, project: Path, images: Sequence[Any], skipped: Sequence
         "record_type": rtype, "type_source": type_source,
         "date": _iso(compact), "date_source": date_source, "source": source,
         "pages": len(ocr.get("pages", [])), "routes": _routes(ocr), "ocr_failures": ocr_failures(ocr),
+        "ocr_skipped": ocr_skipped(ocr),
         "disputes": disputes, "status": status, "exit_code": code,
         "stages": [{"stage": s["stage"], "status": s["status"], "exit_code": s["exit_code"]}
                    for s in summary.get("stages", [])],

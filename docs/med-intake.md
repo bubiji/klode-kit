@@ -68,7 +68,7 @@ The batch id is a hash; the paths people expect are dates. `med-intake` keeps tw
 
 `work/<batch_id>/med_intake.json` (`klode-kit.med_intake/1`, defined in code; no wall-clock field, so equal runs give
 equal bytes): `batch_id`, `alias`, `confirm`, `record_type` + `type_source` (`header` | `explicit`), `date` +
-`date_source` (`inbox_dir` | `page` | `today`), `source` (`inbox`, `files`), `pages`, `routes`, `ocr_failures`, `disputes`,
+`date_source` (`inbox_dir` | `page` | `today`), `source` (`inbox`, `files`), `pages`, `routes`, `ocr_failures`, `ocr_skipped` (text-layer pages: no route was asked, not failures), `disputes`,
 `status`, `exit_code`, `stages` (name, status, exit code of each pipeline stage). Times are in the stage receipts
 `work/<batch_id>/pipeline/receipts/<stage>.json`; the time each OCR route took and its failed pages are in the OCR batch
 receipt `work/<batch_id>/receipt.json`, `route_stats.<route>.{elapsed_ms, failed_pages}` (WI-13c).
@@ -76,12 +76,24 @@ receipt `work/<batch_id>/receipt.json`, `route_stats.<route>.{elapsed_ms, failed
 ## Exit codes
 
 0 nothing to confirm; 10 awaiting the human's confirm page; 2 usage (no images, unknown or missing type, no such
-directory); 30 contract problem; 40 environment, configuration or another `med-intake` / `pipeline` holding the project
+directory); 20 the batch has pages but the audit made no record (WI-33d; never "nothing to confirm", nothing was
+ingested); 30 contract problem; 40 environment, configuration or another `med-intake` / `pipeline` holding the project
 lock (`work/.med-intake.lock`); 50, 60, 61 as the pipeline kernel (budget, privacy, isolation or the real-call gate).
 Cloud routes only ever leave the machine through the existing sender (masked, registered images, gate G2); this command
 adds no second path. The ocr stage runs `kb-ocr`, which masks the pages itself before the cloud routes read: `_masked/` (the
 only pictures that may leave) and `_mask_review/` (before/after pictures, local only) appear without a separate step; if
 masking fails both cloud routes are `route_failed` and nothing is sent.
+
+## PDFs with a text layer (WI-33d, real-data pilot P8)
+
+A PDF page that has a text layer is not read by any OCR route (its `pdftext` rows are exact). For a lab / prescription
+batch (`--type` or the header keyword) those pages are audited anyway: `pdftext` is the page's one voting route, with
+exact word boxes, so the page becomes a record like an image page does. The gate is the same one: a page whose cells all
+agree and have no doubt is `verified` (auto) and the run ends with exit 0 / `nothing_to_confirm` - run the second segment
+(`pipeline --type <t> --stage writeback`) to put the records in. Why not "click everything": the confirm page lists
+only cells that disagree, so a pending record whose cells all agree would have nothing to click and could never be
+resolved. A book or guide PDF (no record type, `pipeline`) is unchanged: nothing to audit, exit 0. The `ocr:` line says
+`ocr: 13 页文字层，跳过 OCR` - skipped is not failed.
 
 ## After the click
 

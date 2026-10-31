@@ -19,7 +19,7 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit med-intake --inbox INBOX_DIR
 `INBOX_DIR` 是放截图的目录（例如 `_inbox/2026-10-22/`）。要指定类型就加 `--type lab`（检验）或 `--type rx`（处方）。
 命令依次登记单据类型、日期和来源，跑 OCR，再跑审计。标准输出是三行，原样转述给用户：
 
-- `ocr: 3 页 × 4 路 OK`（某路某页失败时会点名，例如 `1 处失败（codex:p002）`）；
+- `ocr: 3 页 × 4 路 OK`（某路某页失败时会点名，例如 `1 处失败（codex:p002）`；PDF 页自带文字层时不读图，写成 `ocr: 13 页文字层，跳过 OCR`，**跳过不是失败**）；
 - `audit: 5 条分歧 → confirm/20261022.html`；
 - `status: awaiting_confirm`。
 
@@ -29,6 +29,7 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit med-intake --inbox INBOX_DIR
 - 0：`nothing_to_confirm`，四路全部一致，没有确认页。直接做第二段，**不带 `--choices`**，让记录入账。
 - 2：用法错误。目录里没有图片，或者类型判不出来（页面没有「检验」「处方」之类抬头，或各页类型不一致）。
   这时 OCR 已经做完、审计还没跑：问用户这批是检验还是处方，加 `--type` 重跑，OCR 结果会复用。
+- **20**：这批有页，审计却一条记录都没产出（M08）。**不是「无需确认」**，什么都没入库：把输出里的原话告诉用户，不要进第二段。
 - 40：环境、配置或锁（另一个入库在跑，或体检缺项），输出里有修复命令；50、60、61 是预算、隐私、真实调用闸门（G2），
   **不要自己设置环境变量绕过 61**，把原话告诉用户。
 
@@ -63,3 +64,4 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline --batch INBOX_DIR --choices choices
 | M05 | 同一天的新批次别名不是日期 | 同日第二批叫 `<日期>-2`，不覆盖已有别名 | 用命令输出里打印的别名 |
 | M06 | exit 0 且没有确认页链接 | 四路全部一致，无需确认 | 第二段不带 `--choices`，直接写回入账 |
 | M07 | 预检 exit 40：`project_trust` 未通过，按提示「在数据项目目录运行 claude」永远不弹信任框 | 数据项目是非 git 普通文件夹且其上级已被信任：Claude Code 不会弹框，该目录自己的 `hasTrustDialogAccepted` 永远写不进去（信任以文件夹/git 根自身为键） | 只用本地路线时加 `--routes vision,mlx`（最后阶段 ≤ writeback），预检会跳过并在回执里写明原因；要用 claude 路线或发布时：对数据项目 `git init` 后在其中运行 `claude` 并接受，或由用户自己在 Claude 的信任存储（`.claude.json`）里加该项目的条目（闸门 G3，klode-kit 不代写） |
+| M08 | exit 20，「kb-audit produced 0 records for the N page(s)」 | 有页却没有任何记录：旧版本对带文字层的 PDF 化验单只报「无需确认」（真实试点 P8，静默丢数据）；现在文字层页按「`pdftext` 一路精确读数」审计，仍出现 0 条就一定是真故障，一律停下 | 不要进第二段；保留输出和 `work/<批次>/receipt.json`、`work/<批次>/audit/` 交给开发者查；类型判不出时按 M01 加 `--type`。带文字层的 PDF 第二段也要带同样的 `--type` |
