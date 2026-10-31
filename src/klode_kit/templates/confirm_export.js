@@ -6,7 +6,7 @@
  *     choices.json (a blob: URL; the page loads nothing from the network);
  *   - run by node:  node confirm_export.js <confirm.html> [<selections.json>]
  *     prints choices.json on stdout. selections.json is a list of clicks
- *     {field_id, kind: "route"|"manual"|"none", route?, value?, reason?: "not_a_field"}; the last click on a
+ *     {field_id, kind: "route"|"manual"|"none", route?, value?, reason?: "not_a_field" | "acknowledged"}; the last click on a
  *     field wins. Exit 0 ok, 2 usage / a click the page cannot produce, 30 the page was edited (its bytes no
  *     longer match its sha256 stamp).
  *
@@ -58,6 +58,10 @@
       }
     });
     var f = entry.field;
+    var pageItem = f.page_item === true;
+    if (pageItem && kind === "route") {
+      throw new ExportError(f.field_id + " is a page item: acknowledge it or type a value, a route cannot be chosen");
+    }
     if (kind === "route") {
       var r = sel.route;
       if (typeof r !== "string" || !own(f.seen, r) || typeof f.seen[r] !== "string") {
@@ -70,16 +74,23 @@
         throw new ExportError("a typed value must be a string (" + f.field_id + ")");
       }
       if (BLANK.test(sel.value)) {
+        if (pageItem) {
+          throw new ExportError("a typed value for the page item " + f.field_id + " must not be blank");
+        }
         return { choice: { kind: "none" } };
       }
       return { choice: { kind: "manual", value: sel.value } };
     }
-    if (own(sel, "reason") && sel.reason !== "not_a_field") {
-      throw new ExportError("the only reason for 'none' is not_a_field (" + f.field_id + ")");
+    var allowed = pageItem ? "acknowledged" : "not_a_field";
+    if (pageItem && sel.reason !== allowed) {
+      throw new ExportError("a page item is acknowledged (reason 'acknowledged') or typed (" + f.field_id + ")");
+    }
+    if (own(sel, "reason") && sel.reason !== allowed) {
+      throw new ExportError("the only reason for 'none' is " + allowed + " (" + f.field_id + ")");
     }
     var out = { choice: { kind: "none" } };
-    if (sel.reason === "not_a_field") {
-      out.evidence = { reason: "not_a_field" };
+    if (sel.reason === allowed) {
+      out.evidence = { reason: allowed };
     }
     return out;
   }
@@ -201,6 +212,8 @@
           out.push({ field_id: fid, kind: "manual", value: fs.querySelector("input.kk-manual").value });
         } else if (v === "none:not_a_field") {
           out.push({ field_id: fid, kind: "none", reason: "not_a_field" });
+        } else if (v === "none:acknowledged") {
+          out.push({ field_id: fid, kind: "none", reason: "acknowledged" });
         } else {
           out.push({ field_id: fid, kind: "none" });
         }

@@ -34,10 +34,13 @@ one equal to the key, then ``ENGINE_ORDER``), so it is always one of the candida
 - ``swap_suspect:<e>``: for two consecutive cells of the same ``(kind, k)`` (rows in order), route ``e`` reads in
   each the value the other routes' unique majority reads in the other, and those majorities differ;
 - ``tie`` / ``all_differ`` for those verdicts;
-- ``extra_values:<e>`` on every cell of the page when voting route ``e`` has a line that paired with no row and
-  holds a number, date or drug (``Alignment.extra_values``): a value nobody placed could belong to any cell, so
-  nothing on the page is auto-agreed. These are also listed page-level in ``Comparison.uncertain`` as
-  ``(code, route row seq)``.
+- ``extra_values:<e>`` is NOT a cell code (WI-33f, D-37; before it was put on every cell of the page, which on
+  real pages turned 1-6 stray lines into "click every field"). When voting route ``e`` has a line that paired with
+  no row and holds a number, date or drug (``Alignment.extra_values``) the comparison gets ONE page item for
+  ``(page, e)``: ``Comparison.page_items`` (``PageItem``: the code, the engine and the unplaced ``ExtraLine`` s with
+  their ``line_idx`` and text) and the same ``(code, route row seq)`` pairs in ``Comparison.uncertain``. The cells are
+  voted as if the lines were not there (the vote never depends on them), but the page cannot become verified until
+  a human has seen the item (gate: ``pending_confirm``; confirm page: one item, ``确认无遗漏`` or a typed value).
 
 **Advisory codes (WI-32b, user decision 2026-10-27).** ``no_geometry`` (no exact box to crop with; and, from
 WI-07d, ``no_bbox_crop`` which only exists for cells that are cropped, i.e. not ``agree``) and ``ordinal_shift:<e>``
@@ -46,7 +49,7 @@ present and they all read one value, the cell agrees anyway: the codes are moved
 (trace; the audit data keeps saying the doubt existed) and the confirm page does not list the cell. They stay
 ordinary ``uncertain`` codes on every cell that does not agree, so a real dispute still lists all its doubts.
 Never advisory: ``unaligned`` / ``merged_rows`` (the row pairing itself is in doubt), ``swap_suspect``,
-``extra_values`` (a value nobody placed), ``missing_cell`` and the tie verdicts. Why ``ordinal_shift`` with equal
+``missing_cell`` and the tie verdicts (``extra_values`` is a page item, see above). Why ``ordinal_shift`` with equal
 readings is safe: a route that lost a field of a kind on a row has no value in the last cell of that
 ``(row, kind)``; that cell lacks the route, so it is a ``missing_cell`` dispute and is still listed (the row's
 crop shows the user the whole row). A cell where the shifted route still has a value and equals the three others
@@ -100,10 +103,20 @@ class CellVote:
 
 
 @dataclass(frozen=True)
+class PageItem:
+    """One page-level confirm item (WI-33f): the unplaced value lines of one voting engine on the page."""
+
+    code: str                      # ``extra_values:<engine>``
+    engine: str
+    lines: tuple[A.ExtraLine, ...]
+
+
+@dataclass(frozen=True)
 class Comparison:
     routes: tuple[str, ...]
     cells: tuple[CellVote, ...]
     uncertain: tuple[tuple[str, int], ...]
+    page_items: tuple[PageItem, ...] = ()
 
     def cell(self, row: int, kind: str, k: int) -> CellVote | None:
         return next((c for c in self.cells if (c.row, c.kind, c.k) == (row, kind, k)), None)
@@ -193,7 +206,9 @@ def compare(al: A.Alignment, *, routes: Sequence[str], routes_enabled: Mapping[s
 
     page = tuple(sorted(((f"extra_values:{e}", seq) for e in voters for seq in al.extra_values.get(e, ())),
                         key=lambda u: (u[1], u[0])))
-    page_codes = {code for code, _ in page}
+    items = tuple(PageItem(f"extra_values:{e}", e,
+                           tuple(x for x in al.extra_lines.get(e, ()) if x.seq in al.extra_values[e]))
+                  for e in voters if al.extra_values.get(e))
 
     out = []
     for c in al.cells:
@@ -201,7 +216,7 @@ def compare(al: A.Alignment, *, routes: Sequence[str], routes_enabled: Mapping[s
         r = reads[key]
         missing = tuple(e for e in configured if e not in r)
         grouped = _groups(c.kind, r, wl)
-        cell_codes = set(c.uncertain) | codes[key] | page_codes | {f"missing_cell:{e}" for e in missing}
+        cell_codes = set(c.uncertain) | codes[key] | {f"missing_cell:{e}" for e in missing}
         recommended = None
         notes: tuple[str, ...] = ()
         if not grouped:
@@ -220,4 +235,4 @@ def compare(al: A.Alignment, *, routes: Sequence[str], routes_enabled: Mapping[s
                             tuple((value, engines) for _, value, engines in grouped),
                             missing, verdict, recommended, tuple(sorted(cell_codes)), notes))
     out.sort(key=lambda v: (v.row, v.kind, v.k))
-    return Comparison(configured, tuple(out), page)
+    return Comparison(configured, tuple(out), page, items)

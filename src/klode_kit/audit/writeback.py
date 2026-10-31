@@ -190,6 +190,7 @@ class Revision:
     cands: dict[str, dict]
     pages: dict[str, dict] = field(default_factory=dict)
     meta: dict[str, dict] = field(default_factory=dict)
+    page_items: dict[str, dict] = field(default_factory=dict)   # WI-33f: page item field_id -> candidate page item
 
     @property
     def audit_rev(self) -> str:
@@ -200,6 +201,8 @@ class Revision:
         return [e for e in self.runs if e not in NON_VOTING]
 
     def seen(self, fid: str) -> dict[str, str | None]:
+        if fid in self.page_items:
+            return G.page_item_seen(self.page_items[fid], self.runs)
         cands = self.cells[fid].get("candidates", {})
         return {e: (cands.get(e) or {}).get("value") for e in self.runs}
 
@@ -224,7 +227,8 @@ def _load(project: Path, batch_id: str, n: int) -> Revision:
     pages = {}
     if receipt.is_file():
         pages = {p.get("page_id"): p for p in json.loads(receipt.read_text(encoding="utf-8")).get("pages", [])}
-    return Revision(project, batch_id, n, adir, runs, cells, cands, pages)
+    items = {pi["field_id"]: pi for c in cands.values() for pi in c.get("page_items", [])}
+    return Revision(project, batch_id, n, adir, runs, cells, cands, pages, page_items=items)
 
 
 def _shown(f: Mapping[str, Any]) -> bool:
@@ -232,7 +236,22 @@ def _shown(f: Mapping[str, Any]) -> bool:
 
 
 def _blocked(cand: Mapping[str, Any]) -> list[dict]:
-    return [u for u in cand.get("uncertain", []) if u.get("scope") == G.PAGE]
+    return [u for u in cand.get("uncertain", []) if G.blocks_page(u)]
+
+
+def _to_confirm(cand: Mapping[str, Any]) -> list[str]:
+    """The field ids a human must decide for ``cand``: the shown cells, then its page items (WI-33f)."""
+    return [f["field_id"] for f in cand.get("fields", []) if _shown(f)] + [
+        pi["field_id"] for pi in cand.get("page_items", [])]
+
+
+def _page_region(item: Mapping[str, Any]) -> dict | None:
+    """The region of a typed value for a page item: the box of its first unplaced line that has one, on the derived
+    image those lines were read from (``item["der_sha256"]``); ``None`` for lines without a box (cloud routes)."""
+    line = next((x for x in item.get("lines", []) if x.get("bbox_px")), None)
+    if line is None or not item.get("der_sha256"):
+        return None
+    return {"der_sha256": item["der_sha256"], "bbox_px": list(line["bbox_px"])}
 
 
 # --------------------------------------------------------------------------- records
@@ -327,8 +346,9 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
     commit_id = ids.commit_id(rev.audit_rev, 1 + sum(1 for m in marks if m.get("op") == "begin"))
     seq = len(_jsonl(rev.dir / FIXES))
     decisions, values, open_ = [], {}, []
-    for f in cand.get("fields", []):
-        fid = f["field_id"]
+    entries = [(f["field_id"], False) for f in cand.get("fields", [])] + [
+        (pi["field_id"], True) for pi in cand.get("page_items", [])]
+    for fid, is_page in entries:
         seen = rev.seen(fid)
         evidence: dict[str, Any] = {"seen": seen}
         if fid in human:
@@ -345,13 +365,18 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
             by = "human"
         elif carry is not None:
             continue
+        elif is_page:   # WI-33f: a page item is only ever decided by a human
+            if status == G.VERIFIED:
+                raise WritebackError(f"{fid}: a verified revision cannot leave a page item undecided")
+            open_.append(fid)
+            continue
         elif status == G.VERIFIED:
             kind, route = "route", _first_voting(rev, fid)
             value, by = seen[route], "auto"
         else:
             open_.append(fid)
             continue
-        if kind == "none" and fid not in dropped:
+        if kind == "none" and fid not in dropped and evidence.get("reason") != "acknowledged":
             open_.append(fid)
         if value is not None and status == G.VERIFIED:
             values[fid] = value
@@ -512,8 +537,7 @@ def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[
         return {"rec_id": rec_id, "result": "rejected",
                 "errors": [{"field_id": f, "reason": f"page-level uncertain ({why}): not selectable"} for f in fids],
                 "missing": [], "duplicate": []}, None
-    shown = [f["field_id"] for f in cand.get("fields", []) if _shown(f)] if reopen is None \
-        else reopen.fields.get(rec_id, [])
+    shown = _to_confirm(cand) if reopen is None else reopen.fields.get(rec_id, [])
     counts: dict[str, int] = {}
     for f in fids:
         counts[f] = counts.get(f, 0) + 1
@@ -536,7 +560,7 @@ def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[
             continue
         ch = _item_choice(it)
         if ch["kind"] == "manual":
-            ch["region"] = _region(rev, cand, fid)
+            ch["region"] = _page_region(rev.page_items[fid]) if fid in rev.page_items else _region(rev, cand, fid)
         human[fid] = ch
     if duplicate or missing or errors:
         return {"rec_id": rec_id, "result": "rejected", "errors": errors, "missing": missing,
@@ -552,9 +576,35 @@ def _item_choice(it: Mapping[str, Any]) -> dict:
     return ch
 
 
+def _page_item_problem(rev: Revision, item: Mapping[str, Any], it: Mapping[str, Any], current: int) -> str | None:
+    """Checks of a choice on a page item (WI-33f): acknowledge it (none + ``acknowledged``) or type a value (needs a
+    region); no route, no plain none."""
+    want = {"row": None, "col": f"extra_values:{item['engine']}"}
+    if it["cell"] != want:
+        return f"cell {it['cell']} is not the page item cell {want}"
+    if it["seen"] != rev.seen(it["field_id"]):
+        return "seen differs from the unplaced lines of this audit revision (stale page)"
+    if it["rev_base"] != current:
+        return f"rev_base {it['rev_base']} is not the record's current rev {current} (stale page)"
+    ch, reason = it["choice"], (it.get("evidence") or {}).get("reason")
+    if ch["kind"] == "none":
+        if reason != "acknowledged":
+            return "a page item is acknowledged (none + evidence.reason acknowledged) or given a typed value"
+        return None
+    if reason is not None:
+        return f"evidence.reason {reason!r}: only an acknowledgement (a 'none' choice) carries a reason here"
+    if ch["kind"] == "route":
+        return "a route cannot be chosen for a page item: acknowledge it or type a value"
+    if _page_region(item) is None:
+        return "a typed value needs a region (the unplaced lines have no box): acknowledge the item instead"
+    return None
+
+
 def _item_problem(rev: Revision, cand: Mapping[str, Any], it: Mapping[str, Any], current: int,
                   reopen: "Reopen | None" = None) -> str | None:
     fid = it["field_id"]
+    if fid in rev.page_items:
+        return _page_item_problem(rev, rev.page_items[fid], it, current)
     if it["cell"] != rev.cells[fid].get("cell"):
         return f"cell {it['cell']} is not the cell of {fid} ({rev.cells[fid].get('cell')})"
     if it["seen"] != rev.seen(fid):
@@ -632,7 +682,8 @@ def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, c
     cand = rev.cands[rec_id]
     front = _front(_record_path(rev.project, rec_id))
     carry = _front(_body_path(rev.project, rec_id, front["effective"]["rev"])) if reopen is not None else None
-    undecided = [f for f, ch in human.items() if ch["kind"] == "none" and ch.get("reason") != "not_a_field"]
+    undecided = [f for f, ch in human.items()
+                 if ch["kind"] == "none" and ch.get("reason") not in ("not_a_field", "acknowledged")]
     dropped = [f for f, ch in human.items() if ch["kind"] == "none" and ch.get("reason") == "not_a_field"]
     if undecided:
         status, by = G.DISPUTED, None

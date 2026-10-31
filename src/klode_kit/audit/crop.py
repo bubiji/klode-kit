@@ -428,3 +428,45 @@ def write_crops(project: str | os.PathLike, batch_id: str, audit_rev: int, *, pa
         _write_once(path, data, "crop.image_written")
     _write_once(index, payload, "crop.index_written")
     return [r for _, _, r in planned]
+
+
+def write_extra_crops(project: str | os.PathLike, batch_id: str, audit_rev: int, *, page_id: str,
+                      alignment: A.Alignment, comparison: Any) -> dict[tuple[str, tuple[int, ...]], str]:
+    """Crop every unplaced value line of ``comparison.page_items`` that has a box (WI-33f, D-37), from the same local
+    source as the cell crops: the line's box padded by ``PAD_PX``, clipped to the image, as
+    ``crops/<doc>_<page>-x-<engine>-<first line_idx>.png`` with the index ``crops/<doc>_<page>-x.jsonl``. Returns
+    ``{(engine, line_idx): project-relative path}``; a line without a box (cloud routes) or whose box lies outside the
+    image has no entry. Same durability and immutability rules as ``write_crops``."""
+    project = Path(project)
+    m = _PAGE.fullmatch(page_id) if isinstance(page_id, str) else None
+    if m is None or not (isinstance(batch_id, str) and _BATCH.fullmatch(batch_id)):
+        raise CropError(f"bad batch / page id: {batch_id!r} {page_id!r}")
+    todo = [(item.engine, x) for item in comparison.page_items for x in item.lines if x.bbox_px is not None]
+    if not todo:
+        return {}
+    stem = f"{m.group(1)}_{m.group(2)}"
+    line, _t = _source(_derived_lines(project, batch_id, page_id), alignment)
+    image = _load_source(project, line)
+    out_dir = project / "work" / batch_id / "audit" / f"a{audit_rev}" / CROPS_DIR
+    planned: list[tuple[Path, bytes, dict]] = []
+    for engine, x in todo:
+        b = x.bbox_px
+        box = _clip((b[0] - PAD_PX, b[1] - PAD_PX, b[2] + PAD_PX, b[3] + PAD_PX), image.size)
+        if box is None:
+            continue
+        name = f"{stem}-x-{engine}-{x.line_idx[0]}.png"
+        data = _png(image.crop(box), f"crop {page_id} extra_values {engine} {x.line_idx[0]}")
+        rel = out_dir.relative_to(project) / name
+        planned.append((out_dir / name, data, {
+            "page_id": page_id, "engine": engine, "line_idx": list(x.line_idx), "box_px": list(box),
+            "source_der_sha256": line["der_sha256"], "path": rel.as_posix(), "sha256": _sha(data)}))
+    index = out_dir / f"{stem}-x.jsonl"
+    payload = b"".join((json.dumps(r, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+                       for _, _, r in planned)
+    for path, data, _ in planned + [(index, payload, None)]:
+        if path.exists() and path.read_bytes() != data:
+            raise CropError(f"{path} already exists with other content (an audit revision is never rewritten)")
+    for path, data, _ in planned:
+        _write_once(path, data, "crop.image_written")
+    _write_once(index, payload, "crop.index_written")
+    return {(r["engine"], tuple(r["line_idx"])): r["path"] for _, _, r in planned}

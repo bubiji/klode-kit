@@ -121,9 +121,9 @@ def to_confirm(adir: Path) -> dict[str, list[str]]:
     """``{rec_id: [field_id to confirm, ...]}`` of the clickable records of ``adir`` (page order)."""
     out = {}
     for c in candidates(adir):
-        if any(u.get("scope") == "page" for u in c["uncertain"]):
+        if any(u.get("scope") == "page" and u.get("reason") != "extra_values" for u in c["uncertain"]):  # D-37
             continue
-        fids = [f["field_id"] for f in c["fields"] if shown(f)]
+        fids = [f["field_id"] for f in c["fields"] if shown(f)] + [p["field_id"] for p in c.get("page_items", [])]
         if fids:
             out[c["rec_id"]] = fids
     return out

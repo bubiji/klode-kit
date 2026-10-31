@@ -5,7 +5,8 @@ equal", WI-31 user decision of 2026-10-27):
 
     a cell agrees  <=>  every voting route has a candidate in it, all their ``norm`` are equal, and none of the
                         *blocking* doubts applies: ``unaligned`` / ``merged_rows`` (the row pairing itself is in
-                        doubt), ``swap_suspect``, page ``extra_values``.
+                        doubt), ``swap_suspect`` (spec change D-37: page ``extra_values`` is a page item, no longer
+                        a cell blocker).
 
 ``no_geometry`` (no exact box to crop with) and ``ordinal_shift`` (a route's k-th value of the row may sit one place
 off - the equal reading is still what every route read at that place) are *advisory*: they never make an
@@ -87,11 +88,13 @@ def test_pairing_doubts_still_block_equal_readings(code):
     assert code in v.uncertain and "no_geometry" in v.uncertain and v.notes == ()
 
 
-def test_extra_values_still_block_equal_readings():
-    """S3: a value line nobody placed (page-level) blocks every cell of the page even if all cells are equal."""
+def test_extra_values_no_longer_block_equal_readings():
+    """S3, spec change D-37: a value line nobody placed (page-level) is one page item; it does not touch the cells,
+    equal cells agree (with their advisory note) and stay off the confirm page."""
     res = run([cell(0, "number", 0, same(), ("no_geometry",))], {"claude": (3,)})
     v = res.cell(0, "number", 0)
-    assert not v.agree and "extra_values:claude" in v.uncertain and "no_geometry" in v.uncertain
+    assert v.agree and v.uncertain == () and v.notes == ("no_geometry",)
+    assert [i.code for i in res.page_items] == ["extra_values:claude"]
 
 
 def test_swap_suspect_still_blocks_equal_readings():
@@ -151,15 +154,15 @@ def voting(c):
 @given(grids())
 def test_agree_iff_all_present_equal_and_no_blocking_doubt(al):
     """S4, both directions: agree <=> all four present and equal and no blocking code (``unaligned``,
-    ``merged_rows`` from the alignment, page ``extra_values``); ``no_geometry`` / ``ordinal_shift`` never matter.
+    ``merged_rows`` from the alignment; D-37: page ``extra_values`` no longer); ``no_geometry`` /
+    ``ordinal_shift`` never matter.
     Whatever is not agree has a reason (uncertain code or more than one value) and no notes; every agree cell has
     no uncertain code and its notes are exactly the advisory doubts it carried (nothing silently dropped)."""
     res = C.compare(al, routes=ROUTES4, whitelist=W.EMPTY)
-    extras = any(e in ROUTES4 and seqs for e, seqs in al.extra_values.items())
     for c in al.cells:
         v = res.cell(c.row, c.kind, c.k)
         reads = voting(c)
-        blocking = extras or any(not u.startswith("no_geometry") for u in c.uncertain)
+        blocking = any(not u.startswith("no_geometry") for u in c.uncertain)
         want = set(reads) == set(ROUTES4) and len(set(reads.values())) == 1 and not blocking
         assert v.agree == want, (c, v)
         if v.agree:

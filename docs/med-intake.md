@@ -92,8 +92,20 @@ exact word boxes, so the page becomes a record like an image page does. The gate
 agree and have no doubt is `verified` (auto) and the run ends with exit 0 / `nothing_to_confirm` - run the second segment
 (`pipeline --type <t> --stage writeback`) to put the records in. Why not "click everything": the confirm page lists
 only cells that disagree, so a pending record whose cells all agree would have nothing to click and could never be
-resolved. A book or guide PDF (no record type, `pipeline`) is unchanged: nothing to audit, exit 0. The `ocr:` line says
+resolved (an unplaced value line is the one exception, see below). A book or guide PDF (no record type, `pipeline`) is unchanged: nothing to audit, exit 0. The `ocr:` line says
 `ocr: 13 页文字层，跳过 OCR` - skipped is not failed.
+
+## Unplaced value lines: one page item, not a click per field (WI-33f, D-37)
+
+When a route read a line that pairs with no table row and holds a number, date or drug (stray header / footer words
+next to a value, or a value that really was missed), the page gets ONE item per (page, route) on the confirm page:
+the unplaced lines' text (with a crop when the line has a box) and the action `确认无遗漏` - or, when a line has a box, a
+typed value. The cells are voted without it: cells whose routes agree stay off the page, so a 3-page batch no longer
+asks for every field. The record stays `pending_confirm` until the item is answered (a value nobody placed is seen by
+a human before the record is verified). In `choices.json` it is an ordinary item whose `field_id` is
+`<rec_id>/p-extra_values-<route>`, `cell` `{row: null, col: "extra_values:<route>"}`, `choice` `none` with
+`evidence.reason: acknowledged` (or `manual` with the typed value). Lines without any digit, date or drug (a stamp, a
+footer) are not listed at all.
 
 ## After the click
 

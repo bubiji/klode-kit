@@ -15,8 +15,9 @@ uncertain entry of the record contract: ``{id, reason, scope, engine?, field_id?
 the page entries (uncleared, scope ``page``) plus an entry for every code on every cell of the WI-07c comparison,
 and for every extra cell code (``no_bbox_crop`` from the crop index). Status:
 
-- ``disputed`` when any page entry is present (r3.3: a missing or failed route blocks the page; there is no
-  "continue with N-1 routes");
+- ``disputed`` when any blocking page entry is present (r3.3: a missing or failed route blocks the page; there is no
+  "continue with N-1 routes"); an ``extra_values`` page item (WI-33f, D-37) does not block, it only keeps the page
+  out of ``verified``;
 - ``verified`` (``verified_by: auto``) when the page has at least one cell, every cell is WI-07c ``agree`` with no
   missing route, and the uncertain list is empty (K1, r2.3 source 1: decided by the vote, never relaxed here);
 - ``pending_confirm`` otherwise.
@@ -75,8 +76,10 @@ REASONS: dict[str, Reason] = {
     "missing_cell": Reason(CELL, True, _PICK + " (route {engine} has no value for this cell)", _PICKED),
     "ordinal_shift": Reason(CELL, True, _PICK + " (route {engine} has a different number of values on this "
                                                "row, so its values may sit one place off)", _PICKED),
-    "extra_values": Reason(CELL, True, _PICK + " (route {engine} read a value on this page that no row "
-                                              "holds)", _PICKED),
+    "extra_values": Reason(PAGE, True, "confirm page: one item for this page and route - 确认无遗漏, or type the "
+                                       "value route {engine} read that no row holds (it never blocks the cells)",
+                           "a human acknowledgement (or typed value) for the page item written back by kb-audit "
+                           "--writeback"),
     "swap_suspect": Reason(CELL, True, _PICK + " (route {engine} reads this value and the next row's swapped)",
                            _PICKED),
     "tie": Reason(CELL, False, _PICK + " (the routes split evenly; no recommendation)", _PICKED),
@@ -86,7 +89,28 @@ REASONS: dict[str, Reason] = {
     "no_bbox_crop": Reason(CELL, False, _PICK + " (no box for the cell: the crop is the whole row or half the "
                                          "page)", _PICKED),
 }
-PAGE_REASONS = frozenset(r for r, spec in REASONS.items() if spec.scope == PAGE)
+# WI-33f / D-37: ``extra_values`` has page scope but is a page item a human resolves with one action on the confirm
+# page; it does not make the page blocked (the cells stay clickable). Every other page reason is a route state.
+ACK_REASONS = frozenset({"extra_values"})
+PAGE_REASONS = frozenset(r for r, spec in REASONS.items() if spec.scope == PAGE and r not in ACK_REASONS)
+
+
+def blocks_page(entry: Mapping[str, Any]) -> bool:
+    """True for a page-level entry that blocks the page (a failed / missing / disabled route; r3.3)."""
+    return entry.get("scope") == PAGE and entry.get("reason") not in ACK_REASONS
+
+
+def page_item_seen(item: Mapping[str, Any], routes: Iterable[str]) -> dict[str, str | None]:
+    """The ``seen`` of a page item (confirm page data, choices item, writeback check): the unplaced lines' texts
+    (one per line) under the engine that read them, ``None`` for every other route."""
+    text = "\n".join(str(x["text"]) for x in item["lines"])
+    return {e: (text if e == item["engine"] else None) for e in routes}
+
+
+def page_item_field_id(rec_id: str, engine: str) -> str:
+    """The pseudo field id of the page item ``extra_values:<engine>`` of record ``rec_id`` (confirm page, choices
+    and decisions name it like a field)."""
+    return f"{rec_id}/p-extra_values-{engine}"
 
 
 @dataclass(frozen=True)
@@ -194,8 +218,11 @@ def judge(comparison: Any, *, rec_id: str, page_id: str, page_uncertain: Iterabl
         fields.append({"field_id": fid, "verdict": v.verdict, "recommended": v.recommended,
                        "missing": list(v.missing), "uncertain": codes,
                        "notes": list(v.notes)})
+    for item in getattr(comparison, "page_items", ()):
+        e = entry(item.code, page_id=page_id)
+        entries.setdefault(e["id"], e)
     uncertain = tuple(entries.values())
-    if any(e["scope"] == PAGE for e in uncertain):
+    if any(blocks_page(e) for e in uncertain):
         status, by = DISPUTED, None
     elif (comparison.cells and not uncertain
           and all(v.verdict == AGREE and not v.missing and not v.uncertain for v in comparison.cells)):

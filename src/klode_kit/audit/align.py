@@ -27,7 +27,8 @@ row of its own. A monotone dynamic programme then pairs route rows with rows:
   between the two rows at the whitespace boundary that best matches each row's text;
 - anything else is skipped: a row without a route row is ``unaligned:<engine>``, a route row without a row is
   listed in ``Alignment.extra[engine]`` (stamps, footers - kept out of the cells); those holding a number, date
-  or drug are also in ``Alignment.extra_values[engine]`` (WI-07c makes them page-level uncertain).
+  or drug are also in ``Alignment.extra_values[engine]`` (route-row numbers) and, with their ``line_idx``, text and
+  box, in ``Alignment.extra_lines[engine]`` (WI-33f / D-37: WI-07c makes each engine's list one page-level item).
 
 **Cells.** ``audit.fields.extract`` runs on each paired route row; the ``k``-th field of a kind on a row is
 cell ``(row, kind, k)`` (cloud routes have no columns, so in-row order places them - R2-08). Each candidate keeps
@@ -135,6 +136,21 @@ class Pair:
 
 
 @dataclass(frozen=True)
+class ExtraLine:
+    """A route row that paired with no row and holds a number, date or drug (WI-33f, D-37). ``seq`` is the route-row
+    number (``Alignment.extra`` / ``extra_values`` use it; rows are re-sorted top to bottom, so it is NOT a
+    ``line_idx``); ``line_idx`` are the ocr lines that make the row, ``text`` the row's joined text, ``bbox_px`` the
+    union of their boxes (``None`` on cloud routes), ``der_sha256`` / ``run_id`` their provenance."""
+
+    seq: int
+    line_idx: tuple[int, ...]
+    text: str
+    bbox_px: tuple[int, int, int, int] | None
+    der_sha256: str | None
+    run_id: str | None
+
+
+@dataclass(frozen=True)
 class Alignment:
     base: str | None
     rows: tuple[Row, ...]
@@ -144,6 +160,7 @@ class Alignment:
     extra: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
     new_items: tuple[str, ...] = ()
     extra_values: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
+    extra_lines: Mapping[str, tuple[ExtraLine, ...]] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- helpers
@@ -447,6 +464,15 @@ def _reference_boxes(reference: Sequence[Mapping] | None, routes: Mapping[str, S
             if ln.get("bbox_px") is not None and any(t.get("geometry") == "exact" for t in (ln.get("tokens") or ()))]
 
 
+def _extra_line(rr: _RRow) -> ExtraLine:
+    boxes = [tuple(ln["bbox_px"]) for ln in rr.members if ln.get("bbox_px") is not None]
+    box = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes),
+           max(b[3] for b in boxes)) if boxes else None
+    first = rr.members[0]
+    return ExtraLine(rr.seq, tuple(ln["line_idx"] for ln in rr.members), rr.text, box,
+                     first.get("der_sha256"), first.get("run_id"))
+
+
 def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | None = None,
           tau: float = LINE_SIM_TAU, reference: Sequence[Mapping] | None = None) -> Alignment:
     """Align the routes of one page (see the module docstring)."""
@@ -464,6 +490,7 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
     pairs: dict[str, tuple[Pair, ...]] = {}
     extra: dict[str, tuple[int, ...]] = {}
     extra_values: dict[str, tuple[int, ...]] = {}
+    extra_lines: dict[str, tuple[ExtraLine, ...]] = {}
     found: dict[tuple[int, str, int], dict[str, Candidate]] = {}
     labels: dict[int, list[tuple[str, str]]] = {}
     uncertain: set[tuple[str, int]] = set()
@@ -479,6 +506,7 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
                            and any(f.kind in VALUE_KINDS for f in F.extract(rr.text)))
             if valued:
                 extra_values[engine] = valued
+                extra_lines[engine] = tuple(_extra_line(rr) for rr in rrows if rr.seq in valued)
         covered = {r for rows, _ in got for r in rows}
         uncertain |= {(f"unaligned:{engine}", r) for r in range(len(srows)) if r not in covered}
         for rows, j in got:
@@ -550,4 +578,4 @@ def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | N
         lines = tuple((e, tuple(sorted(ln["line_idx"] for ln in srow.lines[e]))) for e in _ordered(srow.lines))
         out_rows.append(Row(r, bbox, exact[r], row_label[r][0], row_label[r][1], lines))
     return Alignment(base, tuple(out_rows), pairs, tuple(cells),
-                     tuple(sorted(uncertain, key=lambda u: (u[1], u[0]))), extra, tuple(new_items), extra_values)
+                     tuple(sorted(uncertain, key=lambda u: (u[1], u[0]))), extra, tuple(new_items), extra_values, extra_lines)

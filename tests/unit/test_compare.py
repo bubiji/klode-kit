@@ -4,9 +4,11 @@
 The law under test (K1, design 02 r2.2-D):
 
     a cell agrees  <=>  every voting route has a candidate in it, all their ``norm`` are equal, the cell carries
-                        no uncertain code from the alignment, every cell of its (row, kind) has the same set of
-                        voting routes (no route's fields of that kind shifted on the row), and no voting route
-                        left a value-bearing line unplaced on the page.
+                        no uncertain code from the alignment, and every cell of its (row, kind) has the same set of
+                        voting routes (no route's fields of that kind shifted on the row).
+
+Spec change D-37 (WI-33f): a voting route's value-bearing line left unplaced on the page is no longer a code on
+every cell; it is one page item per engine (``Comparison.page_items``), see ``test_extra_values_wi33f.py``.
 
 Grids are built directly from ``align.Cell`` / ``align.Candidate`` so the generator controls every input the law
 names; the cross-layer cases run the real ``align`` on fixture routes.
@@ -86,9 +88,8 @@ def voting(c: A.Cell) -> dict[str, str]:
 
 def law_agree(c: A.Cell, al: A.Alignment) -> bool:
     reads = voting(c)
-    extras = any(e in ROUTES4 and seqs for e, seqs in al.extra_values.items())
-    return (set(reads) == set(ROUTES4) and len(set(reads.values())) == 1 and all(u == "no_geometry" for u in c.uncertain)
-            and not extras)   # WI-32b: no_geometry / ordinal_shift are advisory
+    return (set(reads) == set(ROUTES4) and len(set(reads.values())) == 1 and all(u == "no_geometry" for u in c.uncertain))
+    # WI-32b: no_geometry / ordinal_shift are advisory; D-37: page extras no longer matter to a cell
 
 
 # --------------------------------------------------------------------------- 07c-05 / 06 / 07 properties
@@ -265,10 +266,10 @@ def test_alignment_uncertain_passes_through():
         assert len(set(voting(c).values())) == 1 and len(voting(c)) == 4
 
 
-def test_extra_value_line_blocks_page():
-    """impl-deviations WI-07b risk 1 (L1-S3): a voting route's line that pairs with no row and holds a value
-    (``血糖 5.6 mmol/L`` only claude read) is a page-level ``extra_values:claude`` and no cell of the page agrees.
-    An unplaced line without values (a stamp) changes nothing."""
+def test_extra_value_line_is_a_page_item_not_a_cell_block():
+    """impl-deviations WI-07b risk 1 (L1-S3), spec change D-37: a voting route's line that pairs with no row and
+    holds a value (``血糖 5.6 mmol/L`` only claude read) is a page-level ``extra_values:claude`` item; the cells of
+    the page keep agreeing. An unplaced line without values (a stamp) changes nothing."""
     routes = fixture_routes("fx-dup10")
     base = C.compare(A.align(routes), routes=ROUTES4, whitelist=W.EMPTY)
     assert all(v.agree for v in base.cells) and base.uncertain == ()
@@ -287,8 +288,8 @@ def test_extra_value_line_blocks_page():
     assert al.extra_values.get("claude")
     res = C.compare(al, routes=ROUTES4, whitelist=W.EMPTY)
     assert [code for code, _ in res.uncertain] == ["extra_values:claude"]
-    assert res.cells and not any(v.agree for v in res.cells)
-    assert all("extra_values:claude" in v.uncertain for v in res.cells)
+    assert res.cells and all(v.agree and v.uncertain == () for v in res.cells)
+    assert [i.code for i in res.page_items] == ["extra_values:claude"]
 
 
 def test_ordinal_shift_marks_row_kind():

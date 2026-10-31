@@ -23,6 +23,11 @@ and ``templates/confirm_export.js``, installed with the package):
   shows ``（缺）`` and has no radio), ``★推荐`` beside the routes holding the majority value (only for
   ``majority``), ``平票`` / ``全不同`` labels, and the options ``都不对``, ``不是字段`` (none +
   ``not_a_field``) and ``手输``;
+- an ``extra_values`` page item (WI-33f, D-37; candidate ``page_items``): ONE item per (page, engine), after the
+  cells' items, ``kk-page-item``: the unplaced lines' text (and their crops when they have a box) and the actions
+  ``确认无遗漏`` (export: ``none`` + ``evidence.reason: acknowledged``) or, when a line has a box, a typed value
+  (``manual``). Its field id is ``<rec_id>/p-extra_values-<engine>``, its choices ``cell`` is ``{row: null,
+  col: "extra_values:<engine>"}`` and its ``seen`` the lines' texts under the engine. It never blocks the cells;
 - a record with a page-level uncertain entry (r3.3) shows ``缺路，不可点选`` and the entries' fix commands on
   every item and has no input at all; a record with nothing to confirm shows ``无分歧``;
 - kb-verifier advice is shown as a hint on its field only; it is not part of the data block, so the export can
@@ -207,7 +212,7 @@ def _labels(cand: Mapping[str, Any], front: Mapping[str, Any] | None) -> tuple[s
     eff_txt = f"r{eff['rev']} ({eff['status']})" if eff else "无"
     status = cand["status"]
     if status == G.DISPUTED:
-        reasons = [f"{u.get('engine')}:{u['reason']}" for u in cand["uncertain"] if u.get("scope") == G.PAGE]
+        reasons = [f"{u.get('engine')}:{u['reason']}" for u in cand["uncertain"] if G.blocks_page(u)]
         status = f"{status}: {', '.join(reasons)}" if reasons else status
     return f"生效 {eff_txt} / 候选 r{cand_rev} ({status})", current
 
@@ -285,6 +290,39 @@ def _item_html(f: dict, view: dict, routes: list[str], blocked: list[dict], advi
     return "\n".join(out)
 
 
+def _page_item_html(pi: Mapping[str, Any], blocked: list[dict], srcs: list[str | None]) -> str:
+    """The page item of one engine's unplaced value lines (WI-33f, D-37): their text and crops, and one action,
+    ``确认无遗漏`` - or a typed value when a line has a box (a typed value needs a region)."""
+    fid, engine = pi["field_id"], pi["engine"]
+    name = f"kk:{fid}"
+    out = [f'<fieldset class="kk-item kk-page-item" data-field-id="{_e(fid)}" data-row="" '
+           'data-verdict="page_extra">',
+           f"<legend>页面上没配上行的值 · {_e(engine)} · <code>{_e(fid.split('/', 1)[1])}</code> · "
+           '<span class="kk-verdict">整页一项</span></legend>',
+           f'<p class="kk-note">{_e(engine)} 读到下列内容，但没配上表格里的任何一行（可能是页眉页脚，也可能是漏掉的值）：</p>',
+           '<ul class="kk-lines">']
+    for line, src in zip(pi["lines"], srcs):
+        li = [f'<li class="kk-line" data-line-idx="{_e(",".join(str(i) for i in line["line_idx"]))}">'
+              f'<span class="kk-value">{_e(line["text"])}</span>']
+        if src:
+            li.append(f' <img class="kk-crop" src="{_e(src)}" alt="没配上行的原文小图">')
+        li.append("</li>")
+        out.append("".join(li))
+    out.append("</ul>")
+    if blocked:
+        out.append('<p class="kk-blocked">缺路，不可点选。</p>')
+    else:
+        out.append('<ul class="kk-other">'
+                   f'<li><label><input type="radio" name="{_e(name)}" value="none:acknowledged"> 确认无遗漏'
+                   '</label></li>')
+        if any(src for src in srcs):
+            out.append(f'<li><label><input type="radio" name="{_e(name)}" value="manual"> 手输（漏掉的值）：</label>'
+                       '<input type="text" class="kk-manual" autocomplete="off"></li>')
+        out.append("</ul>")
+    out.append("</fieldset>")
+    return "\n".join(out)
+
+
 def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
            advice_path: str | os.PathLike | None = None, reopen: Mapping[str, Any] | None = None) -> bytes:
     """The confirm page of audit revision ``a<n>`` (default: the newest) as bytes, sealed (module docstring).
@@ -319,7 +357,7 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
         label, rev_base = _labels(cand, front)
         if reopen is not None:
             label = f"生效 r{reopen['effective_rev']} (verified) / 重开 {reopen['reopen_id']}（现值 {now}）"
-        blocked = [u for u in cand.get("uncertain", []) if u.get("scope") == G.PAGE]
+        blocked = [u for u in cand.get("uncertain", []) if G.blocks_page(u)]
         fields, items = [], []
         for f in cand.get("fields", []):
             if not wanted(f):
@@ -335,6 +373,12 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
             fields.append({k: view[k] for k in ("field_id", "cell", "seen", "item_label", "verdict", "recommended")})
             items.append(_item_html(f, view, routes, blocked, advice.get(f["field_id"], []),
                                     "重开：现生效值待核对" if reopen is not None else None))
+        for pi in ([] if reopen is not None else cand.get("page_items", [])):  # WI-33f: one item per engine
+            fields.append({"field_id": pi["field_id"], "cell": {"row": None, "col": f"extra_values:{pi['engine']}"},
+                           "seen": G.page_item_seen(pi, routes), "item_label": "页面未归位的值",
+                           "verdict": "page_extra", "recommended": None, "page_item": True})
+            items.append(_page_item_html(pi, blocked, [_crop_src(x.get("crop"), batch_id, n, adir)
+                                                       for x in pi["lines"]]))
         records.append({"rec_id": cand["rec_id"], "page_id": cand["page_id"], "status": cand["status"],
                         "rev_base": rev_base, "clickable": not blocked, "fields": fields})
         n_items += 0 if blocked else len(items)
@@ -430,6 +474,9 @@ def _choice(sel: Mapping[str, Any], field: Mapping[str, Any]) -> dict:
     if extra:
         raise ConfirmError(f"keys {sorted(extra)} do not belong to a {kind} choice", USAGE_EXIT)
     fid = field["field_id"]
+    page_item = bool(field.get("page_item"))
+    if page_item and kind == "route":
+        raise ConfirmError(f"{fid} is a page item: acknowledge it or type a value, a route cannot be chosen", USAGE_EXIT)
     if kind == "route":
         r = sel.get("route")
         if not isinstance(r, str) or not isinstance(field["seen"].get(r), str):
@@ -440,13 +487,18 @@ def _choice(sel: Mapping[str, Any], field: Mapping[str, Any]) -> dict:
         if not isinstance(value, str):
             raise ConfirmError(f"a typed value must be a string ({fid})", USAGE_EXIT)
         if _BLANK.fullmatch(value):
+            if page_item:
+                raise ConfirmError(f"a typed value for the page item {fid} must not be blank", USAGE_EXIT)
             return {"choice": {"kind": "none"}}
         return {"choice": {"kind": "manual", "value": value}}
-    if "reason" in sel and sel["reason"] != "not_a_field":
-        raise ConfirmError(f"the only reason for 'none' is not_a_field ({fid})", USAGE_EXIT)
+    allowed = "acknowledged" if page_item else "not_a_field"
+    if page_item and sel.get("reason") != allowed:
+        raise ConfirmError(f"a page item is acknowledged (reason 'acknowledged') or typed ({fid})", USAGE_EXIT)
+    if "reason" in sel and sel["reason"] != allowed:
+        raise ConfirmError(f"the only reason for 'none' is {allowed} ({fid})", USAGE_EXIT)
     out: dict = {"choice": {"kind": "none"}}
-    if sel.get("reason") == "not_a_field":
-        out["evidence"] = {"reason": "not_a_field"}
+    if sel.get("reason") == allowed:
+        out["evidence"] = {"reason": allowed}
     return out
 
 

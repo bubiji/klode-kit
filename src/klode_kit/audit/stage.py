@@ -370,6 +370,13 @@ def _audit_page(project: Path, batch_id: str, n: int, batch_dir: Path, page: Map
         except CR.CropError as exc:
             raise AuditError(f"{page['page_id']}: {exc}") from exc
         crops = {(r["cell"][0], r["cell"][1], r["cell"][2]): r for r in records}
+    extra_crops: dict[tuple[str, tuple[int, ...]], str] = {}
+    if write_crops and any(x.bbox_px is not None for item in cmp.page_items for x in item.lines):
+        try:
+            extra_crops = CR.write_extra_crops(project, batch_id, n, page_id=page["page_id"], alignment=al,
+                                               comparison=cmp)
+        except CR.CropError as exc:
+            raise AuditError(f"{page['page_id']}: {exc}") from exc
     rec_id = ids.rec_id({"doc_id": page["doc_id"], "page_id": page["page_id"], "record_idx": 0})
     verdict = G.judge(cmp, rec_id=rec_id, page_id=page["page_id"], page_uncertain=G.page_entries(page),
                       cell_codes={k: r["uncertain"] for k, r in crops.items()})
@@ -389,6 +396,14 @@ def _audit_page(project: Path, batch_id: str, n: int, batch_dir: Path, page: Map
     candidate = {"rec_id": rec_id, "doc_id": page["doc_id"], "page_id": page["page_id"], "record_idx": 0,
                  "audit_rev": ids.audit_rev(batch_id, n), "status": verdict.status,
                  "verified_by": verdict.verified_by, "uncertain": list(verdict.uncertain), "fields": fields}
+    if cmp.page_items:  # WI-33f / D-37: one confirm item per engine with unplaced value lines
+        candidate["page_items"] = [
+            {"field_id": G.page_item_field_id(rec_id, item.engine), "reason": "extra_values", "engine": item.engine,
+             "der_sha256": next((x.der_sha256 for x in item.lines if x.bbox_px is not None), None),
+             "lines": [{"line_idx": list(x.line_idx), "text": x.text,
+                        "bbox_px": list(x.bbox_px) if x.bbox_px is not None else None,
+                        "crop": extra_crops.get((item.engine, x.line_idx))} for x in item.lines]}
+            for item in cmp.page_items]
     return lines, candidate
 
 
