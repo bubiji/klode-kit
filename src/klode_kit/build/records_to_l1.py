@@ -172,7 +172,22 @@ def _date_forms(date: str) -> list[str]:
 # --------------------------------------------------------------------------- export reading
 
 
+_TRAILING_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})(?: [^ ]+)? ⟨[^⟩]*⟩$")
+
+
 class _Line:
+    @staticmethod
+    def _record_date(row: Mapping[str, Any]) -> str:
+        """The record date as exported when the line has no positioned date field (real exports keep the date
+        field on a header row). The export map row has no date key (its contract schema is closed), so the date is
+        read from the text: the ISO date ``records_to_txt`` itself appends before the flag and `` ⟨rec_id⟩`` (an
+        observation line is ``<item> <value>[ <unit>] <date>[ <flag>] ⟨<rec_id>⟩``; coupled to that format). It is
+        the date as exported - shifted under ``dateshift``, never the original."""
+        if (row.get("line_kind") or "source") != "observation":
+            return ""
+        m = _TRAILING_DATE.search(row["text"])
+        return m.group(1) if m else ""
+
     def __init__(self, row: Mapping[str, Any], offset: int):
         self.offset = offset
         self.text: str = row["text"]
@@ -184,7 +199,7 @@ class _Line:
             role = _slot(fid)[1]
             roles.setdefault(role, self.text[s:e])
         self.unit = roles.get("unit", "")
-        self.date = roles.get("date", "")
+        self.date = roles.get("date", "") or self._record_date(row)
         self.flag = roles.get("flag", "")
         vpos = next((p for f, p in row.get("positions", {}).items() if _slot(f)[1] == "value"), None)
         self.display = self.text[:vpos[0]].strip() if vpos and self.kind == "observation" else ""
