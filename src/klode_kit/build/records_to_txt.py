@@ -59,9 +59,15 @@ written). Without ``deident`` the export is the plain one above. Under a mode:
   from, to}`` (without field_id when the record date comes from the body alone); under ``pseudonym`` dates are
   shown as audited and no ``dateshift`` transform exists;
 - every other shown **field** (item, value, unit, flag, extra) stays as audited - values and units never get a
-  transform, an item only its alias. A field holding an identifier (``deident.find_identifiers``), under
-  ``dateshift`` one holding a date outside a date field, or a date that cannot be moved, would leak through: the
-  record is excluded as ``deident_unsafe`` instead.
+  transform, an item only its alias. Under ``dateshift`` a field holding a date outside a date field, or a date
+  that cannot be moved, would leak through: the record is excluded as ``deident_unsafe``;
+- **dropped rows** (WI-33h, D-39): a row is dropped from the export (not transformed; every field of it) when its item
+  label is an identity header label (``config/identity_labels.toml``, project override ``identity_labels.toml``) or
+  when a field of it, or the row's label joined to a value, holds an identifier (``deident.find_identifiers``). A row
+  whose label resolves to an ``items.yaml`` item is never dropped. Dropped fields of exported records are listed in the result as
+  ``dropped: [{rec_id, field_id, reason}]`` (``identity_label`` | ``identifier``). A record left without a line is
+  excluded as ``empty_record``; an identifier that remains in a kept field (e.g. inside a lab-item row) still
+  excludes the record as ``deident_unsafe``.
 
 ``value_audited`` and ``transforms[].from`` stay the audited values (``unapply`` must give them back), so
 ``src/export_map.jsonl`` holds originals and belongs with the private side of a build; ``library/`` and the cards
@@ -79,6 +85,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+import tomllib
+from importlib import resources
+
 from klode_kit import items as items_mod
 from klode_kit.build import deident as deident_mod
 
@@ -93,6 +102,7 @@ _PIPE_ROLE = {"number": "value", "unit": "unit", "flag": "flag", "drug": "item"}
 _CHAIN_ROLES = ("item", "value", "unit", "flag", "date")
 _ROLE_ORDER = {"item": 0, "value": 1, "unit": 2, "date": 3, "flag": 4, "extra": 5}
 _BARE = 2
+IDENTITY_LABELS_FILE = "identity_labels.toml"
 
 
 class ExportError(RuntimeError):
@@ -336,9 +346,61 @@ def _build_lines(rec: str, rows: list[_Row], date: str, date_fid: str | None, la
     return out
 
 
+def identity_labels(project: Path | None = None) -> frozenset[str]:
+    """The identity header labels: ``<project>/identity_labels.toml`` when present, else the packaged default."""
+    path = None if project is None else Path(project) / IDENTITY_LABELS_FILE
+    try:
+        if path is not None and path.is_file():
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        else:
+            data = tomllib.loads((resources.files("klode_kit.config") / IDENTITY_LABELS_FILE).read_text(
+                encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ExportError(f"{IDENTITY_LABELS_FILE}: cannot read: {exc}") from exc
+    labels = data.get("labels")
+    if not isinstance(labels, list) or not all(isinstance(x, str) for x in labels):
+        raise ExportError(f"{IDENTITY_LABELS_FILE}: `labels` must be a list of strings")
+    return frozenset(_norm_label(x) for x in labels)
+
+
+def _norm_label(label: str) -> str:
+    return label.strip().rstrip(":：").strip()
+
+
+def _row_label(row: _Row, labels: Mapping[str, str]) -> tuple[str | None, bool]:
+    """``(label, from_field)``: the row's item field, else the kb-audit item_label of its value / first field."""
+    if "item" in row.roles:
+        return row.roles["item"][1], True
+    order = [row.roles["value"][0]] if "value" in row.roles else []
+    label = next((labels[f] for f in order + [f for _, f, _ in row.fields] if f in labels), None)
+    return label, False
+
+
+def _drop_reason(row: _Row, labels: Mapping[str, str], items: _Items, identity: frozenset[str],
+                 date_fid: str | None) -> str | None:
+    """Why the row is dropped from a de-identified export (``None``: it is kept)."""
+    if date_fid is not None and any(fid == date_fid for _, fid, _ in row.fields):
+        return None   # the record date keeps the date rules
+    label, from_field = _row_label(row, labels)
+    if label is not None and items.table.resolve(label)[1]:
+        return None   # a lab item is never dropped; an identifier left in it makes the record unsafe
+    if label is not None and _norm_label(label) in identity:
+        return "identity_label"
+    if any(deident_mod.find_identifiers(v) for _, _, v in row.fields):
+        return "identifier"
+    if label is not None and not from_field:
+        # the label is not a field (it is scrubbed, not dropped), but an identifier made of label + value is
+        for _, _fid, v in row.fields:
+            head = label + "："
+            if any(end > len(head) for _, end, _ in deident_mod.find_identifiers(head + v)):
+                return "identifier"
+    return None
+
+
 def _record_lines(rec: str, body: Mapping[str, Any], labels: Mapping[str, str], items: _Items,
-                  new_items: set[str], deid: _Deident | None = None) -> list[_Line] | str:
-    """The lines of one bound body, or the exclusion reason."""
+                  new_items: set[str], deid: _Deident | None = None, identity: frozenset[str] = frozenset(),
+                  dropped: list[dict] | None = None) -> list[_Line] | str:
+    """The lines of one bound body, or the exclusion reason (``dropped`` collects the rows dropped under ``deid``)."""
     fields = body.get("fields") or {}
     if not isinstance(fields, dict) or not fields:
         return "empty_record"
@@ -348,6 +410,17 @@ def _record_lines(rec: str, body: Mapping[str, Any], labels: Mapping[str, str], 
     date, date_fid = _record_date(body, rows)
     if date is None:
         return "no_date"
+    if deid is not None:
+        kept = []
+        for row in rows:
+            why = _drop_reason(row, labels, items, identity, date_fid)
+            if why is None:
+                kept.append(row)
+            elif dropped is not None:
+                dropped += [{"rec_id": rec, "field_id": fid, "reason": why} for _, fid, _ in row.fields]
+        if len(kept) < len(rows) and all(all(role == "date" for role, _, _ in r.fields) for r in kept):
+            return "empty_record"
+        rows = kept
     try:
         out = _build_lines(rec, rows, date, date_fid, labels, items, new_items, deid)
     except _Unsafe:
@@ -391,6 +464,8 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
     items = _Items(items_mod.default())
     cache: dict[str, dict[str, str]] = {}
     new_items: set[str] = set()
+    identity = identity_labels(project) if deid is not None else frozenset()
+    dropped: list[dict] = []
     per_record: dict[str, list[_Line]] = {}
     audit_bindings: dict[str, dict] = {}
     for rec in sorted(bound):
@@ -403,7 +478,8 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
         if status != "verified":
             excluded.append({"rec_id": rec, "reason": "not_verified", "status": status})
             continue
-        lines = _record_lines(rec, body, _labels(project, body.get("audit_rev"), cache), items, new_items, deid)
+        lines = _record_lines(rec, body, _labels(project, body.get("audit_rev"), cache), items, new_items, deid,
+                              identity, dropped)
         if isinstance(lines, str):
             excluded.append({"rec_id": rec, "reason": lines, "status": body.get("status")})
             continue
@@ -442,6 +518,8 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
         "items_index": {k: index[k] for k in sorted(index)},
         "excluded": sorted(excluded, key=lambda e: e["rec_id"]),
         "new_items": sorted(new_items),
+        "dropped": sorted((d for d in dropped if d["rec_id"] in per_record),
+                          key=lambda d: (d["rec_id"], d["field_id"])),
     }
     if out is not None:
         _write(Path(out), result)
@@ -496,6 +574,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"records-to-txt: de-identification: {exc}", file=sys.stderr)
         return 40
     print(json.dumps({"kb_id": res["kb_id"], "audit_bindings": res["audit_bindings"], "excluded": res["excluded"],
-                      "new_items": res["new_items"], "files": sorted(res["files"])}, ensure_ascii=False,
+                      "new_items": res["new_items"], "dropped": res["dropped"], "files": sorted(res["files"])}, ensure_ascii=False,
                      sort_keys=True))
     return 0

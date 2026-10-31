@@ -3,8 +3,8 @@
 - the export under a mode registers what it changed in ``export_map.transforms``: ``dateshift`` only on date fields
   and only in ``dateshift`` mode, ``layout`` for a scrubbed label, nothing on a value / unit; the 00b3 validator
   (``provenance.check_transforms`` / ``apply`` / ``unapply``) finds no violation and recovers the audited values;
-- what cannot be de-identified without touching a field the design forbids touching (an identifier in a field, a
-  date outside a date field under ``dateshift``, a date field that is not a date) excludes the record
+- what cannot be de-identified without touching a field the design forbids touching (an identifier left in a kept
+  field - D-39: rows holding one are dropped first, see test_deident_drop - a date outside a date field under ``dateshift``, a date field that is not a date) excludes the record
   (``deident_unsafe``) instead of leaking it;
 - the key: created once (owner-only file, ``_private/.gitignore``), reused, malformed -> ``DeidentError`` without
   echoing its content; an unknown mode is refused before anything is written.
@@ -119,8 +119,10 @@ def test_label_identifier_scrubbed_with_layout_transform(tmp_path):
 @pytest.mark.parametrize("mode", D.MODES)
 def test_identifier_in_field_excludes_record(tmp_path, mode):
     """(S3) an identifier inside an item field or a value field cannot be replaced (no transform may touch a
-    value; an item only takes an alias): the record is excluded as ``deident_unsafe`` and nothing of it is
-    exported; a clean record beside it is exported."""
+    value; an item only takes an alias). Spec change D-39 (WI-33h): an identifier in an unknown item field drops
+    that row (the record, left with no row, is ``empty_record``); an identifier in the value of a lab item stays
+    in a kept field, so the record is ``deident_unsafe``; nothing of either is exported; a clean record beside
+    them is exported."""
     project = proj(tmp_path)
     mobile = "".join(["1", "38", "0013", "8000"])
     chain_record(project, REC_A, "2026-09-18", [("MZ" + "12345678", "128", "g/L")])
@@ -129,7 +131,7 @@ def test_identifier_in_field_excludes_record(tmp_path, mode):
     assert {r["rec_id"] for r in R.export(project)["export_map"]} == {REC_A, REC_B, REC_C}
     res = R.export(project, deident=mode)
     assert {r["rec_id"] for r in res["export_map"]} == {REC_C}
-    assert [(e["rec_id"], e["reason"]) for e in res["excluded"]] == [(REC_A, "deident_unsafe"),
+    assert [(e["rec_id"], e["reason"]) for e in res["excluded"]] == [(REC_A, "empty_record"),    # spec change D-39
                                                                       (REC_B, "deident_unsafe")]
     blob = "\n".join(res["files"].values())
     assert REC_A not in blob and REC_B not in blob and mobile not in blob

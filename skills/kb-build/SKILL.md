@@ -13,7 +13,7 @@ allowed-tools: Bash(*/bin/klode-kit *)
 
 | 源 | 走哪条路 |
 | --- | --- |
-| 已经 verified 的医疗记录（`records/` 里） | 记录路径：不带 `--source`，卡片和书桌合成都由程序确定性生成，零模型调用 |
+| 已经 verified 的医疗记录（`records/` 里） | 记录路径：不带 `--source`，卡片和书桌合成都由程序确定性生成，零模型调用；脱敏导出会丢弃身份表头行（姓名、证件号、住院号、报告者等，名单见 `config/identity_labels.toml`，项目根目录放同名文件可替换），其余照常入库；丢了哪些字段见 `records-to-txt` 输出的 `dropped`；残留标识符的化验行仍整条记录排除（`deident_unsafe`） |
 | EPUB、有文字层的 PDF、md、txt | 书籍路径：带 `--source`，写卡由便宜模型 worker 完成 |
 | 扫描件、截图 | 先 `/klode-kit:kb-ocr`、`/klode-kit:kb-audit` 得到 verified 记录，再走记录路径 |
 

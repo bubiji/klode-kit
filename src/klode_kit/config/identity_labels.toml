@@ -1,0 +1,16 @@
+# Identity header labels for the de-identified export (records_to_txt, WI-33h; real-data pilot P13, decision D-39).
+#
+# A real lab report page carries a header block (patient name, ID-card number, admission number, requesting
+# department, reporter ...) which the audit captures as ordinary rows. Under `--deident` a row whose item label
+# (the item field, else the item_label kb-audit gave the row) is one of `labels` below is DROPPED from the export:
+# it is not transformed and not shown, and the build summary lists it as `dropped: [{rec_id, field_id, reason}]`
+# (reason `identity_label`; a row dropped for holding an identifier says `identifier`). The rest of the record is
+# exported. A label is matched exactly after stripping blanks and a trailing colon. A label that resolves to an
+# `items.yaml` lab item is never dropped, whatever this list says.
+#
+# A data project overrides this list by placing its own `identity_labels.toml` (same `labels` key) at the project
+# root; the file then replaces the whole list.
+labels = [
+  "姓名", "证件号", "身份证号", "住院号", "门诊号", "就诊流水号", "病案号", "床号",
+  "报告者", "申请医生", "检验者", "审核者",
+]
