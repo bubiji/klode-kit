@@ -31,6 +31,12 @@ Rules
   confirm page lists (it lists disagreeing cells only), a state nobody can resolve. What one route cannot see is the
   cross-route checks (swap, shift, extra value); only the row alignment's own doubts (``unaligned``, ``merged_rows``)
   can still send a text-layer record to the human. ``runs.json`` then names the route: ``"pdftext": "text-layer"``.
+- **Geometry reference** (WI-33e, pilot P9, D-36). An image page's ``geometry_ref`` (kb-ocr's tesseract word boxes of
+  the same upright image, ``ocr/tesseract/...``) goes to ``align(reference=)``: it makes the rows it overlaps exact, so
+  Vision's approx boxes count there (R3-05) - cells get columns and a box crop and lose ``no_geometry`` /
+  ``no_bbox_crop``. It is no route: not in ``runs.json`` (so it never opens a revision and the confirm page shows no
+  column for it), no candidate, no vote; values, votes and verdicts are the same with or without it. A page without
+  a reference (older batch, tesseract failed) is audited as before.
 - **Audit revision** (r3.2): the run set is ``{route: run_id}`` of the receipt's ``attempts`` (``null`` for a
   route that made no attempt, e.g. disabled). It is compared with the latest ``a<N>``: equal -> ``a<N>`` is
   reused (only artifacts a killed run left missing are written; a complete ``a<N>`` is not written at all);
@@ -307,6 +313,20 @@ def _rows(batch_dir: Path, page: Mapping[str, Any]) -> dict[str, list[dict]]:
     return out
 
 
+def _reference_rows(batch_dir: Path, page: Mapping[str, Any]) -> list[dict]:
+    """The tesseract geometry reference of an image page (WI-33e): ``ocr/tesseract/.../<key>.jsonl``, or ``[]`` when
+    kb-ocr made none for the page or it failed (the page then simply has no exact geometry)."""
+    ref = page.get("geometry_ref") or {}
+    if ref.get("status") != "done":
+        return []
+    path = batch_dir / str(ref.get("file", ""))
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise AuditError(f"{page['page_id']}: geometry reference file is missing: {exc}") from exc
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
 def _text_rows(batch_dir: Path, page: Mapping[str, Any]) -> dict[str, list[dict]]:
     """``{"pdftext": rows}`` of a text-layer page: the rows of ``text/<key>.jsonl``, traced by ``run_id`` =
     ``text/<key>`` (contract: a text-layer line has no run of its own)."""
@@ -338,9 +358,10 @@ def _audit_page(project: Path, batch_id: str, n: int, batch_dir: Path, page: Map
                 routes: list[str], write_crops: bool) -> tuple[list[dict], dict]:
     if page.get("text_class") == "text":
         rows, routes = _text_rows(batch_dir, page), ["pdftext"]  # WI-33d: the text layer is the page's one route
+        reference = None
     else:
-        rows = _rows(batch_dir, page)
-    al = A.align(rows) if rows else A.Alignment(None, (), {}, (), ())
+        rows, reference = _rows(batch_dir, page), _reference_rows(batch_dir, page)
+    al = A.align(rows, reference=reference) if rows else A.Alignment(None, (), {}, (), ())
     cmp = C.compare(al, routes=routes)
     crops: dict[tuple[int, str, int], dict] = {}
     if write_crops and any(v.verdict != C.AGREE for v in cmp.cells):

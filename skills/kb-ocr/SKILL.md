@@ -22,6 +22,7 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-ocr $ARGUMENTS
 3. 读回执 `work/<批次号>/receipt.json`（批次号 = `work/` 下这次出现的 12 位十六进制目录名），按下面的清单汇报：
    - 每页 `rotate`（歪斜页转正了多少度）、`status`（`done`、`incomplete` 或 `failed`）；
    - 每路 `route_stats`：耗时 `elapsed_ms` 与失败页数 `failed_pages`；`issues` 里列出的每一项都要说；
+   - 每个图片页的 `geometry_ref`：`kb-ocr` 对每个要走 OCR 的页（图片、扫描或乱码的 PDF 页）另外跑一遍 tesseract，只当**几何参照**（存在 `ocr/tesseract/<指纹>.t<n>/`，有自己的尝试回执），不是一路：不在 `--routes` 里，不进 `routes`、`attempts`、`route_stats`、`issues`，不发给任何人，审计也不拿它的字当读数。`status` 是 `done` 就没事；不是 `done`（多为 tesseract 没装或这页读不出字）只是该页少了精确几何，批次照常 `done`，汇报时提一句「这页的字段多半要手点」，修法是装好 tesseract 后 `--redo`；
    - PDF：`text_layer`（`true` 表示整份有文字层）与 `routes_skipped`（文字层页不走 OCR，四路都被跳过）；
    - 请求了云端路时，`kb-ocr` 会在云端路之前自动打码（批次回执 `mask.status`：`done` 或 `failed`）；云端路只读 `_masked/` 下登记过的打码图，汇报里说明打码图在哪、打码对照图（`_mask_review/`）只给人看。只跑本机路（`--routes vision,mlx`）不打码。
 4. 告诉用户下一步：单据批次走 `/klode-kit:kb-audit --batch <批次号>`（对齐、投票、出确认页）；文字层 PDF 想建库走 `/klode-kit:kb-build`。
@@ -51,3 +52,4 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-ocr $ARGUMENTS
 | O04 | 重跑后读数没变 | 输入和配置没变时复用已完成的尝试 | 想强制开新一轮就加 `--redo`；旧指纹目录不要手动删 |
 | O05 | exit 2，提示没有图片 | 路径写错，或目录里没有图片和 PDF | 核对路径；非图片文件会被跳过并列在回执的 `skipped` 里 |
 | O06 | 医疗批次的记录落在 `-doc` 类型下 | 页面没有「检验」「处方」之类抬头关键词，类型判不出 | 第一次就带 `--type lab` 或 `--type rx`，类型会一直保留 |
+| O07 | 回执某页 `geometry_ref` 不是 `done`，stderr 有「tesseract geometry reference missing」 | tesseract 没装或这页读不出字；它只供几何，不是一路 | 批次不算失败；该页的 Vision 框没有精确参照，确认页上更多字段要手点。装好 tesseract（`doctor` 看缺项）后加 `--redo` 重跑 |

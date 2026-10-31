@@ -43,6 +43,15 @@ whitespace piece (cut at a colon, so ``姓名：<name>`` labels as ``姓名``) b
 single route split, like tesseract's ``血红 蛋白``, loses), resolved through ``items.yaml``; unknown items of rows
 holding a number or drug cell are ``Alignment.new_items``.
 
+**Geometry reference (WI-33e, real-data pilot P9, decision D-36).** ``align(routes, reference=lines)`` takes the
+``tesseract`` lines kb-ocr read from the same page image as a geometry-only reference (``geometry_ref``). It is not a
+route: it adds no row, changes no pairing, is no candidate and never votes. Its only effect is the R3-05 corroboration:
+a row of the skeleton that a reference line with exact word boxes overlaps (``ROW_OVERLAP``, same rule as rows)
+is an exact row, so the approx token boxes of Vision on it count - the cells there get ``col``/``geom`` (the
+column clusters are the token ``x0`` values of the exact rows, as before) and lose ``no_geometry``. Reference lines
+with no exact token are ignored, and so is the whole reference when ``tesseract`` already is one of ``routes`` (MLX's
+fallback): the same boxes are never counted twice. Rows are corroborated one by one; ``Alignment.base`` is unchanged.
+
 Every ordering decision uses ``ENGINE_ORDER``, never the order of ``routes``: permuting the routes changes
 nothing (matrix 07b-09).
 """
@@ -429,15 +438,27 @@ def _col_of(x: float, clusters: list[tuple[float, float]]) -> str | None:
 # --------------------------------------------------------------------------- align
 
 
+def _reference_boxes(reference: Sequence[Mapping] | None, routes: Mapping[str, Sequence[Mapping]]) -> list[tuple]:
+    """``[(box, vertical)]`` of the geometry reference's lines that carry exact word boxes. Nothing when there is no
+    reference, or when ``tesseract`` already is one of the routes (MLX's fallback rows: they are the geometry)."""
+    if not reference or "tesseract" in routes:
+        return []
+    return [(tuple(ln["bbox_px"]), _vertical(ln)) for ln in reference
+            if ln.get("bbox_px") is not None and any(t.get("geometry") == "exact" for t in (ln.get("tokens") or ()))]
+
+
 def align(routes: Mapping[str, Sequence[Mapping]], *, items: items_mod.Items | None = None,
-          tau: float = LINE_SIM_TAU) -> Alignment:
+          tau: float = LINE_SIM_TAU, reference: Sequence[Mapping] | None = None) -> Alignment:
     """Align the routes of one page (see the module docstring)."""
     table = items if items is not None else items_mod.default()
     engines = _ordered(routes)
     token = [e for e in engines if _token_route(routes[e])]
     base = next((e for e in token if _has_exact(routes[e])), None)
     srows = _skeleton(routes, token, base)
+    ref_boxes = _reference_boxes(reference, routes)
     exact = [any(t.get("geometry") == "exact" for lns in r.lines.values() for ln in lns for t in (ln.get("tokens") or ()))
+             or (r.box is not None and any(_same_row(r.box, r.vertical, box, vert) >= ROW_OVERLAP
+                                           for box, vert in ref_boxes))
              for r in srows]
 
     pairs: dict[str, tuple[Pair, ...]] = {}

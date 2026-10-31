@@ -14,6 +14,7 @@ Layout (``<batch>`` is ``batch_id``, the set hash of the images)::
     work/<batch>/derived/<key>.png                the upright page, only when it had to be turned
     work/<batch>/ocr/<engine>/<cfg_fp>.t<seq>/<key>.jsonl   ``ocr_line`` rows of one route on one page
     work/<batch>/ocr/<engine>/<cfg_fp>.t<seq>/receipt.json  attempt receipt (contract ``receipt``)
+    work/<batch>/ocr/tesseract/<cfg_fp>.t<seq>/<key>.jsonl  the geometry reference (WI-33e, below)
     work/<batch>/receipts/ocr.json                step receipt (contract ``receipt``)
     work/<batch>/receipt.json                     batch receipt ``klode-kit.ocr_batch/1`` (below)
 
@@ -63,9 +64,21 @@ Rules
   the project lock is held by another run; 50 the cloud budget stopped the batch; 60 the sender refused an
   image for privacy (receipts are written in both cases).
 
+Geometry reference (WI-33e, real-data pilot P9, decision D-36): besides the routes, tesseract reads every page that goes to
+the routes (image pages, scanned or garbled PDF pages; not text-layer pages) and its ``ocr_line`` rows (engine
+``tesseract``, exact word tokens) are stored as an attempt of their own, ``ocr/tesseract/<cfg_fp>.t<seq>/``, with
+the same attempt rules and receipt as a route (step ``ocr_tesseract``). It exists only to give the audit exact
+geometry (R3-05: Vision's approx boxes count only beside exact ones; MLX has no word boxes, the cloud routes none at
+all). It is not a route: not in ``--routes``, ``routes``, ``attempts``, ``route_stats`` or ``issues``, never masked or
+sent anywhere, and the audit never counts it as a reading. Its failure (tesseract missing, a page without text) never
+fails the batch: the page entry says so (``geometry_ref: {status, error}``, plus a stderr line) and the audit simply
+has no exact geometry on that page. Batch receipt increments: page ``geometry_ref: {status, run_id, file}`` (done) /
+``{status, error}``; top level ``geometry_ref: {status, run_id?, dir?}``; both absent when nothing was attempted.
+
 Test seam: ``KLODE_KIT_ENGINE_REPLAY=<dir>`` replaces every route call by recorded rows
 (``<dir>/<engine>/<key>.jsonl``; ``<key>.fail`` injects failures - empty: always, ``n``: the first n calls of
-this process; neither: no page) and appends each call to ``$KLODE_KIT_FAKE_LOG``. Honoured only when the test
+this process; neither: no page; the geometry reference is replayed from ``<dir>/tesseract/`` and is not run at all
+when that directory is absent, so recordings made before WI-33e keep their exact output) and appends each call to ``$KLODE_KIT_FAKE_LOG``. Honoured only when the test
 seams are active (``KLODE_KIT_TEST_SEAMS=1`` and ``KLODE_KIT_REAL != 1``); otherwise stderr says it is ignored.
 
 PDF input (WI-04c; design 02 r2.4 "文字层 PDF"): ``--batch`` may be a PDF file, and ``.pdf`` files in an inbox
@@ -128,6 +141,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import sys
 import time
 from dataclasses import dataclass, field
@@ -377,6 +391,32 @@ def _mlx_caller(max_ratio: float) -> Callable[[Page], list[dict]]:
         return res.lines
 
     return call
+
+
+REF_ENGINE = "tesseract"  # WI-33e: geometry reference; the directory name under ocr/ and the rows' engine
+
+
+def _tesseract_call(page: Page) -> list[dict]:
+    lines = E.TesseractEngine().ocr_page(page.derived_path, page_id=page.page_id, der_sha256=page.der_sha256)
+    if not lines:
+        raise PageMissing("tesseract read no text")
+    return lines
+
+
+def build_reference(cfg: config_mod.Config, replay: _Replay | None) -> Route | None:
+    """The geometry-reference pseudo-route (WI-33e), or ``None`` when it is not to run (replayed run without a
+    ``tesseract`` recording directory)."""
+    route = Route(REF_ENGINE, "tesseract", "none", _sha(_canonical(E.TesseractEngine().params)),
+                  _sha(_packaged("klode_kit.schemas", "ocr_line.json")), engines=(REF_ENGINE,))
+    if replay is not None:
+        if not (replay.root / REF_ENGINE).is_dir():
+            return None
+        route.call = replay.caller(REF_ENGINE)
+    elif shutil.which("tesseract") is None:
+        route.problem = "route_unavailable: tesseract is not on PATH (brew install tesseract tesseract-lang)"
+    else:
+        route.call = _tesseract_call
+    return route
 
 
 def _local_problem(name: str) -> str | None:
@@ -645,9 +685,16 @@ def _text_layer(pages: list[Page]) -> bool | str:
     return True if pages and text == len(pages) else ("partial" if text else False)
 
 
+def _ref_entry(result: dict) -> dict:
+    """The page's ``geometry_ref`` entry from the reference attempt's state for that page."""
+    if result["status"] == "done":
+        return {"status": "done", "run_id": result["run_id"], "file": result["file"]}
+    return {"status": result["status"], "error": result.get("error") or result["status"]}
+
+
 def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, skipped: list[dict],
                    runs: dict[str, RouteRun], batch_dir: Path, cloud: dict | None = None,
-                   record_type: str | None = None) -> dict:
+                   record_type: str | None = None, ref: RouteRun | None = None) -> dict:
     pages, issues = [], []
     failed_pages: Counter = Counter()
     for page, der in zip(batch.pages, batch.derived):
@@ -664,6 +711,8 @@ def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, s
                  "derived": der["path"], "routes": per, "uncertain": unc}
         if record_type is not None:
             entry["record_type"] = record_type
+        if ref is not None and _routed(page):
+            entry["geometry_ref"] = _ref_entry(ref.pages[page.key])
         if page.text_class is not None:
             entry["text_class"] = page.text_class
             if page.text_class == "text":
@@ -682,6 +731,10 @@ def _batch_receipt(batch: Batch, project: Path, routes: list[str], retry: int, s
         rec["record_type"] = record_type
     if cloud is not None:
         rec["cloud"] = cloud
+    if ref is not None:
+        rec["geometry_ref"] = {"status": ref.status}
+        if ref.directory is not None and ref.run_id is not None:
+            rec["geometry_ref"].update(run_id=ref.run_id, dir=ref.directory.relative_to(batch_dir).as_posix())
     return rec
 
 
@@ -974,18 +1027,22 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
             runs[name] = _run_route(spec, routed, batch_dir, cfg, redo, out, clock)
             if runs[name].stop in ("budget", "privacy") and stop != "privacy":
                 stop = runs[name].stop
+        ref_route = build_reference(cfg, replay) if routed else None
+        ref_run = _run_route(ref_route, routed, batch_dir, cfg, redo, out, clock) if ref_route is not None else None
         cloud_block = None
         if ledger is not None:
             cloud_block = {"limit_usd": float(ledger.limit_usd), "spent_usd": float(ledger.spent_usd),
                            "calls": ledger.calls, "stop": stop}
         kept = record_type or _receipt_type(batch_dir / "receipt.json")  # sticky: a rerun without --type keeps it
-        rec = _batch_receipt(batch, project, names, cfg["route_retry"], skipped, runs, batch_dir, cloud_block, kept)
+        rec = _batch_receipt(batch, project, names, cfg["route_retry"], skipped, runs, batch_dir, cloud_block, kept, ref_run)
         if mask_block is not None:
             rec["mask"] = mask_block
         outputs = [{"path": n, "sha256": _sha((batch_dir / n).read_bytes())}
                    for n in ("manifest.jsonl", "derived.jsonl", *text_files)]
         outputs += [{"path": r["file"], "sha256": _sha((batch_dir / r["file"]).read_bytes())}
                     for p in rec["pages"] for r in p["routes"].values() if r["status"] == "done"]
+        outputs += [{"path": p["geometry_ref"]["file"], "sha256": _sha((batch_dir / p["geometry_ref"]["file"]).read_bytes())}
+                    for p in rec["pages"] if p.get("geometry_ref", {}).get("status") == "done"]
         _write_receipt(batch_dir / "receipts" / "ocr.json", {
             "schema": "klode-kit.receipt/1", "step": "ocr", "status": "done", "started": started, "ended": _now(),
             "inputs_hash": _sha(dumps_jsonl(batch.manifest)), "config_hash": cfg.sha256(),
@@ -1000,6 +1057,11 @@ def run(project: Path, inbox: Path, routes: list[str] | None = None, *, redo: bo
             res = page["routes"][r]
             if res["status"] not in ("done", "skipped"):
                 print(f"kb-ocr: {res['status']}:{r}:{page['key']} ({res.get('error')})", file=out)
+    for page in rec["pages"]:
+        ref = page.get("geometry_ref")
+        if ref is not None and ref["status"] != "done":
+            print(f"kb-ocr: tesseract geometry reference missing for {page['key']} ({ref['error']}); the audit has no "
+                  f"exact geometry on this page", file=out)
     if rec["routes_skipped"]:
         print(f"kb-ocr: text layer on every page; routes skipped: {','.join(rec['routes_skipped'])}", file=out)
     print(f"kb-ocr: batch {batch.batch_id}: {len(batch.pages)} page(s), routes {','.join(names)}, "
