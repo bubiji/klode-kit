@@ -116,3 +116,28 @@ def trusted(path: str | os.PathLike, *, claude_json: str | os.PathLike | None = 
         return False
     entry = projects.get(str(_trust_key(real)))
     return isinstance(entry, dict) and entry.get("hasTrustDialogAccepted") is True
+
+
+def trusted_ancestor(path: str | os.PathLike, *, claude_json: str | os.PathLike | None = None,
+                     home: str | os.PathLike | None = None, env: Mapping[str, str] | None = None) -> Path | None:
+    """Nearest proper ancestor of ``path`` whose store entry has ``hasTrustDialogAccepted`` (WI-33b), else ``None``.
+
+    Only explains why a folder shows no trust dialog (Claude Code skips it under a trusted parent); it never makes
+    ``trusted`` true. Stops before the home directory; an unreadable store gives ``None``."""
+    env = os.environ if env is None else env
+    home_dir = Path(os.path.realpath(home if home is not None else (env.get("HOME") or Path.home())))
+    if claude_json is None:
+        if env.get("CLAUDE_CONFIG_DIR"):
+            return None
+        claude_json = home_dir / ".claude.json"
+    projects = _load_store(Path(claude_json))
+    if projects is None:
+        return None
+    real = Path(os.path.realpath(path))
+    for parent in real.parents:
+        if parent == home_dir:
+            break
+        entry = projects.get(str(parent))
+        if isinstance(entry, dict) and entry.get("hasTrustDialogAccepted") is True:
+            return parent
+    return None

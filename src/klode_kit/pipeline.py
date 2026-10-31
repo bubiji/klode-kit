@@ -262,6 +262,7 @@ class Ctx:
     out: TextIO
     choices: Path | None = None
     done: dict[str, dict] = field(default_factory=dict)
+    last_stage: str | None = None  # WI-33b: the last stage of this run; doctor skips project_trust for local-only runs
     record_type: str | None = None  # WI-13c: explicit document type, handed to kb-ocr (``--type``)
 
     @property
@@ -297,13 +298,19 @@ class Ctx:
 # --------------------------------------------------------------------------- stages
 
 def _preflight_inputs(ctx: Ctx) -> Any:
-    return {"python": sys.version, "kit": __version__, "platform": sys.platform, "launcher": str(ctx.launcher),
-            "path": ctx.env.get("PATH", ""), "project": str(ctx.project.resolve())}
+    inputs = {"python": sys.version, "kit": __version__, "platform": sys.platform, "launcher": str(ctx.launcher),
+              "path": ctx.env.get("PATH", ""), "project": str(ctx.project.resolve())}
+    if ctx.routes and ctx.last_stage:  # only when scoped: hashes of unscoped runs stay as they were
+        inputs["trust_scope"] = [ctx.routes, ctx.last_stage]
+    return inputs
 
 
 def _preflight_run(ctx: Ctx) -> Outcome:
     product = ctx.pdir / "preflight_receipt.json"
-    code, _ = ctx.child("doctor", "--project", str(ctx.project), "--receipt", str(product))
+    scope: list[str] = []
+    if ctx.routes and ctx.last_stage:  # WI-33b: tell doctor what the run needs, so a local-only run skips trust
+        scope = ["--routes", ctx.routes, "--last-stage", ctx.last_stage]
+    code, _ = ctx.child("doctor", "--project", str(ctx.project), "--receipt", str(product), *scope)
     reason = classify_child_exit(code)
     if reason is Reason.ok and not product.is_file():
         return Outcome(Reason.contract_violation, "doctor wrote no receipt")
@@ -607,7 +614,7 @@ def run(project: str | os.PathLike, inbox: str | os.PathLike, *, stage: str | No
     shas = [s.sha256 for s in images]
     batch_id = ids.batch_id(shas)
     ctx = Ctx(project, inbox, batch_id, shas, launcher_path, routes, dict(os.environ if env is None else env),
-              cfg, out, choices_path, record_type=record_type)
+              cfg, out, choices_path, record_type=record_type, last_stage=last)
     reg = dict(default_registry() if registry is None else registry)
     work = project / "work"
     os.makedirs(work, exist_ok=True)

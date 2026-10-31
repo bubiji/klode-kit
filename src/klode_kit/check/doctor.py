@@ -417,13 +417,43 @@ def seam_check(env: Mapping[str, str]) -> tuple[Check, bool]:
 # --------------------------------------------------------------------------- data project
 
 
-def _trust(project: Path, env: Mapping[str, str]) -> Check:
+STAGE_ORDER = ("preflight", "ocr", "audit", "writeback", "build", "check", "publish")  # = pipeline.STAGE_NAMES
+
+
+def trust_required(routes: str | None, last_stage: str | None) -> bool:
+    """Whether the run needs workspace trust (WI-33b): a ``claude`` OCR route, or any stage after ``writeback``
+    (build / check / publish: the host and MCP steps). Unknown routes or stage -> required (the safe answer)."""
+    if routes is not None and "claude" not in [r.strip() for r in routes.split(",")]:
+        cloud = False
+    else:
+        cloud = True
+    later = last_stage is None or last_stage not in STAGE_ORDER or \
+        STAGE_ORDER.index(last_stage) > STAGE_ORDER.index("writeback")
+    return cloud or later
+
+
+def _trust_fix(project: Path, env: Mapping[str, str]) -> str:
+    base = f"{TRUST_HINT}: cd '{project}' && claude"
+    parent = hostenv.trusted_ancestor(project, env=env)
+    if parent is None:
+        return base
+    return (f"上级目录 {parent} 已被信任，所以在 {project} 里运行 claude 不会弹出信任对话框，上面的办法无效。"
+            f"可选：(1) 先对数据项目 `git init`（'{project}'），再在其中运行 claude 并接受信任；"
+            f"(2) 在 ~/.claude.json 里为该项目自己加一条 hasTrustDialogAccepted 的记录（用户本人操作，闸门 G3，klode-kit 绝不代写）")
+
+
+def _trust(project: Path, env: Mapping[str, str], routes: str | None = None, last_stage: str | None = None,
+           scoped: bool = False) -> Check:
+    if scoped and not trust_required(routes, last_stage):
+        reason = (f"skipped: this run uses routes {routes} up to stage {last_stage}; "
+                  f"no cloud OCR route and no host/MCP stage needs workspace trust")
+        return Check("project_trust", "project", True, reason, extra={"skipped": True, "reason": reason})
     state = hostenv.trusted(project, env=env)
     if state is True:
         return Check("project_trust", "project", True, f"workspace trust accepted for {project}")
     detail = ("trust undetectable (~/.claude.json unreadable, or CLAUDE_CONFIG_DIR set)"
               if state == "undetectable" else f"workspace trust not accepted for {project}")
-    return Check("project_trust", "project", False, detail, f"{TRUST_HINT}: cd '{project}' && claude")
+    return Check("project_trust", "project", False, detail, _trust_fix(project, env))
 
 
 def _settings_local(project: Path, env: Mapping[str, str]) -> Check:
@@ -547,8 +577,10 @@ def _mcp(project: Path, env: Mapping[str, str]) -> Check:
                  extra={"servers": seen})
 
 
-def project_checks(project: Path, env: Mapping[str, str]) -> list[Check]:
-    return [_trust(project, env), _settings_local(project, env), _gitignore(project), _mcp(project, env)]
+def project_checks(project: Path, env: Mapping[str, str], routes: str | None = None,
+                   last_stage: str | None = None) -> list[Check]:
+    scoped = routes is not None and last_stage is not None
+    return [_trust(project, env, routes, last_stage, scoped), _settings_local(project, env), _gitignore(project), _mcp(project, env)]
 
 
 # --------------------------------------------------------------------------- receipt / CLI
@@ -564,7 +596,8 @@ def _write_atomic(path: Path, data: bytes) -> None:
     os.replace(tmp, path)
 
 
-def run(*, sections: tuple[str, ...], root: Path, project: Path | None, env: Mapping[str, str]) -> dict[str, Any]:
+def run(*, sections: tuple[str, ...], root: Path, project: Path | None, env: Mapping[str, str],
+        routes: str | None = None, last_stage: str | None = None) -> dict[str, Any]:
     checks: list[Check] = []
     if "host" in sections:
         checks += host_checks(root, env)
@@ -573,7 +606,7 @@ def run(*, sections: tuple[str, ...], root: Path, project: Path | None, env: Map
         seam, test_mode = seam_check(env)
         checks.append(seam)
     if "project" in sections and project is not None:
-        checks += project_checks(project, env)
+        checks += project_checks(project, env, routes, last_stage)
     failed = [c for c in checks if not c.ok]
     by_cat: dict[str, list[str]] = {}
     for c in failed:
@@ -601,6 +634,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", type=Path, help="repository root to check (default: the one whose .venv runs this)")
     parser.add_argument("--only", help=f"comma list of sections: {','.join(SECTIONS)}")
     parser.add_argument("--receipt", type=Path, help="also write the receipt here")
+    parser.add_argument("--routes", help="OCR routes the run will use; with --last-stage, project_trust is skipped "
+                                         "when no claude route and no stage after writeback is planned")
+    parser.add_argument("--last-stage", help=f"last pipeline stage the run will reach: {','.join(STAGE_ORDER)}")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
@@ -617,11 +653,16 @@ def main(argv: list[str] | None = None) -> int:
             return USAGE_EXIT
     else:
         sections = ("host", "seams") + (("project",) if args.project is not None else ())
+    if args.last_stage is not None and args.last_stage not in STAGE_ORDER:
+        print(f"klode-kit doctor: usage error: unknown --last-stage {args.last_stage!r}; "
+              f"choose from {','.join(STAGE_ORDER)}", file=sys.stderr)
+        return USAGE_EXIT
     if args.project is not None and not args.project.is_dir():
         print(f"klode-kit doctor: usage error: --project is not a directory: {args.project}", file=sys.stderr)
         return USAGE_EXIT
     root = args.repo if args.repo is not None else default_repo_root()
-    receipt = run(sections=sections, root=root, project=args.project, env=os.environ)
+    receipt = run(sections=sections, root=root, project=args.project, env=os.environ, routes=args.routes,
+                  last_stage=args.last_stage)
     text = json.dumps(receipt, ensure_ascii=False, indent=2) + "\n"
     if args.receipt is not None:
         _write_atomic(args.receipt, text.encode("utf-8"))

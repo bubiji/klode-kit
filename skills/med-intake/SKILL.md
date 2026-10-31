@@ -62,3 +62,4 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit pipeline --batch INBOX_DIR --choices choices
 | M04 | 写回 exit 30，什么都没写 | choices 与当前确认页对不上（批次、审计修订、封存码），或点了 tesseract | 用当前确认页重新点选并导出 |
 | M05 | 同一天的新批次别名不是日期 | 同日第二批叫 `<日期>-2`，不覆盖已有别名 | 用命令输出里打印的别名 |
 | M06 | exit 0 且没有确认页链接 | 四路全部一致，无需确认 | 第二段不带 `--choices`，直接写回入账 |
+| M07 | 预检 exit 40：`project_trust` 未通过，按提示「在数据项目目录运行 claude」永远不弹信任框 | 数据项目是非 git 普通文件夹且其上级已被信任：Claude Code 不会弹框，该目录自己的 `hasTrustDialogAccepted` 永远写不进去（信任以文件夹/git 根自身为键） | 只用本地路线时加 `--routes vision,mlx`（最后阶段 ≤ writeback），预检会跳过并在回执里写明原因；要用 claude 路线或发布时：对数据项目 `git init` 后在其中运行 `claude` 并接受，或由用户自己在 Claude 的信任存储（`.claude.json`）里加该项目的条目（闸门 G3，klode-kit 不代写） |
