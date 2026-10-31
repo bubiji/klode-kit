@@ -192,8 +192,9 @@ def _records_plan(kb: Path, items_table: str | os.PathLike | None) -> tuple[list
     table = items_mod.load(items_table) if items_table is not None else items_mod.default()
     known = {c["category"]: c for c in tpl["categories"]}
     by_cat: dict[str, list[str]] = {}
+    cat_of = {items_mod.file_stem(it.slug): it.category for it in table.items}  # index keys are file stems (D-38)
     for slug in sorted(index):
-        by_cat.setdefault(table.category(slug) or tpl["uncategorized"], []).append(slug)
+        by_cat.setdefault(cat_of.get(slug) or table.category(slug) or tpl["uncategorized"], []).append(slug)
     order = [c["category"] for c in tpl["categories"] if c["category"] in by_cat]
     order += sorted(c for c in by_cat if c not in known)
     plan = []

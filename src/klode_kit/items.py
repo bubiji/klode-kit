@@ -18,6 +18,7 @@ reported by ``Items.new_items``. Values and units are never normalised here (r2.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import unicodedata
@@ -54,6 +55,24 @@ def slugify(label: str) -> str:
     if not slug:
         raise ValueError(f"no slug for label {label!r}")
     return slug
+
+
+_FILE_SAFE = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]*")
+STEM_PREFIX = "u-"
+STEM_HEX = 10
+
+
+def file_stem(slug: str) -> str:
+    """The file / card name of a slug (D-38): klode's ``src_path_re`` only takes ``[A-Za-z0-9._-]+\\.txt``.
+
+    An ASCII-safe slug is its own stem. Any other slug (``肌酸激酶``) becomes ``u-`` + the first 10 hex digits of
+    ``sha256(NFKC(slug))``: the same on every run, and the human name stays in the card's title, aliases and Thin
+    text. Two slugs mapping to one stem is the caller's to detect (``records_to_txt.export`` raises).
+    """
+    if _FILE_SAFE.fullmatch(slug):
+        return slug
+    digest = hashlib.sha256(unicodedata.normalize("NFKC", slug).encode("utf-8")).hexdigest()
+    return STEM_PREFIX + digest[:STEM_HEX]
 
 
 class Items:

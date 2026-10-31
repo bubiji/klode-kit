@@ -342,7 +342,7 @@ def test_alias_and_new_items(tmp_path):
     res = R.export(project)
     assert res["files"]["library/items/hemoglobin.txt"] == obs_line("血红蛋白", "128", "g/L", "2026-09-18", "",
                                                                     REC_A) + "\n"
-    assert res["files"]["library/items/某某指数.txt"] == obs_line("某某指数", "3.3", "", "2026-09-18", "",
+    assert res["files"][f"library/items/{items_mod.file_stem(items_mod.slugify('某某指数'))}.txt"] == obs_line("某某指数", "3.3", "", "2026-09-18", "",
                                                                   REC_A) + "\n"
     assert res["new_items"] == ["某某指数"]
     hgb = next(r for r in res["export_map"] if r["source_file"] == "library/items/hemoglobin.txt")

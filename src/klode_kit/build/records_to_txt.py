@@ -411,16 +411,24 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
         audit_bindings[rec] = dict(b)
 
     files: dict[str, list[_Line]] = {}
+    owner: dict[str, str] = {}  # file stem -> the slug / record id it names (D-38: stems are ASCII-safe)
+
+    def stem(name: str) -> str:
+        s = items_mod.file_stem(name)
+        if owner.setdefault(s, name) != name:
+            raise ExportError(f"file name collision: {owner[s]!r} and {name!r} both map to {s!r}")
+        return s
+
     for rec, lines in per_record.items():
-        files[f"{RECORDS_SHELF}/{rec}.txt"] = list(lines)
+        files[f"{RECORDS_SHELF}/{stem(rec)}.txt"] = list(lines)
         for line in lines:
             if line.kind == "observation":
-                files.setdefault(f"{ITEMS_SHELF}/{line.slug}.txt", []).append(line)
+                files.setdefault(f"{ITEMS_SHELF}/{stem(line.slug)}.txt", []).append(line)
     index: dict[str, list[dict]] = {}
     for rel in files:
         if rel.startswith(ITEMS_SHELF + "/"):
             files[rel].sort(key=lambda ln: (ln.date, ln.rec_id, ln.order))
-            slug = rel[len(ITEMS_SHELF) + 1:-len(".txt")]
+            slug = rel[len(ITEMS_SHELF) + 1:-len(".txt")]  # the file stem: the key of items_index
             entries = {(ln.date, ln.rec_id): {"rec_id": ln.rec_id, "rev": audit_bindings[ln.rec_id]["rev"],
                                                "date": ln.date} for ln in files[rel]}
             index[slug] = [entries[k] for k in sorted(entries)]

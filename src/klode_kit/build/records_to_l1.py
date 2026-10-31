@@ -155,8 +155,10 @@ class _Aliases:
 
 
 def _item_names(slug: str, display: str, table: Mapping[str, Any]) -> list[str]:
-    item = next((it for it in items_mod.default().items if it.slug == slug), None)
-    return [display, *(item.aliases if item else ()), slug, *table["items"].get(slug, [])]
+    """``slug`` is the file stem (D-38; a table slug is ASCII, so its stem is itself)."""
+    item = next((it for it in items_mod.default().items if items_mod.file_stem(it.slug) == slug), None)
+    named = next((v for k, v in table["items"].items() if items_mod.file_stem(k) == slug), [])
+    return [display, *(item.aliases if item else ()), slug, *named]
 
 
 def _date_forms(date: str) -> list[str]:
@@ -329,7 +331,7 @@ def generate(build: str | os.PathLike, *, min_aliases: int | None = None,
             al.add(cid, *_date_forms(next((ln.date for ln in lines if ln.date), "")))
             for ln in lines:
                 if ln.kind == "observation":
-                    al.add(*_item_names(resolve(ln.display)[0], ln.display, tab))
+                    al.add(*_item_names(items_mod.file_stem(resolve(ln.display)[0]), ln.display, tab))
         aliases[cid] = al.out
     short = {cid: len(a) for cid, a in aliases.items() if len(a) < need}
     if short:
