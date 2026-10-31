@@ -87,16 +87,20 @@ def _line(engine: str, page_id: str, der: str, idx: int, text: str, bbox, tokens
 
 
 def group_rows(observations: Sequence[dict], overlap: float = VISION_ROW_OVERLAP) -> list[list[dict]]:
-    """189 ``OcrMacEngine._rows`` in pixel space: observations whose vertical overlap is at least ``overlap`` of
-    the smaller height form a row; rows top to bottom, observations left to right."""
+    """189 ``OcrMacEngine._rows`` in pixel space, hardened (WI-33a, pilot finding P4).
+
+    Observations are visited top to bottom by vertical centre. The first one of a row is its *seed*; the row's band
+    is the seed's y-range and never grows, so a staircase of slightly overlapping boxes cannot chain into one row.
+    An observation joins the first row whose band it overlaps by at least ``overlap`` (``VISION_ROW_OVERLAP``, 0.5)
+    of the *larger* of the two heights, so a tall box cannot absorb the short lines inside its span (and vice
+    versa). Rows come out top to bottom, observations left to right."""
     rows: list[dict] = []
     for o in sorted(observations, key=lambda o: (o["bbox_px"][1] + o["bbox_px"][3]) / 2):
         y0, y1 = o["bbox_px"][1], o["bbox_px"][3]
         for r in rows:
             ov = min(r["y1"], y1) - max(r["y0"], y0)
-            if ov > 0 and ov / max(1e-6, min(y1 - y0, r["y1"] - r["y0"])) >= overlap:
+            if ov > 0 and ov / max(1e-6, max(y1 - y0, r["y1"] - r["y0"])) >= overlap:
                 r["items"].append(o)
-                r["y0"], r["y1"] = min(r["y0"], y0), max(r["y1"], y1)
                 break
         else:
             rows.append({"y0": y0, "y1": y1, "items": [o]})
