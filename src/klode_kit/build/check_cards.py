@@ -56,6 +56,7 @@ from klode_kit import config as config_mod
 from klode_kit.build.records_to_txt import ITEMS_SHELF, RECORDS_SHELF
 
 ANCHOR_RE = re.compile(r"\(grep:\s*`([^`]*)`(?:\s*#(\d+))?\)")
+NESTED_ANCHOR_RE = re.compile(r"\(grep:\s*`\s*\(grep:")
 CARD_ARG_RE = re.compile(r"^(?:cards_content/)?([A-Za-z0-9][A-Za-z0-9._-]*?)(\.md)?$")
 KIND_RE = re.compile(r"^kind:\s*(\S+)\s*$", re.M)
 DETERMINISTIC_SHELVES = frozenset(s.split("/", 1)[1] for s in (ITEMS_SHELF, RECORDS_SHELF))
@@ -242,6 +243,8 @@ def _judge(kb: Path, cid: str, raw: str, policy: str, min_aliases: int, min_anch
             if n_full < min_anchors_full:
                 probs.append(f"MIN_FULL Full 段只有 {n_full} 个锚点，需 ≥ {min_anchors_full}")
 
+    for mm in NESTED_ANCHOR_RE.finditer(raw):  # P23: klode reads the outer marker, gate 1 saw only the inner one
+        probs.append(f"A4 嵌套锚点（grep 里又套 grep）：`{raw[mm.start():mm.start() + 60]}`")
     for mm in ANCHOR_RE.finditer(raw):
         q, nth = mm.group(1), int(mm.group(2) or 1)
         tag = q[:50] + ("…" if len(q) > 50 else "")

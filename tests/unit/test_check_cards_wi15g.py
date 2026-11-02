@@ -498,3 +498,14 @@ def test_a2_explicit_nth1_pins_a_repeated_phrase(tmp_path):
     kb = make_kb(tmp_path, "book", src, authored(thin="t (grep: `the repeated phrase appears here` #1)\n", full=bullets))
     probs = C.check_card(kb, "ch01")["problems"]
     assert not any(p.startswith("A2") for p in probs), probs
+
+
+def test_a4_nested_anchor_is_rejected(tmp_path):
+    """P23: ``(grep: `(grep: `X`)`)`` - gate 1's regex found the inner anchor and passed it, but klode reads the outer
+    marker and rejects the card later. Gate 1 now names the nesting itself."""
+    src = "a sentence that occurs only once here\n" + "".join(f"another unique line number {i}\n" for i in range(6))
+    full = ["- n (grep: `(grep: `a sentence that occurs only once here`)`)"]
+    full += [f"- ok{i} (grep: `another unique line number {i}`)" for i in range(5)]
+    kb = make_kb(tmp_path, "book", src, authored(thin="t (grep: `another unique line number 5`)\n", full=full))
+    probs = C.check_card(kb, "ch01")["problems"]
+    assert any(p.startswith("A4") for p in probs), probs

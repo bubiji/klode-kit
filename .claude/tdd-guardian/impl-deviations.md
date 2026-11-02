@@ -349,3 +349,4 @@
 | WI-33m | 主会话自做（迁移 P25）：self_check 冒烟锚点改选「源中恰一次、无 #N」者，避免 verify_quote 因歧义失败（jpo-kijun、xiaolai 首卡首锚点在源中重复）。先写 4 测试（3 红 1 绿）再改，2026-11-03 |
 | WI-33m 补 | 冒烟检索词改为锚点原句（默认取首个别名，'AI' 这类泛词让目标卡排不进前 10，xiaolai）；kb-check 复用构建的选锚逻辑。先写 3 测试（红）再改，2026-11-03 |
 | P24/P28 | gate1 只在锚点未写 #N 时判歧义；显式 #1 指第一处（klode resolve 同义）。records-to-l1 对出现在后文行内的行写 #1，不再 L1Error（改动既有规格 test_later_superstring_line_cannot_be_anchored → …gets_explicit_nth1_and_passes；真实父亲账单记录触发）。2026-11-03 |
+| P23 | gate1 新增 A4：锚点里再套 grep 标记即报错（gate1 原先只看到内层锚点而放行，klode 读外层后拒收）。先红后绿，2026-11-03 |
