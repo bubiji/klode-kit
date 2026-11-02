@@ -337,3 +337,4 @@
 | WI-34 决策 | receipt verify 当时为 PENDING（unit lane 唯一失败是主会话的计划文档引用了私有项目编号，已修）。记红后：新增 D-45 用例；改了自己新测试 2 处事实错误（init-kb 总会建空 cards_content；被 --cards-from 替换的卡不计入 adopted）。既有断言未动。实现者曾试图 rm -rf scratch 目录，被拦截未执行。按「超时自动决策」授权认可，2026-11-02 |
 | WI-34b | 主会话自做：旧版 klode 的 library.toml 没有 [library].id（003 的 jpo-api-docs、patents-method-arch），收养改为用旧目录名作 id；空白 id 仍拒绝。先写测试（1 红 1 绿）再改。2026-11-02 |
 | WI-34b 规格变更 | test_adopt_wi34.py:215/226 的 no_id 用例（缺 id → 拒绝）改为 blank_id（空白 id → 拒绝）；缺 id 改为用目录名（WI-34b）。主会话先提交了实现、后发现此冲突，补提交修正，2026-11-02 |
+| WI-33l | 主会话自做（真实数据 P20）：项目 slug 为 index 时与 klode 的 cards/INDEX.md 在不区分大小写的 macOS 文件系统上是同一文件，write-card 失败；file_stem 对保留名（不分大小写）改用 u-<hash>。先写测试（4 红 1 绿）再改，2026-11-02 |

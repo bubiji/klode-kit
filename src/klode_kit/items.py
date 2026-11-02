@@ -62,6 +62,11 @@ STEM_PREFIX = "u-"
 STEM_HEX = 10
 
 
+# Names klode owns inside the cards directory (``cards/INDEX.md``, the board). Compared case-insensitively: on a
+# case-insensitive file system (macOS default) ``index.md`` IS ``INDEX.md`` (WI-33l, real-data finding P20).
+RESERVED_STEMS = frozenset({"index"})
+
+
 def file_stem(slug: str) -> str:
     """The file / card name of a slug (D-38): klode's ``src_path_re`` only takes ``[A-Za-z0-9._-]+\\.txt``.
 
@@ -69,9 +74,9 @@ def file_stem(slug: str) -> str:
     ``cards:`` list of a synthesis; a 1-2 character name or one with ``.`` / ``_`` is never resolved, WI-33j) is its
     own stem. Any other slug (``肌酸激酶``) becomes ``u-`` + the first 10 hex digits of
     ``sha256(NFKC(slug))``: the same on every run, and the human name stays in the card's title, aliases and Thin
-    text. Two slugs mapping to one stem is the caller's to detect (``records_to_txt.export`` raises).
+    text. A reserved name (``RESERVED_STEMS``, any case) is hashed too. Two slugs mapping to one stem is the caller's to detect (``records_to_txt.export`` raises).
     """
-    if _FILE_SAFE.fullmatch(slug):
+    if _FILE_SAFE.fullmatch(slug) and slug.lower() not in RESERVED_STEMS:
         return slug
     digest = hashlib.sha256(unicodedata.normalize("NFKC", slug).encode("utf-8")).hexdigest()
     return STEM_PREFIX + digest[:STEM_HEX]
