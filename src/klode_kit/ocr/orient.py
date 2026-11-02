@@ -20,6 +20,20 @@ Detection (WI-33c, real-data pilot P7) has two sources, reported by ``detect_inf
    lines; (b) *up or down* - the candidate (r or r + 180) where more line starts share one position (within
    3 px) than line ends is upright. It suits dense left-aligned text and is unreliable on sparse real pages.
 
+**Recognition cross-check for 180 (WI-36, real-data finding P19).** OSD's confidence cannot separate a wrong answer
+from a right one: on a skewed phone photo of an upright receipt on a perforated metal background OSD said
+``Rotate: 180`` with confidence 2.57, inside the 2.0-3.8 range of genuinely rotated fixtures. Apple Vision was tried
+first and is useless here (it reads rotated text almost equally well: 311 vs 287 on that photo). A tesseract
+recognition score does separate 0 from 180: ``tess_score`` = sum of ``len(text)`` over TSV words with confidence >=
+``TESS_WORD_CONF`` (60), ``-l chi_sim+eng --psm 3``, on a grayscale copy whose long side is at most
+``TESS_MAX_SIDE`` = 1600 px. On the real photos upright beat upside-down (167 vs 118, 53 vs 30) and on 27 fixture
+cases at 180/270 the true rotation always beat 0. At 90/270 it does not separate (10 failures), so the check runs
+ONLY when OSD proposes 180: the turn is kept (``check`` ``osd+tess``) only when ``s180 > s0`` strictly; otherwise
+``rotate`` is 0 with ``source`` ``osd-rejected``. 90/270 proposals are unchanged. If tesseract gives no score
+(``None``) the plain OSD answer stands. ``detect_info(score=...)`` is the injectable scorer
+(``score(image, rotate) -> float | None``). Default on for the real OSD path; when only ``run_osd`` is injected
+(unit stubs) the cross-check is off unless ``score`` is also given.
+
 The decision source and confidence are not stored in ``derived.jsonl`` (only ``transform.rotate`` is); they are
 available from ``detect_info`` for logging. The synthetic fixture set is covered at all four rotations
 (``tests/unit/test_orient.py``, ``tests/cli/test_orient_osd_wi33c.py``). Skewed photos (not a right angle) are out of scope.
@@ -45,6 +59,9 @@ EDGE_TOLERANCE_PX = 3
 # still right, so the bar is set low (0.5) and only rejects near-guesses.
 OSD_MIN_CONFIDENCE = 0.5
 OSD_TIMEOUT_S = 60
+TESS_MAX_SIDE = 1600
+TESS_WORD_CONF = 60
+TESS_LANGS = "chi_sim+eng"
 
 
 def _transpose(rotate: int):
@@ -157,24 +174,77 @@ def _osd(image, run_osd: Callable[[str], str]) -> tuple[int | None, float | None
         os.unlink(name)
 
 
+def _tesseract_tsv(png: str) -> str:
+    res = subprocess.run(["tesseract", png, "stdout", "-l", TESS_LANGS, "--psm", "3", "tsv"], capture_output=True,
+                         text=True, timeout=OSD_TIMEOUT_S, check=False)
+    return res.stdout
+
+
+def parse_tsv_score(tsv: str) -> float:
+    """Sum of ``len(text)`` over TSV word rows (level 5) with confidence >= ``TESS_WORD_CONF``."""
+    total = 0
+    for line in tsv.splitlines()[1:]:
+        cols = line.split("\t")
+        if len(cols) < 12 or cols[0] != "5":
+            continue
+        try:
+            conf = float(cols[10])
+        except ValueError:
+            continue
+        if conf >= TESS_WORD_CONF:
+            total += len(cols[11].strip())
+    return float(total)
+
+
+def tess_score(image, rotate: int, *, run_tsv: Callable[[str], str] | None = None) -> float | None:
+    """Tesseract recognition score of ``image`` turned ``rotate`` degrees ccw (None when tesseract fails)."""
+    from PIL import Image
+
+    turned = apply(image, rotate).convert("L")
+    long_side = max(turned.size)
+    if long_side > TESS_MAX_SIDE:
+        k = TESS_MAX_SIDE / long_side
+        turned = turned.resize((max(1, int(turned.width * k)), max(1, int(turned.height * k))),
+                               Image.Resampling.LANCZOS)
+    fd, name = tempfile.mkstemp(suffix=".png")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            turned.save(fh, format="PNG")
+        return parse_tsv_score((run_tsv or _tesseract_tsv)(name))
+    except Exception:  # noqa: BLE001 - missing binary, timeout: no usable score
+        return None
+    finally:
+        os.unlink(name)
+
+
 def _heuristic(mask) -> int:
     base = 0 if _axis_score(mask) >= _axis_score(apply(mask, 90)) else 90
     flipped = base + 180
     return base if _left_aligned(apply(mask, base)) >= _left_aligned(apply(mask, flipped)) else flipped
 
 
-def detect_info(image, *, run_osd: Callable[[str], str] | None = None) -> dict:
-    """``{"rotate", "source", "confidence"}``: counter-clockwise rotation that makes ``image`` upright.
+def detect_info(image, *, run_osd: Callable[[str], str] | None = None,
+                score: Callable[[object, int], float | None] | None = None) -> dict:
+    """``{"rotate", "source", "confidence"}`` (+ ``"check"`` when the 180 was confirmed): ccw turn to upright.
 
-    ``source`` is ``osd`` (tesseract answered with confidence >= ``OSD_MIN_CONFIDENCE``), ``heuristic`` (ink
-    heuristic, OSD gave no usable answer) or ``none`` (page without ink, ``rotate`` 0). ``confidence`` is the OSD
-    confidence when OSD answered at all, else ``None``. ``run_osd(png_path) -> stdout`` is the tesseract process.
+    ``source`` is ``osd`` (tesseract answered with confidence >= ``OSD_MIN_CONFIDENCE``), ``osd-rejected`` (OSD
+    proposed 180 but the recognition score preferred the page as stored; ``rotate`` 0), ``heuristic`` (ink
+    heuristic, OSD gave no usable answer) or ``none`` (page without ink, ``rotate`` 0). ``check`` (only then
+    present) is ``osd+tess``. ``run_osd(png_path) -> stdout`` is the tesseract OSD process; ``score`` the
+    recognition scorer (default ``tess_score``; see the module docstring).
     """
     mask = _ink(image)
     if mask.getbbox() is None:
         return {"rotate": 0, "source": "none", "confidence": None}
     rotate, conf = _osd(image, run_osd or _tesseract_osd)
     if rotate is not None and conf is not None and conf >= OSD_MIN_CONFIDENCE:
+        if rotate == 180:
+            scorer = score or (tess_score if run_osd is None else None)  # injected OSD stub: no real tesseract
+            s0, s180 = (scorer(image, 0), scorer(image, 180)) if scorer else (None, None)
+            if s0 is not None and s180 is not None:
+                if s180 > s0:
+                    return {"rotate": 180, "source": "osd", "confidence": conf, "check": "osd+tess"}
+                return {"rotate": 0, "source": "osd-rejected", "confidence": conf}
         return {"rotate": rotate, "source": "osd", "confidence": conf}
     return {"rotate": _heuristic(mask), "source": "heuristic", "confidence": conf}
 
