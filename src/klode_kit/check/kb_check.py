@@ -341,13 +341,8 @@ def desk_checks(build: Path, cfg: Any, klode: str | None) -> list[Check]:
 
 
 def smoke_target(build: Path) -> tuple[str | None, str]:
-    for path in sorted((build / "library" / "cards").glob("*.md")):
-        if path.stem == "INDEX":
-            continue
-        found = check_cards.ANCHOR_RE.findall(path.read_text(encoding="utf-8"))
-        if found:
-            return path.stem, found[0][0] if isinstance(found[0], tuple) else found[0]
-    return None, ""
+    """The build's own choice (WI-33m): an anchor that occurs once in its source and carries no #N pin."""
+    return run_build.smoke_target(build)
 
 
 def smoke_check(build: Path, klode_mcp: str | None) -> Check:
@@ -357,7 +352,7 @@ def smoke_check(build: Path, klode_mcp: str | None) -> Check:
     if card is None:
         return _fail("smoke_mcp", "L2", "no card with an anchor to smoke-test")
     try:
-        results = smoke_mcp.run(build, card, phrase, exe=klode_mcp)
+        results = smoke_mcp.run(build, card, phrase, query=phrase, exe=klode_mcp)
     except (OSError, subprocess.SubprocessError) as exc:
         return _fail("smoke_mcp", "L2", f"klode-mcp could not be run: {exc}")
     failed = [r.label for r in results if not r.ok]

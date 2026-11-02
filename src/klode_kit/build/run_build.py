@@ -755,30 +755,19 @@ class Build:
         reason = rc_reason(rc, Reason.content_gate)
         if reason is not Reason.ok:
             return Result(reason, f"check-published exit {rc}")
+        return self._smoke_run()
+
+    def _smoke_run(self) -> Result:
+        """Smoke-test one unique anchor; the search query is the anchor phrase itself (WI-33m: a card's first alias
+        can be too generic to rank it among the top hits)."""
         card, phrase = self._smoke_target()
         if card is None:
             return Result(Reason.contract_violation, "no card with an anchor to smoke-test")
-        rc, _, _ = self.kit("smoke-mcp", str(self.dir), "--card", card, "--real", phrase)
+        rc, _, _ = self.kit("smoke-mcp", str(self.dir), "--card", card, "--real", phrase, "--query", phrase)
         return Result(rc_reason(rc, Reason.content_gate), f"smoke-mcp exit {rc}" if rc else f"smoke {card}")
 
     def _smoke_target(self) -> tuple[str | None, str]:
-        """An anchor ``verify_quote`` can VERIFY: no ``#N`` pin and exactly one occurrence in the card's source
-        (WI-33m: a repeated phrase is ambiguous to klode); else the first anchor found."""
-        first: tuple[str | None, str] = (None, "")
-        for path in sorted((self.dir / "library" / "cards").glob("*.md")):
-            if path.stem == "INDEX":
-                continue
-            found = ANCHOR_RE.findall(path.read_text(encoding="utf-8"))
-            if not found:
-                continue
-            if first[0] is None:
-                first = (path.stem, found[0])
-            src = next((p for p in (self.dir / "library").glob(f"*/{path.stem}.txt")), None)
-            text = src.read_text(encoding="utf-8") if src is not None else ""
-            for anchor in found:
-                if "#" not in anchor and text.count(anchor) == 1:
-                    return path.stem, anchor
-        return first
+        return smoke_target(self.dir)
 
     def steps_table(self) -> list[tuple[str, Callable[[], Result]]]:
         return [("export", self.step_export), ("init_kb", self.step_init_kb), ("ingest", self.step_ingest),
@@ -1116,6 +1105,28 @@ def main(argv: list[str] | None = None) -> int:
     except config_mod.ConfigError as exc:
         print(f"build: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code
+
+
+
+
+def smoke_target(build: Path) -> tuple[str | None, str]:
+    """An anchor ``verify_quote`` can VERIFY: no ``#N`` pin and exactly one occurrence in the card's source
+    (WI-33m: a repeated phrase is ambiguous to klode); else the first anchor found."""
+    first: tuple[str | None, str] = (None, "")
+    for path in sorted((build / "library" / "cards").glob("*.md")):
+        if path.stem == "INDEX":
+            continue
+        found = ANCHOR_RE.findall(path.read_text(encoding="utf-8"))
+        if not found:
+            continue
+        if first[0] is None:
+            first = (path.stem, found[0])
+        src = next((p for p in (build / "library").glob(f"*/{path.stem}.txt")), None)
+        text = src.read_text(encoding="utf-8") if src is not None else ""
+        for anchor in found:
+            if "#" not in anchor and text.count(anchor) == 1:
+                return path.stem, anchor
+    return first
 
 
 if __name__ == "__main__":  # pragma: no cover - entry is ``klode-kit build``

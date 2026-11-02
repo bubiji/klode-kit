@@ -347,3 +347,4 @@
 | WI-36 修订（D-47，Sonnet 5.5） | Vision 复核作废（对旋转文字不敏感，P19 照片 311 vs 287）。改为 tesseract 识别分（`tess_score`/`parse_tsv_score`：tsv 词 conf≥60 的 len 之和，`-l chi_sim+eng --psm 3`，灰度长边≤1600），只在 OSD 提议 180 时复核：`s180 > s0` 才保留（`check="osd+tess"`），否则 0 + `source="osd-rejected"`；90/270 不变；真 OSD 路径默认开，只注入 `run_osd` 的单测桩默认关（否则既有 `test_law_osd_rotation_roundtrip` 因真 tesseract 超 hypothesis 200ms 期限，且既有断言不能改）。重写了自己的两个新测试文件（红回执后，规格整体替换，故 receipt 仍报 SEPARATION-BROKEN HIGH；理由：原 Vision 规格的前提被实测推翻，D-47 指令替换）。既有断言未动。unit 3783 过，cli `-k "orient or ocr"` 260 过，privacy_scan 0。 |
 | WI-36 决策 | SEPARATION-BROKEN：Vision 前提被实测否定（方向不敏感），实现者按 D-47 整体替换了自己新写的规格文件（改为仅 180° 时用 tesseract 置信分复核）；既有断言未动，test_orient_all_four 通过。按「超时自动决策」授权认可，2026-11-03 |
 | WI-33m | 主会话自做（迁移 P25）：self_check 冒烟锚点改选「源中恰一次、无 #N」者，避免 verify_quote 因歧义失败（jpo-kijun、xiaolai 首卡首锚点在源中重复）。先写 4 测试（3 红 1 绿）再改，2026-11-03 |
+| WI-33m 补 | 冒烟检索词改为锚点原句（默认取首个别名，'AI' 这类泛词让目标卡排不进前 10，xiaolai）；kb-check 复用构建的选锚逻辑。先写 3 测试（红）再改，2026-11-03 |

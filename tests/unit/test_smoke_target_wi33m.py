@@ -46,3 +46,33 @@ def test_falls_through_to_a_later_card(tmp_path):
 def test_no_unique_anchor_falls_back_to_the_first(tmp_path):
     b = _build(tmp_path, {"a-card": ("- x (grep: `twice twice twice`)\n", "twice twice twice\ntwice twice twice\n")})
     assert b._smoke_target() == ("a-card", "twice twice twice")
+
+
+def test_kb_check_uses_the_same_unique_anchor(tmp_path):
+    from klode_kit.check import kb_check
+    b = _build(tmp_path, {"a-card": ("- x (grep: `a repeated label text`)\n- y (grep: `a unique sentence here`)\n",
+                                     "a repeated label text\nfoo\na repeated label text\na unique sentence here\n")})
+    assert kb_check.smoke_target(b.dir) == ("a-card", "a unique sentence here")
+
+
+def test_kb_check_smoke_searches_with_the_anchor_phrase(tmp_path, monkeypatch):
+    """The default query (first alias) can be too generic to rank the card in the top hits ('AI' over 39 cards)."""
+    from klode_kit.check import kb_check
+    b = _build(tmp_path, {"a-card": ("- y (grep: `a unique sentence here`)\n", "a unique sentence here\n")})
+    seen = {}
+
+    def fake_run(build, card, phrase, *, query=None, exe, **kw):
+        seen.update(card=card, phrase=phrase, query=query)
+        return []
+    monkeypatch.setattr(kb_check.smoke_mcp, "run", fake_run)
+    kb_check.smoke_check(b.dir, "klode-mcp")
+    assert seen == {"card": "a-card", "phrase": "a unique sentence here", "query": "a unique sentence here"}
+
+
+def test_self_check_passes_the_anchor_phrase_as_query(tmp_path):
+    b = _build(tmp_path, {"a-card": ("- y (grep: `a unique sentence here`)\n", "a unique sentence here\n")})
+    calls = []
+    b.kit = lambda *args: (calls.append(args), (0, "", ""))[1]
+    b._smoke_run()
+    smoke = [c for c in calls if c and c[0] == "smoke-mcp"][0]
+    assert "--query" in smoke and smoke[smoke.index("--query") + 1] == "a unique sentence here"
