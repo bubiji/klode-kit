@@ -131,7 +131,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "receipts; exit 10 = awaiting the human's confirm page"),
     "build": ("klode_kit.build.run_build:main",
               "build [--project DIR] [--kb DIR] [--source F --shelf S [--manifest M]] [--desk F [--holdout F]] "
-              "[--syntheses DIR] [--loops [--budget-usd X]]: the 13 build steps into kb/<id>/builds/<build_id>/ "
+              "[--syntheses DIR] [--adopt OLD_KB [--adopt-shelves S[,S]]] [--cards-from DIR] [--loops [--budget-usd X]]: the 13 build steps into kb/<id>/builds/<build_id>/ "
               "(read-only when finished; nothing outside builds/ is written); --loops repairs a failed content "
               "gate with the three loops (a new build per round, exit 50 when they give up)"),
     "records-to-txt": ("klode_kit.build.records_to_txt:main",

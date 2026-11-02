@@ -77,6 +77,37 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit build --kb kb/KB_ID --source BOOK.txt --shel
 书桌综合（desk syntheses）在 `check_strict` 之后才生成，所以 `desk_verify` 步在留出集验收后会**再跑一次** `klode check --strict`，有任何警告即失败（与 kb-check 的 strict 行一致，回执 detail 为 `strict after desk: …`）。卡片名需符合 klode 的 `[A-Za-z0-9][A-Za-z0-9-]{2,}`，过短或含 `.`/`_` 的项目名文件名用 `u-<10位hex>`（WI-33j）。
 之后改动要加 `--refreeze --reason` 并写明原因。记录路径的合成是程序按卡片锚点机械生成的索引，不需要 worker。
 
+## 迁移旧库（`--adopt`，WI-34）
+
+把 klode-kit 之前用旧脚本建的 klode 库（`library.toml` + `library/<书架>/*.txt` + `cards_content/` 或写在 `library/cards/` 标记线下面的卡）
+收进 klode-kit 的不可变构建。**旧库只读，从不写；整个过程不调用任何模型**（`dispatch_writers` 步不派 worker）。
+
+```
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit build --adopt OLD_KB --kb kb/KB_ID [--adopt-shelves 书架[,书架]] [--cards-from DIR]
+```
+
+- 13 步不变。`export`、`ingest`、`split_manifest` 判「not applicable: adopted」；`init_kb` 按旧 `library.toml` 写新骨架
+  （name、description、书架、`extra_guard_dirs`、书目开关；库目录与卡目录名用 klode-kit 的，`[copyright] guard` 恒为 true，库 id 取 `--kb` 目录名，
+  旧 id 记在 `build_inputs.json`）并把每个 `library/<书架>/*.txt` 逐字节拷入同名书架（sha 记在 `build_inputs.json` 的 `adopt.sources`）；
+  然后 `klode build --stamp`。
+- 卡片来源，先到先得：`--cards-from DIR/<id>.md` > 旧库 `cards_content/<id>.md`（逐字节）> 旧 `library/cards/<id>.md` 标记线下面的部分
+  （别名取自卡首 `aliases:`，转成 `cards_content` 格式）。三处都没有（或只有 klode 的未写占位）的卡让 `dispatch_writers` 以 exit 20 失败，
+  detail 点名缺哪些卡（`cards missing in …`），不会去调模型。`dispatch_writers` 成功时 detail 为 `N cards adopted from <旧库>`。
+  之后照常过门禁 1、`write-card`、`klode check --strict`。
+- **只迁部分书架**：`--adopt-shelves ai` 或 `--adopt-shelves ai,ml`（可重复）。只带这些书架的来源和它们的卡，新 `library.toml` 的 `shelves` 同步缩减，
+  书目里其它书架的行去掉；别的书架的卡既不迁也不算缺。旧书桌若点名了未选书架的卡，则不再沿用旧书桌（见下）；写错书架名是 exit 2。
+- **书桌**：旧库 `frameworks.enabled = true` 且有 `src/desk.json` 时，书桌、留出集（`src/holdout.jsonl`，否则 `src/*holdout*.jsonl`，否则 `eval/*holdout*.jsonl`）
+  和 `library/frameworks/_syntheses/<维度>.md` 原样带入，`desk_apply` / `desk_verify` 照常验收（`_diagnostics.md` 由 `desk-build --apply` 重新生成）；
+  显式的 `--desk`、`--holdout`、`--syntheses` 优先于旧库的。
+  **没有书桌，或旧库关了 frameworks**（含只选了部分书架而旧书桌点名了别的书架的卡）：与书籍路径没有书桌时一样——`gen-desk` 按卡片自动生成书桌（一卡一段，最多 8 个维度），
+  `desk_apply` 以 **exit 20** 结束，detail `desk syntheses missing for: <维度…>`。接着照第二节：`desk-tasks --build <该构建> --out work/syntheses/KB_ID`，
+  派 worker 写合成，`check-synthesis` 过了以后**第二次构建**，参数相同再加 `--syntheses work/syntheses/KB_ID --repair work/syntheses/KB_ID/repair.json`
+  （`--repair` 把第一次构建的卡逐字节带过来，不再重新迁一遍，worker 复制的锚点才有效）。
+- **缺的卡在会话里写**：`--cards-from DIR` 在书籍路径和迁移路径都能用，`DIR/<id>.md`（`aliases:` 一行加 `## Thin`、`## Full`）逐字节拷入，
+  不再派桥接 worker，也不调模型（sha 记在 `build_inputs.json` 的 `cards_from`）。流程：第一次迁移 exit 20 看缺哪些卡 → 用 Agent 子代理按
+  `prompts/write_card.md` 把卡写进 `DIR`（每卡自己跑 `check-cards` 到 PASS）→ 带 `--cards-from DIR` 再迁一次。书籍路径里 DIR 没有的卡仍由 writer 写。
+- `--adopt` 不与 `--source`、`--loops` 合用；`--cards-from` 不能用在记录路径。迁完用 `/klode-kit:kb-check` 复核，发布仍按第二节第 6 步（手动闸门）。
+
 ## 三、顺序约束
 
 - 门禁 1（`check-cards`，逐字严格）必须在写入卡片（`write-card`）之前；写入之后再改卡，要重跑。

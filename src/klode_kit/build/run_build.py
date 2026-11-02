@@ -2,11 +2,11 @@
 "不可变版本目录", r4.1 stale_candidates; K8; impl-deviations WI-01c / 02b / 02d / 03a / 03b / 00b3b / 08d).
 
     klode-kit build [--project DIR] [--kb DIR] [--source F --shelf S [--manifest M]] [--desk F [--holdout F]]
-                    [--syntheses DIR] [--launcher PATH]
+                    [--syntheses DIR] [--launcher PATH] [--adopt OLD_KB] [--cards-from DIR]
     exit 0 PASS; 20 content gate (also ``no_verified_records``); 30 contract; 40 environment / configuration /
     the build lock; 50, 60, 61 as the children report them (61: the real-call gate is closed); 2 usage
 
-Two paths, one 13-step receipt (``build_receipt.steps[]``, names from WI-00b1)::
+Three paths, one 13-step receipt (``build_receipt.steps[]``, names from WI-00b1)::
 
     export · init_kb · ingest · split_manifest · klode_build · dispatch_writers · gate1 · write_card · check_strict ·
     desk_apply · desk_verify · gen_agent · self_check
@@ -22,6 +22,18 @@ Two paths, one 13-step receipt (``build_receipt.steps[]``, names from WI-00b1)::
   bridge (``klode-kit bridge run``; replay under the fake ``claude``, a real call stays behind gate G2: exit 61) ->
   the same gates. The desk workers' syntheses are an input (``--syntheses DIR``, ``<dimension>.md``): the workers are
   dispatched by the skill layer; missing ones fail ``desk_apply`` naming the dimensions.
+- **adopt** (``--adopt OLD_KB``, WI-34): an existing pre-klode-kit klode library becomes a build. ``klode_kit.build.adopt``
+  reads the old tree (never writes it); ``init_kb`` writes the new skeleton from the old library.toml (name,
+  description, shelves, guard dirs, bibliography switch; directory names are klode-kit's) and copies every
+  ``library/<shelf>/*.txt`` byte for byte; ``klode build --stamp``; the cards are the old ``cards_content/<id>.md``, else
+  the part below the scaffold marker of ``library/cards/<id>.md``, else ``--cards-from``; **no writer is called**
+  (a card nobody has fails ``dispatch_writers``, exit 20, naming it). ``export`` / ``ingest`` / ``split_manifest`` are
+  "not applicable: adopted". The old ``src/desk.json`` + holdout + ``_syntheses`` are carried when its frameworks are
+  enabled (``desk-build --verify`` as usual); otherwise the desk is generated from the cards (one piece per card) and
+  the first build ends exit 20 ``desk syntheses missing for: ...`` (``desk-tasks``, workers, then a second build with
+  ``--syntheses`` and ``--repair``, as on the book path).
+- **--cards-from DIR** (book and adopt paths): ``DIR/<id>.md`` is copied byte for byte instead of dispatching a writer
+  (recorded with its sha in ``build_inputs.json``), so in-session workers can write cards outside the bridge.
 
 **Immutable.** Everything is written below ``builds/<build_id>/`` (the only writes outside it: the build lock is an
 ``flock`` on the ``builds/`` directory itself - no file - and the project's de-identification key at its first use,
@@ -64,6 +76,7 @@ from typing import Any, Callable, Mapping, Sequence, TextIO
 
 from klode_kit import __version__, receipts
 from klode_kit import config as config_mod
+from klode_kit.build import adopt as adopt_mod
 from klode_kit.build import gen_synthesis, records_to_txt
 from klode_kit.build.check_synthesis import ANCHOR_RE
 from klode_kit.build.write_card import RECEIPT_NAME as WRITE_RECEIPT
@@ -228,6 +241,8 @@ class Options:
     repair: Path | None = None  # repair spec of a loop round (klode_kit.loops, WI-09c)
     repair_doc: dict | None = None
     budget_usd: float | None = None  # writer budget of this run; every writer call is reserved before it starts
+    adopt: "adopt_mod.OldKb | None" = None  # WI-34: the old klode library this build adopts
+    cards_from: Path | None = None  # WI-34: directory of <id>.md cards carried instead of dispatching writers
 
 
 # --------------------------------------------------------------------------- the build
@@ -240,8 +255,9 @@ class Build:
                  klode: str, env: Mapping[str, str], out: TextIO, clock: Callable[[], datetime]):
         self.project, self.kb_dir, self.kb_id, self.cfg, self.opts = project, kb_dir, kb_id, cfg, opts
         self.launcher, self.klode, self.env, self.out, self.clock = launcher, klode, dict(env), out, clock
-        self.mode = "book" if opts.source is not None else "records"
-        self.shelves: tuple[str, ...] = RECORD_SHELVES if self.mode == "records" else (opts.shelf,)
+        self.mode = "adopt" if opts.adopt is not None else "book" if opts.source is not None else "records"
+        self.shelves: tuple[str, ...] = (RECORD_SHELVES if self.mode == "records"
+                                         else opts.adopt.shelves if opts.adopt is not None else (opts.shelf,))
         self.deident = cfg["deident.mode"] if self.mode == "records" else None
         self.bound: dict[str, dict] = {}
         self.excluded: list[dict] = []
@@ -346,6 +362,13 @@ class Build:
 
     # ---- the steps
     def step_export(self) -> Result:
+        if self.mode == "adopt":
+            old = self.opts.adopt
+            assert old is not None
+            if not old.sources:
+                return Result(Reason.content_gate, f"no sources: {old.root} has no <library>/<shelf>/*.txt")
+            return Result(Reason.ok, f"not applicable: adopted from {old.root} ({len(old.sources)} sources, "
+                                     f"{len(old.shelves)} shelves)")
         if self.mode == "book":
             src = self.opts.source
             assert src is not None
@@ -378,14 +401,39 @@ class Build:
         reason = rc_reason(rc, Reason.environment)
         if reason is not Reason.ok:
             return Result(reason, f"klode init exit {rc}")
-        rc, _, _ = self.kit("init-kb", str(self.dir), "--id", self.kb_id, *shelf_args, "--name", self.kb_id,
-                            "--description", f"Library {self.kb_id} built by klode-kit")
+        name, description = self.kb_id, f"Library {self.kb_id} built by klode-kit"
+        if self.mode == "adopt":
+            old = self.opts.adopt
+            assert old is not None
+            name = _one_line(old.name) or name
+            description = _one_line(old.description) or description
+        rc, _, _ = self.kit("init-kb", str(self.dir), "--id", self.kb_id, *shelf_args, "--name", name,
+                            "--description", description)
         reason = rc_reason(rc, Reason.contract_violation)
         if reason is not Reason.ok:
             return Result(reason, f"init-kb exit {rc}")
         if self.mode == "records":
             self._mark_private()
+        if self.mode == "adopt":
+            return self._adopt_library()
         return Result(Reason.ok, ", ".join(self.shelves))
+
+    def _adopt_library(self) -> Result:
+        """Settings of the old library.toml and its sources (byte for byte, sha checked against the inputs)."""
+        old = self.opts.adopt
+        assert old is not None
+        self.toml.write_text(adopt_mod.patch_toml(self.toml.read_text(encoding="utf-8"), old), encoding="utf-8")
+        want = self.inputs["adopt"]["sources"]
+        for rel, src in sorted(old.sources.items()):
+            dest = self.dir / "library" / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dest)
+            if adopt_mod.sha_file(dest) != want.get(rel):
+                return Result(Reason.contract_violation, f"source changed while it was adopted: {rel}")
+        bib = adopt_mod.bibliography_text(old)
+        if bib is not None:
+            (self.dir / "library" / "BIBLIOGRAPHY.md").write_bytes(bib.encode("utf-8"))
+        return Result(Reason.ok, f"{', '.join(self.shelves)}; {len(old.sources)} sources copied")
 
     def _mark_private(self) -> None:
         (self.dir / "src" / "PRIVATE.md").write_text(
@@ -402,6 +450,8 @@ class Build:
                           encoding="utf-8")
 
     def step_ingest(self) -> Result:
+        if self.mode == "adopt":
+            return Result(Reason.ok, "not applicable: adopted (the sources were copied verbatim at init_kb)")
         if self.mode == "records":
             return Result(Reason.ok, "not applicable: items / records shelves hold one file per source")
         src = self.dir / "src" / "source" / self.opts.source.name  # type: ignore[union-attr]
@@ -410,6 +460,8 @@ class Build:
         return Result(rc_reason(rc, Reason.contract_violation), f"klode ingest exit {rc}" if rc else "ingested")
 
     def step_split(self) -> Result:
+        if self.mode == "adopt":
+            return Result(Reason.ok, "not applicable: adopted (one source file, one card, as in the old library)")
         if self.mode == "records":
             return Result(Reason.ok, "not applicable: items / records shelves are not chapter-split")
         args = ["gen-manifest", str(self.dir), "--shelf", self.shelf, "--apply"]
@@ -435,10 +487,15 @@ class Build:
         repair = self.opts.repair_doc or {}
         redo: dict[str, list[str]] = {c: list(v) for c, v in (repair.get("redispatch") or {}).items()}
         carried = self._carry_cards(cards, redo)
-        need = [c for c in cards if c not in carried]
+        placed = self._place_cards_from(cards, carried, redo)
+        adopted = self._place_adopted([c for c in cards if c not in carried and c not in placed and c not in redo])
+        need = [c for c in cards if c not in carried and c not in placed and c not in adopted]
+        if self.mode == "adopt" and need:  # no writer in adopt mode: the card has to come from somewhere
+            return Result(Reason.content_gate, f"cards missing in {self.opts.adopt.root}: {', '.join(need)} "  # type: ignore[union-attr]
+                                               "(write them outside the build and pass --cards-from DIR)")
         if not need:
             self._overlay_fixed()
-            return Result(Reason.ok, f"{len(cards)} cards carried over from {repair.get('from_build')}")
+            return Result(Reason.ok, self._placed_detail(adopted, carried, placed, repair))
         guide = (resources.files("klode_kit") / "prompts" / "write_card.md").read_text(encoding="utf-8")
         tasks = []
         for cid in need:
@@ -471,8 +528,58 @@ class Build:
             if missing:
                 return Result(Reason.content_gate, f"writers left no card: {', '.join(missing)}", cost)
             self._overlay_fixed()
-        return Result(reason, f"bridge exit {rc}" if rc else f"{len(need)} cards written, {len(carried)} carried over",
-                      cost)
+        done = f"{len(need)} cards written, {len(carried)} carried over"
+        if placed:
+            done += f", {len(placed)} carried from {self.opts.cards_from}"
+        return Result(reason, f"bridge exit {rc}" if rc else done, cost)
+
+    def _placed_detail(self, adopted: Sequence[str], carried: Sequence[str], placed: Sequence[str],
+                       repair: Mapping[str, Any]) -> str:
+        parts = []
+        if adopted:
+            parts.append(f"{len(adopted)} cards adopted from {self.opts.adopt.root}")  # type: ignore[union-attr]
+        if carried:
+            parts.append(f"{len(carried)} cards carried over from {repair.get('from_build')}")
+        if placed:
+            parts.append(f"{len(placed)} cards carried from {self.opts.cards_from}")
+        return "; ".join(parts)
+
+    def _place_cards_from(self, cards: Sequence[str], carried: Sequence[str], redo: Mapping[str, Any]) -> list[str]:
+        """``--cards-from``: ``DIR/<id>.md`` byte for byte for every card the repair carry-over did not place. A card to
+        be redone is taken only when the file differs from the version that failed (else it still needs a writer)."""
+        src_dir = self.opts.cards_from
+        placed: list[str] = []
+        if src_dir is None:
+            return placed
+        prev_dir = self._from_build()
+        for cid in cards:
+            src = src_dir / f"{cid}.md"
+            if cid in carried or not src.is_file():
+                continue
+            prev = prev_dir / "cards_content" / f"{cid}.md" if prev_dir else None
+            if cid in redo and prev is not None and prev.is_file() and prev.read_bytes() == src.read_bytes():
+                continue
+            self._put_card(cid, src.read_bytes())
+            placed.append(cid)
+        return placed
+
+    def _place_adopted(self, cards: Sequence[str]) -> list[str]:
+        """Adopt mode: the cards the old library has (``cards_content`` first, else below the scaffold marker)."""
+        old = self.opts.adopt
+        adopted: list[str] = []
+        if old is None:
+            return adopted
+        for cid in cards:
+            got = adopt_mod.card_source(old, cid)
+            if got is not None:
+                self._put_card(cid, got[1])
+                adopted.append(cid)
+        return adopted
+
+    def _put_card(self, cid: str, data: bytes) -> None:
+        dest = self.dir / "cards_content" / f"{cid}.md"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
 
     # ---- repair rounds (klode_kit.loops, WI-09c)
     def _from_build(self) -> Path | None:
@@ -537,6 +644,8 @@ class Build:
     def step_desk_apply(self) -> Result:
         (self.dir / "src").mkdir(parents=True, exist_ok=True)
         gen = ["gen-desk", str(self.dir), "--project", str(self.project)]
+        if self.mode == "adopt" and self.opts.desk is None:
+            self._write_adopt_manifests()  # the generic desk is planned from chapters-*.json: one piece per card
         if self.opts.desk is not None:
             shutil.copyfile(self.opts.desk, self.dir / "src" / "desk.json")
             hold = self.opts.holdout or self.opts.desk.with_name("holdout.jsonl")
@@ -556,6 +665,27 @@ class Build:
             return Result(Reason.content_gate, "desk syntheses missing for: " + ", ".join(missing))
         rc, _, _ = self.kit("check-synthesis", str(self.dir))
         return Result(rc_reason(rc, Reason.content_gate), f"check-synthesis exit {rc}" if rc else "syntheses pass")
+
+    def _write_adopt_manifests(self) -> None:
+        """``src/chapters-<shelf>.json`` for a library that came without a desk: every card is a piece (gen-desk reads
+        only ``pieces[].id`` / ``title``), in shelf order, cards by id."""
+        by_shelf: dict[str, list[dict]] = {s: [] for s in self.shelves}
+        for path in sorted((self.dir / "library" / "cards").glob("*.md")):
+            if path.stem == "INDEX":
+                continue
+            text = path.read_text(encoding="utf-8")
+            parts = _source_of(self.dir, path.stem).split("/")
+            shelf = parts[1] if len(parts) > 2 and parts[1] in by_shelf else None
+            title = re.search(r"^# (.+)$", text, re.M)
+            if shelf is not None:
+                by_shelf[shelf].append({"id": path.stem, "title": title.group(1).strip() if title else path.stem})
+        (self.dir / "src").mkdir(parents=True, exist_ok=True)
+        for shelf, pieces in by_shelf.items():
+            if pieces:
+                doc = {"shelf": shelf, "whole": "", "citation": self.opts.adopt.name,  # type: ignore[union-attr]
+                       "pieces": pieces, "generated_by": {"tool": "klode-kit build --adopt"}}
+                (self.dir / "src" / f"chapters-{shelf}.json").write_text(
+                    json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     def _place_syntheses(self) -> list[str]:
         """Provided syntheses are copied in; records builds fill the rest mechanically; returns missing dimensions."""
@@ -645,6 +775,10 @@ def _auth_failure(run_file: Path) -> bool:
     return False
 
 
+def _one_line(text: str) -> str:
+    return re.sub(r"[\x00-\x1f\x7f]+", " ", text).strip()
+
+
 def _reason_text(reason: str, status: Any) -> str:
     return f"{reason}:{status}" if reason == "not_verified" and status else reason
 
@@ -729,7 +863,9 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         holdout: str | os.PathLike | None = None, syntheses: str | os.PathLike | None = None,
         launcher: str | os.PathLike | None = None, env: Mapping[str, str] | None = None, out: TextIO | None = None,
         stdout: TextIO | None = None, clock: Callable[[], datetime] | None = None,
-        repair: str | os.PathLike | None = None, budget_usd: float | None = None) -> int:
+        repair: str | os.PathLike | None = None, budget_usd: float | None = None,
+        adopt: str | os.PathLike | None = None, adopt_shelves: Sequence[str] | None = None,
+        cards_from: str | os.PathLike | None = None) -> int:
     out = sys.stderr if out is None else out
     stdout = sys.stdout if stdout is None else stdout
     clock = clock or _utc
@@ -750,6 +886,23 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         return _usage(out, stdout, f"--syntheses: not a directory: {syn}")
     if paths["manifest"] is not None and paths["source"] is None:
         return _usage(out, stdout, "--manifest needs --source")
+    old: adopt_mod.OldKb | None = None
+    if adopt is not None:
+        if paths["source"] is not None:
+            return _usage(out, stdout, "--adopt cannot be combined with --source (the sources are the old library's)")
+        try:
+            old = adopt_mod.select(adopt_mod.read_old(adopt), adopt_shelves)
+        except adopt_mod.AdoptError as exc:
+            return _usage(out, stdout, str(exc) if str(exc).startswith("--adopt") else f"--adopt: {exc}")
+    elif adopt_shelves is not None:
+        return _usage(out, stdout, "--adopt-shelves needs --adopt")
+    cards_dir: Path | None = None
+    if cards_from is not None:
+        cards_dir = Path(cards_from).resolve()
+        if not cards_dir.is_dir():
+            return _usage(out, stdout, f"--cards-from: not a directory: {cards_dir}")
+        if paths["source"] is None and old is None:
+            return _usage(out, stdout, "--cards-from needs --source or --adopt (the records path writes no cards by hand)")
     repair_path = Path(repair).resolve() if repair is not None else None
     repair_doc: dict | None = None
     if repair_path is not None:
@@ -773,6 +926,15 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         return _usage(out, stdout, f"--kb must be inside the project: {kb_dir}")
     if not SLUG_RE.fullmatch(kb_dir.name):
         return _usage(out, stdout, f"the library directory name must be a klode slug (a-z, 0-9, -): {kb_dir.name!r}")
+    if old is not None and (old.root.resolve() == kb_dir or kb_dir in old.root.resolve().parents):
+        return _usage(out, stdout, f"--adopt: the old library is the target library itself: {old.root}")
+    if old is not None:  # the old library's desk, holdout and syntheses (only when its frameworks are on) unless given
+        if old.frameworks_enabled and old.desk is not None and paths["desk"] is None:
+            paths["desk"] = old.desk.resolve()
+            if paths["holdout"] is None and old.holdout is not None:
+                paths["holdout"] = old.holdout.resolve()
+            if syn is None and old.syntheses_dir is not None:
+                syn = old.syntheses_dir.resolve()
     launcher_path = Path(launcher) if launcher is not None else default_launcher()
     if not launcher_path.is_file() or not os.access(launcher_path, os.X_OK):
         print(f"build: the launcher is missing or not executable: {launcher_path}", file=out)
@@ -796,7 +958,7 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         return _finish(stdout, EXIT_CODE[Reason.lock_busy], Reason.lock_busy.value, detail=str(exc))
     try:
         opts = Options(paths["source"], shelf, paths["manifest"], paths["desk"], paths["holdout"], syn, repair_path,
-                       repair_doc, budget_usd)
+                       repair_doc, budget_usd, old, cards_dir)
         b = Build(project, kb_dir, kb_dir.name, cfg, opts, launcher_path, klode, env, out, clock)
         return _run_locked(b, builds, stdout)
     finally:
@@ -807,7 +969,8 @@ def _run_locked(b: Build, builds: Path, stdout: TextIO) -> int:
     project, opts = b.project, b.opts
     if b.mode == "records":
         b.bound, b.excluded, b.stale = take_snapshot(project)
-    syn_files = sorted(opts.syntheses.glob("*.md")) if opts.syntheses is not None else []
+    syn_files = (sorted(p for p in opts.syntheses.glob("*.md") if not p.name.startswith("_"))
+                 if opts.syntheses is not None else [])
     b.inputs = {
         "mode": b.mode,
         "records": sorted(f"{r}:{v['rev']}" for r, v in b.bound.items()),
@@ -818,6 +981,10 @@ def _run_locked(b: Build, builds: Path, stdout: TextIO) -> int:
         "plugin_version": __version__, "klode_version": doctor.klode_version(b.klode, b.env),
         "deident_mode": b.deident,
     }
+    if opts.adopt is not None:
+        b.inputs["adopt"] = adopt_mod.inputs(opts.adopt)
+    if opts.cards_from is not None:
+        b.inputs["cards_from"] = {p.stem: _sha_file(p) for p in sorted(opts.cards_from.glob("*.md")) if p.is_file()}
     if opts.repair is not None:
         b.inputs["repair"] = _sha_file(opts.repair)
     b.inputs_digest = inputs_hash(b.inputs)
@@ -874,6 +1041,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--holdout", type=Path, default=None, help="holdout for --desk (default: holdout.jsonl beside it)")
     parser.add_argument("--syntheses", type=Path, default=None, help="desk workers' output: <dimension>.md files")
     parser.add_argument("--launcher", type=Path, default=None, help="command launcher (default: this repo's bin/klode-kit)")
+    parser.add_argument("--adopt", type=Path, default=None, metavar="OLD_KB",
+                        help="adopt an existing (pre-klode-kit) klode library: its sources, cards and desk become this "
+                             "build; no card writer is called")
+    parser.add_argument("--adopt-shelves", action="append", default=None, metavar="SHELF[,SHELF]",
+                        help="with --adopt: take only these shelves of the old library (repeatable or comma list)")
+    parser.add_argument("--cards-from", type=Path, default=None, metavar="DIR",
+                        help="book / adopt path: DIR/<id>.md cards are carried byte for byte instead of dispatching "
+                             "writers")
     parser.add_argument("--loops", action="store_true", help="repair a failed content gate with the three loops "
                                                               "(L1 desk routing, L2 card content, L3 anchors), one new build per round")
     parser.add_argument("--repair", type=Path, default=None, help="repair spec of a loop round (written by --loops)")
@@ -884,6 +1059,10 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    shelves = ([s.strip() for chunk in args.adopt_shelves for s in chunk.split(",") if s.strip()]
+               if args.adopt_shelves is not None else None)
+    if args.loops and (args.adopt is not None or args.cards_from is not None):
+        return _usage(sys.stderr, sys.stdout, "--loops cannot be combined with --adopt or --cards-from")
     if args.loops:
         from klode_kit import loops
 
@@ -893,7 +1072,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return run(project, kb=args.kb, source=args.source, shelf=args.shelf, manifest=args.manifest, desk=args.desk,
                    holdout=args.holdout, syntheses=args.syntheses, launcher=args.launcher, repair=args.repair,
-                   budget_usd=args.budget_usd)
+                   budget_usd=args.budget_usd, adopt=args.adopt, adopt_shelves=shelves, cards_from=args.cards_from)
     except config_mod.ConfigError as exc:
         print(f"build: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code
