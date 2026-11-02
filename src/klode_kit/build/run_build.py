@@ -762,13 +762,23 @@ class Build:
         return Result(rc_reason(rc, Reason.content_gate), f"smoke-mcp exit {rc}" if rc else f"smoke {card}")
 
     def _smoke_target(self) -> tuple[str | None, str]:
+        """An anchor ``verify_quote`` can VERIFY: no ``#N`` pin and exactly one occurrence in the card's source
+        (WI-33m: a repeated phrase is ambiguous to klode); else the first anchor found."""
+        first: tuple[str | None, str] = (None, "")
         for path in sorted((self.dir / "library" / "cards").glob("*.md")):
             if path.stem == "INDEX":
                 continue
             found = ANCHOR_RE.findall(path.read_text(encoding="utf-8"))
-            if found:
-                return path.stem, found[0]
-        return None, ""
+            if not found:
+                continue
+            if first[0] is None:
+                first = (path.stem, found[0])
+            src = next((p for p in (self.dir / "library").glob(f"*/{path.stem}.txt")), None)
+            text = src.read_text(encoding="utf-8") if src is not None else ""
+            for anchor in found:
+                if "#" not in anchor and text.count(anchor) == 1:
+                    return path.stem, anchor
+        return first
 
     def steps_table(self) -> list[tuple[str, Callable[[], Result]]]:
         return [("export", self.step_export), ("init_kb", self.step_init_kb), ("ingest", self.step_ingest),
