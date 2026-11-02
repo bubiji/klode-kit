@@ -350,3 +350,4 @@
 | WI-33m 补 | 冒烟检索词改为锚点原句（默认取首个别名，'AI' 这类泛词让目标卡排不进前 10，xiaolai）；kb-check 复用构建的选锚逻辑。先写 3 测试（红）再改，2026-11-03 |
 | P24/P28 | gate1 只在锚点未写 #N 时判歧义；显式 #1 指第一处（klode resolve 同义）。records-to-l1 对出现在后文行内的行写 #1，不再 L1Error（改动既有规格 test_later_superstring_line_cannot_be_anchored → …gets_explicit_nth1_and_passes；真实父亲账单记录触发）。2026-11-03 |
 | P23 | gate1 新增 A4：锚点里再套 grep 标记即报错（gate1 原先只看到内层锚点而放行，klode 读外层后拒收）。先红后绿，2026-11-03 |
+| P17 | synthesis 模板「动作」标题去掉 gate 一词（worker 照抄标题进 Craft 会被 S6 拦）；新增测试禁止模板标题含引擎术语。先红后绿，2026-11-03 |
