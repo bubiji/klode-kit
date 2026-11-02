@@ -212,7 +212,7 @@ def test_read_old_does_not_write(tmp_path):
     assert sorted((p.relative_to(old).as_posix(), p.stat().st_mtime_ns) for p in old.rglob("*")) == before
 
 
-@pytest.mark.parametrize("break_it", ["no_toml", "bad_toml", "no_shelves", "no_id", "bad_shelf"])
+@pytest.mark.parametrize("break_it", ["no_toml", "bad_toml", "no_shelves", "blank_id", "bad_shelf"])  # spec change WI-34b: a missing id falls back to the directory name
 def test_read_old_refuses_what_is_not_a_library(tmp_path, break_it):
     old = make_old(tmp_path / "old")
     toml = old / "library.toml"
@@ -223,8 +223,8 @@ def test_read_old_refuses_what_is_not_a_library(tmp_path, break_it):
     elif break_it == "no_shelves":
         toml.write_text(toml.read_text(encoding="utf-8").replace('shelves = ["a", "b"]', "shelves = []"),
                         encoding="utf-8")
-    elif break_it == "no_id":
-        toml.write_text(toml.read_text(encoding="utf-8").replace('id = "old"\n', ""), encoding="utf-8")
+    elif break_it == "blank_id":
+        toml.write_text(toml.read_text(encoding="utf-8").replace('id = "old"\n', 'id = " "\n'), encoding="utf-8")
     else:
         toml.write_text(toml.read_text(encoding="utf-8").replace('"a", "b"', '"../x", "b"'), encoding="utf-8")
     with pytest.raises(A.AdoptError):
