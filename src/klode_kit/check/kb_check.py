@@ -289,6 +289,22 @@ def strict_check(build: Path, klode: str | None) -> Check:
     return _fail("strict", "L3" if rot else "L2", _named(items))
 
 
+def _build_routing(build: Path) -> tuple[Path | None, str | None]:
+    """WI-35b: the routing file a build was accepted with (D-46), re-checked by sha; ``(None, None)`` without one."""
+    inputs = _json(build / "build_inputs.json")
+    sha = inputs.get("desk_routing") if isinstance(inputs, dict) else None
+    if not sha:
+        return None, None
+    rec = _json(build / "desk_receipt.json")
+    r = rec.get("routing") if isinstance(rec, dict) else None
+    path = Path(r["path"]) if isinstance(r, dict) and isinstance(r.get("path"), str) else None
+    if path is None or not path.is_file():
+        return None, f"desk routing file of this build is missing ({path}): re-run desk-route-tasks and rebuild"
+    if hashlib.sha256(path.read_bytes()).hexdigest() != sha:
+        return None, f"desk routing file changed since the build ({path}): rebuild with --desk-routing"
+    return path, None
+
+
 def desk_checks(build: Path, cfg: Any, klode: str | None) -> list[Check]:
     if not klode:
         text = "klode not found on PATH (install klode 0.5.0)"
@@ -297,10 +313,11 @@ def desk_checks(build: Path, cfg: Any, klode: str | None) -> list[Check]:
         spec = desk_build.load(build)
     except desk_build.DeskError as exc:
         return [_fail("desk", "L2", str(exc)), _fail("holdout", "L1", f"no desk to score: {exc}")]
+    routing, routing_problem = _build_routing(build)
     with tempfile.TemporaryDirectory(prefix="kb-check-desk-") as tmp, contextlib.redirect_stdout(io.StringIO()):
         try:
             desk_build.verify(build, spec, receipt=Path(tmp) / "desk_receipt.json", holdout_min=cfg["desk.holdout_min"],
-                              pass_ratio=cfg["desk.holdout_pass"])
+                              pass_ratio=cfg["desk.holdout_pass"], routing=routing)
         except desk_build.DeskError as exc:
             env = exc.code if exc.code == EXIT_ENV else None
             return [_fail("desk", None if env else "L2", str(exc), env), _fail("holdout", None if env else "L1", str(exc), env)]
@@ -312,7 +329,9 @@ def desk_checks(build: Path, cfg: Any, klode: str | None) -> list[Check]:
     problems = [n for n, ok in (("synthesis", rec["synthesis"]["pass"]), ("diagnostics", rec["diagnostics"]["current"])) if not ok]
     desk = _fail("desk", "L2", "desk " + ", ".join(problems) + " not passing") if problems else Check(
         "desk", "PASS", "syntheses pass, _diagnostics.md current")
-    h = rec["holdout"]
+    if routing_problem:
+        return [desk, _fail("holdout", "L1", routing_problem)]
+    h = rec.get("routing") if routing is not None and isinstance(rec.get("routing"), dict) else rec["holdout"]
     if desk_build.holdout_gate(h["hit"], h["total"], holdout_min=cfg["desk.holdout_min"], pass_ratio=cfg["desk.holdout_pass"]):
         holdout = Check("holdout", "PASS", f"{h['hit']}/{h['total']}")
     else:

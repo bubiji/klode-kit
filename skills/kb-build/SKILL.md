@@ -77,6 +77,24 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit build --kb kb/KB_ID --source BOOK.txt --shel
 书桌综合（desk syntheses）在 `check_strict` 之后才生成，所以 `desk_verify` 步在留出集验收后会**再跑一次** `klode check --strict`，有任何警告即失败（与 kb-check 的 strict 行一致，回执 detail 为 `strict after desk: …`）。卡片名需符合 klode 的 `[A-Za-z0-9][A-Za-z0-9-]{2,}`，过短或含 `.`/`_` 的项目名文件名用 `u-<10位hex>`（WI-33j）。
 之后改动要加 `--refreeze --reason` 并写明原因。记录路径的合成是程序按卡片锚点机械生成的索引，不需要 worker。
 
+### 书桌验收：关键词路由不过时改用模型路由（`--desk-routing`，WI-35）
+
+留出集若是**新说法**（真实库的诚实留出集），关键词 `klode diagnose` 命中率很低（试点：jtbd 库 1/12），而模型零样本路由同一批题是 12/12；
+铁律 2 又禁止拿留出集调线索词。所以 `desk_verify` 失败、detail 点名 `desk-route-tasks` 时，**不要去改线索词**，改走模型路由验收：
+
+1. `${CLAUDE_PLUGIN_ROOT}/bin/klode-kit desk-route-tasks --build <失败的构建> --out work/route/KB_ID --project .`
+   写出 `work/route/KB_ID/routing_prompt.txt`（只含各维度的 id / 标题 / 核心问题，和留出集的**题目**，不含期望维度），并打印 JSON
+   （`prompt_file`、`output`=worker 必须写到的 `work/route/KB_ID/routing.json`、`prompt_sha256`）。
+2. 用 Agent 工具派**一个** worker（`model: haiku`），提示词就是 `routing_prompt.txt` 的内容（让它 Read 该文件照做）。它写出
+   `routing.json`：`{"schema": "klode-kit.desk_routing/1", "prompt_sha256": …, "answers": [{"qid": "q01", "dimension": "<维度 id 或 null>"}, …]}`。
+   worker 不读库里别的东西，不碰 `holdout.jsonl`；你等它交回（handback）再继续。
+3. 重跑构建，参数与第一次相同，再加 `--desk-routing work/route/KB_ID/routing.json`；要把第一次的卡带过来就同时带 `--repair`
+   （书籍路径：`desk-tasks --build <失败的构建> --out <合成目录>` 写出的 `repair.json`；迁移路径：旧库的卡本来就逐字节重新带入，必要时加 `--cards-from`）。
+4. 验收：留出集题数 ≥5 且 路由命中率 ≥0.8（沿用 `desk.holdout_min` / `desk.holdout_pass`），命中率由 klode-kit 对着冻结的期望维度自己算；
+   回执 `desk_receipt.json` 的 `routing` 块记路由文件的 sha 与命中率，`build_inputs.json` 的 `desk_routing` 记文件 sha。关键词 `diagnose` 仍照算照报，但不再卡门。
+   路由文件必须覆盖每个留出题一次、只引用库里存在的维度、且 `prompt_sha256` 是本库当前维度和留出集生成的那份 prompt，否则 exit 30 拒收
+   （维度或留出集变了就重新 `desk-route-tasks`）。不带 `--desk-routing` 时仍是关键词门禁，行为不变。路由没过也**不要**拿未命中的题去改线索词。
+
 ## 迁移旧库（`--adopt`，WI-34）
 
 把 klode-kit 之前用旧脚本建的 klode 库（`library.toml` + `library/<书架>/*.txt` + `cards_content/` 或写在 `library/cards/` 标记线下面的卡）
@@ -106,6 +124,9 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit build --adopt OLD_KB --kb kb/KB_ID [--adopt-
 - **缺的卡在会话里写**：`--cards-from DIR` 在书籍路径和迁移路径都能用，`DIR/<id>.md`（`aliases:` 一行加 `## Thin`、`## Full`）逐字节拷入，
   不再派桥接 worker，也不调模型（sha 记在 `build_inputs.json` 的 `cards_from`）。流程：第一次迁移 exit 20 看缺哪些卡 → 用 Agent 子代理按
   `prompts/write_card.md` 把卡写进 `DIR`（每卡自己跑 `check-cards` 到 PASS）→ 带 `--cards-from DIR` 再迁一次。书籍路径里 DIR 没有的卡仍由 writer 写。
+- **真实旧库的留出集是新说法**：迁移后 `desk_verify` 因关键词路由命中率低失败（detail 点名 `desk-route-tasks`）是预期情形，不是库坏了。
+  照上面「书桌验收：关键词路由不过时改用模型路由」：`desk-route-tasks --build <该构建> --out work/route/KB_ID` → 派一个 `model: haiku` 的 worker 写 `routing.json`
+  → 带相同的 `--adopt …`（和 `--cards-from`，如有）再加 `--desk-routing work/route/KB_ID/routing.json` 重新迁移。旧库的卡、来源、合成每次都逐字节带入，模型路由不动它们。
 - `--adopt` 不与 `--source`、`--loops` 合用；`--cards-from` 不能用在记录路径。迁完用 `/klode-kit:kb-check` 复核，发布仍按第二节第 6 步（手动闸门）。
 
 ## 三、顺序约束

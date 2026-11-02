@@ -8,6 +8,7 @@ the klode-kb SKILL.md desk table, steps ②-⑤.
     klode-kit desk-build KB --status     # which dimension files exist (presence only - not a completion signal)
     klode-kit desk-build KB --verify [--holdout F] [--refreeze --reason R] [--receipt F] [--project DIR]
                                          # ⑤ check_synthesis + klode check --strict + diagnose, tuning / holdout apart
+    klode-kit desk-build KB --verify --routing F   # WI-35: the holdout gate is a model's routing (desk_route.py)
     common: [--spec F] (default KB/src/desk.json)
     exit 0 pass; 1 verify gate FAIL or --status with missing dimensions; 2 usage; 30 spec / holdout contract
     (incl. a holdout change without --refreeze --reason); 40 configuration, no klode, klode not answering JSON
@@ -42,6 +43,11 @@ Changed:
   ``{"schema", "sha256", "history": [{"sha256", "reason"}]}``) on the first ``--verify``. A later change is refused
   (exit 30, nothing written) unless ``--refreeze --reason R`` is given; the reason goes into the freeze history and
   the verify receipt.
+- **Model routing** (WI-35, D-46): with ``--routing FILE`` the holdout gate is the hit rate of the routing file
+  (``klode_kit.build.desk_route``: ``desk-route-tasks`` writes the prompt, one worker answers) over the same frozen
+  holdout, computed here from the frozen labels, with the same thresholds. Keyword ``diagnose`` is still run and
+  reported (``holdout`` block of the receipt) but no longer gates; the receipt gets a ``routing`` block. An invalid
+  routing file is a contract error (30) and nothing is written. Without ``--routing`` the keyword gate stands.
 - **Iron law 1** (klode-kb SKILL.md): no command here writes a dimension's synthesis file - only its worker does,
   and nobody touches it before the worker hands back. ``--status`` says so: presence is not completion.
 - **Iron law 2**: ``_diagnostics.md`` is generated from the spec and never hand-edited; ``--verify`` fails when it
@@ -118,6 +124,13 @@ JSON_SCHEMA: dict[str, Any] = {
                     "properties": {"path": {"type": "string"}, "sha256": {"oneOf": [_SHA, {"type": "null"}]},
                                    "hit": {"type": "integer", "minimum": 0},
                                    "total": {"type": "integer", "minimum": 0},
+                                   "min": {"type": "integer"}, "pass_ratio": {"type": "number"},
+                                   "pass": {"type": "boolean"}, "results": {"type": "array", "items": _RESULT}}},
+        "routing": {"type": "object", "additionalProperties": False,
+                    "required": ["path", "sha256", "prompt_sha256", "hit", "total", "min", "pass_ratio", "pass",
+                                 "results"],
+                    "properties": {"path": {"type": "string"}, "sha256": _SHA, "prompt_sha256": _SHA,
+                                   "hit": {"type": "integer", "minimum": 0}, "total": {"type": "integer", "minimum": 0},
                                    "min": {"type": "integer"}, "pass_ratio": {"type": "number"},
                                    "pass": {"type": "boolean"}, "results": {"type": "array", "items": _RESULT}}},
         "freeze": {"type": "object", "additionalProperties": False,
@@ -373,7 +386,8 @@ def _rel(path: Path, kb: Path) -> str:
 
 
 def verify(kb: Path, d: dict, holdout: Path | None = None, *, refreeze: bool = False, reason: str | None = None,
-           receipt: Path | None = None, holdout_min: int = 5, pass_ratio: float = 0.8) -> int:
+           receipt: Path | None = None, holdout_min: int = 5, pass_ratio: float = 0.8,
+           routing: Path | None = None) -> int:
     klode = shutil.which("klode")
     if not klode:
         raise DeskError(EXIT_ENV, "找不到 klode：需要 klode 0.5.x 在 PATH 上")
@@ -382,6 +396,11 @@ def verify(kb: Path, d: dict, holdout: Path | None = None, *, refreeze: bool = F
     items, raw = load_holdout(holdout_path, d)
     freeze_path = kb / "src" / FREEZE_NAME
     freeze_info, freeze_doc = check_freeze(freeze_path, raw, refreeze=refreeze, reason=reason)
+    routed: list[dict] | None = None
+    if routing is not None:
+        from klode_kit.build import desk_route
+
+        routed = desk_route.score(Path(routing), d, items)
 
     fails: list[str] = []
     rc_syn, lines = check_synthesis.run(kb)
@@ -423,7 +442,16 @@ def verify(kb: Path, d: dict, holdout: Path | None = None, *, refreeze: bool = F
           f"（门禁：≥{holdout_min} 题且 ≥ {pass_ratio:.2f}{short}{missing}）")
     if h_hit < h_total:
         print("留出集未命中只报告：不要拿它们调线索词（铁律 2）")
-    if not hold_ok:
+    r_hit = r_total = 0
+    route_ok = False
+    if routed is not None:
+        r_hit, r_total = sum(x["ok"] for x in routed), len(routed)
+        route_ok = holdout_gate(r_hit, r_total, holdout_min=holdout_min, pass_ratio=pass_ratio)
+        for x in routed:
+            print(f"{'PASS' if x['ok'] else 'FAIL'}  [路由] 「{x['q']}」→ {x['got'] or '∅'}（期望 {x['expect']}）")
+        print(f"desk-routing 留出集：{r_hit}/{r_total} = {r_hit / r_total if r_total else 0:.2f}"
+              f"（门禁：≥{holdout_min} 题且 ≥ {pass_ratio:.2f}；上面的 diagnose 关键词留出集只报告，不计入门禁）")
+    if not (route_ok if routed is not None else hold_ok):
         fails.append("holdout")
     print("\n书桌验收：" + ("通过" if not fails else f"未通过（{len(fails)} 项：{', '.join(fails)}）"))
 
@@ -435,6 +463,12 @@ def verify(kb: Path, d: dict, holdout: Path | None = None, *, refreeze: bool = F
                        "total": h_total, "min": holdout_min, "pass_ratio": pass_ratio, "pass": hold_ok,
                        "results": hold},
            "freeze": freeze_info}
+    if routed is not None and routing is not None:
+        from klode_kit.build import desk_route
+
+        doc["routing"] = {"path": _rel(Path(routing), kb), "sha256": _sha(Path(routing).read_bytes()),
+                          "prompt_sha256": desk_route.prompt_sha(d, items), "hit": r_hit, "total": r_total,
+                          "min": holdout_min, "pass_ratio": pass_ratio, "pass": route_ok, "results": routed}
     errors = list(_VALIDATOR.iter_errors(doc))
     if errors:  # pragma: no cover - a bug in this module, not an input problem
         raise ValueError(f"desk receipt violates {RECEIPT_SCHEMA_ID}: {errors[0].message}")
@@ -458,6 +492,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--reason", help="why the holdout was changed (recorded)")
     ap.add_argument("--receipt", type=Path, help=f"verify receipt (default KB/{RECEIPT_NAME})")
     ap.add_argument("--project", type=Path, help="data project with klode-kit.toml overrides")
+    ap.add_argument("--routing", type=Path, help="with --verify: the model routing file that gates the holdout "
+                                                 "(klode-kit desk-route-tasks writes the prompt)")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--apply", action="store_true")
     g.add_argument("--prompts", action="store_true")
@@ -469,6 +505,8 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--refreeze 只能与 --verify 一起用")
         if a.refreeze and not (a.reason and a.reason.strip()):
             ap.error("--refreeze 必须带 --reason \"<原因>\"")
+        if a.routing is not None and not a.verify:
+            ap.error("--routing 只能与 --verify 一起用")
         if a.reason is not None and not a.refreeze:
             ap.error("--reason 只与 --refreeze 一起用")
     except SystemExit as exc:
@@ -486,7 +524,8 @@ def main(argv: list[str] | None = None) -> int:
             return status(kb, d)
         cfg = config_mod.load(a.project)
         return verify(kb, d, a.holdout, refreeze=a.refreeze, reason=a.reason, receipt=a.receipt,
-                      holdout_min=cfg["desk.holdout_min"], pass_ratio=cfg["desk.holdout_pass"])
+                      holdout_min=cfg["desk.holdout_min"], pass_ratio=cfg["desk.holdout_pass"],
+                      routing=a.routing)
     except DeskError as exc:
         print(f"desk-build: {exc}", file=sys.stderr)
         return exc.code

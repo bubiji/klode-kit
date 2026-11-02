@@ -2,7 +2,7 @@
 "不可变版本目录", r4.1 stale_candidates; K8; impl-deviations WI-01c / 02b / 02d / 03a / 03b / 00b3b / 08d).
 
     klode-kit build [--project DIR] [--kb DIR] [--source F --shelf S [--manifest M]] [--desk F [--holdout F]]
-                    [--syntheses DIR] [--launcher PATH] [--adopt OLD_KB] [--cards-from DIR]
+                    [--syntheses DIR] [--launcher PATH] [--adopt OLD_KB] [--cards-from DIR] [--desk-routing F]
     exit 0 PASS; 20 content gate (also ``no_verified_records``); 30 contract; 40 environment / configuration /
     the build lock; 50, 60, 61 as the children report them (61: the real-call gate is closed); 2 usage
 
@@ -32,6 +32,10 @@ Three paths, one 13-step receipt (``build_receipt.steps[]``, names from WI-00b1)
   enabled (``desk-build --verify`` as usual); otherwise the desk is generated from the cards (one piece per card) and
   the first build ends exit 20 ``desk syntheses missing for: ...`` (``desk-tasks``, workers, then a second build with
   ``--syntheses`` and ``--repair``, as on the book path).
+- **--desk-routing FILE** (WI-35, D-46; book and adopt paths): ``desk_verify`` runs ``desk-build --verify --routing FILE``:
+  the holdout gate is the hit rate of a model's routing (``desk-route-tasks`` writes the prompt for one worker), keyword
+  ``diagnose`` is only reported. The file's sha goes into ``build_inputs.json`` (``desk_routing``). Without it the keyword
+  gate stands, and a failing ``desk_verify`` names ``desk-route-tasks`` as the next command.
 - **--cards-from DIR** (book and adopt paths): ``DIR/<id>.md`` is copied byte for byte instead of dispatching a writer
   (recorded with its sha in ``build_inputs.json``), so in-session workers can write cards outside the bridge.
 
@@ -243,6 +247,7 @@ class Options:
     budget_usd: float | None = None  # writer budget of this run; every writer call is reserved before it starts
     adopt: "adopt_mod.OldKb | None" = None  # WI-34: the old klode library this build adopts
     cards_from: Path | None = None  # WI-34: directory of <id>.md cards carried instead of dispatching writers
+    desk_routing: Path | None = None  # WI-35: the model routing file that gates the desk holdout (desk_route.py)
 
 
 # --------------------------------------------------------------------------- the build
@@ -251,10 +256,13 @@ class Options:
 class Build:
     """One build: its directory, the 13 step methods and the receipt written after every step."""
 
+    routing_file: Path | None = None  # WI-35: set from Options.desk_routing
+
     def __init__(self, project: Path, kb_dir: Path, kb_id: str, cfg: Any, opts: Options, launcher: Path,
                  klode: str, env: Mapping[str, str], out: TextIO, clock: Callable[[], datetime]):
         self.project, self.kb_dir, self.kb_id, self.cfg, self.opts = project, kb_dir, kb_id, cfg, opts
         self.launcher, self.klode, self.env, self.out, self.clock = launcher, klode, dict(env), out, clock
+        self.routing_file = opts.desk_routing
         self.mode = "adopt" if opts.adopt is not None else "book" if opts.source is not None else "records"
         self.shelves: tuple[str, ...] = (RECORD_SHELVES if self.mode == "records"
                                          else opts.adopt.shelves if opts.adopt is not None else (opts.shelf,))
@@ -706,9 +714,21 @@ class Build:
         return [d for d in dims if d not in have]
 
     def step_desk_verify(self) -> Result:
-        rc, _, _ = self.kit("desk-build", str(self.dir), "--verify", "--project", str(self.project))
+        argv = ["desk-build", str(self.dir), "--verify", "--project", str(self.project)]
+        if self.routing_file is not None:
+            argv += ["--routing", str(self.routing_file)]
+        rc, _, _ = self.kit(*argv)
         if rc:
-            return Result(rc_reason(rc, Reason.content_gate), f"desk-build --verify exit {rc}")
+            detail = f"desk-build --verify exit {rc}"
+            if rc == 1 and self.routing_file is None:  # WI-35: keyword routing cannot accept an honest holdout
+                try:
+                    shown = self.dir.relative_to(self.project).as_posix()
+                except ValueError:
+                    shown = str(self.dir)
+                detail += (f"; if the holdout is made of new phrasings, accept the desk by model routing: "
+                           f"klode-kit desk-route-tasks --build {shown} --out DIR, dispatch one worker with the "
+                           f"prompt, then build again with --desk-routing DIR/routing.json")
+            return Result(rc_reason(rc, Reason.content_gate), detail)
         # check_strict (step 9) runs before the desk syntheses exist: run it again so what they introduce is seen (P16)
         src, text, err = self.klode_run("check", "--strict")
         last = (text.strip().splitlines() or [""])[-1]
@@ -726,10 +746,11 @@ class Build:
 
     def step_self_check(self) -> Result:
         if self.mode == "records":
-            violations = provenance.validate(self.project, provenance.Layout.for_project(self.project, self.dir))
+            violations = provenance.validate_build(self.project, self.dir)  # scoped to the bound batches (WI-37)
             if violations:
                 codes = sorted({v.code for v in violations})
-                return Result(Reason.contract_violation, f"provenance: {len(violations)} violation(s): {', '.join(codes)}")
+                return Result(Reason.contract_violation, f"provenance: {len(violations)} violation(s): {', '.join(codes)}; "
+                                                         f"first at {violations[0].location}"[:300])
         rc, _, _ = self.kit("check-published", "--all", "--kb", str(self.dir), "--project", str(self.project))
         reason = rc_reason(rc, Reason.content_gate)
         if reason is not Reason.ok:
@@ -865,7 +886,7 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         stdout: TextIO | None = None, clock: Callable[[], datetime] | None = None,
         repair: str | os.PathLike | None = None, budget_usd: float | None = None,
         adopt: str | os.PathLike | None = None, adopt_shelves: Sequence[str] | None = None,
-        cards_from: str | os.PathLike | None = None) -> int:
+        cards_from: str | os.PathLike | None = None, desk_routing: str | os.PathLike | None = None) -> int:
     out = sys.stderr if out is None else out
     stdout = sys.stdout if stdout is None else stdout
     clock = clock or _utc
@@ -874,7 +895,7 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
     if not project.is_dir():
         return _usage(out, stdout, f"no such project directory: {project}")
     project = project.resolve()
-    files = {"source": source, "manifest": manifest, "desk": desk, "holdout": holdout}
+    files = {"source": source, "manifest": manifest, "desk": desk, "holdout": holdout, "desk-routing": desk_routing}
     paths: dict[str, Path | None] = {}
     for label, value in files.items():
         p = Path(value) if value is not None else None
@@ -958,7 +979,7 @@ def run(project: str | os.PathLike, *, kb: str | os.PathLike | None = None, sour
         return _finish(stdout, EXIT_CODE[Reason.lock_busy], Reason.lock_busy.value, detail=str(exc))
     try:
         opts = Options(paths["source"], shelf, paths["manifest"], paths["desk"], paths["holdout"], syn, repair_path,
-                       repair_doc, budget_usd, old, cards_dir)
+                       repair_doc, budget_usd, old, cards_dir, paths["desk-routing"])
         b = Build(project, kb_dir, kb_dir.name, cfg, opts, launcher_path, klode, env, out, clock)
         return _run_locked(b, builds, stdout)
     finally:
@@ -985,6 +1006,8 @@ def _run_locked(b: Build, builds: Path, stdout: TextIO) -> int:
         b.inputs["adopt"] = adopt_mod.inputs(opts.adopt)
     if opts.cards_from is not None:
         b.inputs["cards_from"] = {p.stem: _sha_file(p) for p in sorted(opts.cards_from.glob("*.md")) if p.is_file()}
+    if opts.desk_routing is not None:
+        b.inputs["desk_routing"] = _sha_file(opts.desk_routing)
     if opts.repair is not None:
         b.inputs["repair"] = _sha_file(opts.repair)
     b.inputs_digest = inputs_hash(b.inputs)
@@ -1040,6 +1063,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--desk", type=Path, default=None, help="explicit desk spec (src/desk.json)")
     parser.add_argument("--holdout", type=Path, default=None, help="holdout for --desk (default: holdout.jsonl beside it)")
     parser.add_argument("--syntheses", type=Path, default=None, help="desk workers' output: <dimension>.md files")
+    parser.add_argument("--desk-routing", type=Path, default=None, metavar="FILE",
+                        help="desk acceptance by model routing: the routing.json a worker wrote for the prompt of "
+                             "`desk-route-tasks` (hit rate over the frozen holdout gates desk_verify instead of keyword "
+                             "diagnose)")
     parser.add_argument("--launcher", type=Path, default=None, help="command launcher (default: this repo's bin/klode-kit)")
     parser.add_argument("--adopt", type=Path, default=None, metavar="OLD_KB",
                         help="adopt an existing (pre-klode-kit) klode library: its sources, cards and desk become this "
@@ -1061,6 +1088,8 @@ def main(argv: list[str] | None = None) -> int:
     project = Path.cwd() if args.project is None else args.project
     shelves = ([s.strip() for chunk in args.adopt_shelves for s in chunk.split(",") if s.strip()]
                if args.adopt_shelves is not None else None)
+    if args.loops and args.desk_routing is not None:
+        return _usage(sys.stderr, sys.stdout, "--loops cannot be combined with --desk-routing")
     if args.loops and (args.adopt is not None or args.cards_from is not None):
         return _usage(sys.stderr, sys.stdout, "--loops cannot be combined with --adopt or --cards-from")
     if args.loops:
@@ -1072,7 +1101,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return run(project, kb=args.kb, source=args.source, shelf=args.shelf, manifest=args.manifest, desk=args.desk,
                    holdout=args.holdout, syntheses=args.syntheses, launcher=args.launcher, repair=args.repair,
-                   budget_usd=args.budget_usd, adopt=args.adopt, adopt_shelves=shelves, cards_from=args.cards_from)
+                   budget_usd=args.budget_usd, adopt=args.adopt, adopt_shelves=shelves, cards_from=args.cards_from,
+                   desk_routing=args.desk_routing)
     except config_mod.ConfigError as exc:
         print(f"build: configuration error: {exc}", file=sys.stderr)
         return exc.exit_code

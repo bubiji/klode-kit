@@ -80,6 +80,11 @@ COMMANDS: dict[str, tuple[str, str]] = {
                    "desk-tasks --build BUILD_DIR --out SYN_DIR [--project DIR]: worker tasks for the desk syntheses a "
                    "book build is missing (one prompt per absent <dimension>.md, repair.json that carries the cards "
                    "over to the next build); the build tree is only read"),
+    "desk-route-tasks": ("klode_kit.build.desk_route:main",
+                         "desk-route-tasks --build BUILD_DIR --out DIR [--project DIR]: the routing prompt for ONE worker "
+                         "(dimensions + the holdout questions only, never the expected dimensions) and where it writes "
+                         "routing.json; then desk-build --verify --routing F / build --desk-routing F gate the desk on "
+                         "the model's hit rate (keyword diagnose is reported, not gating)"),
     "check-synthesis": ("klode_kit.build.check_synthesis:main",
                         "check-synthesis KB [DIM ...]: desk synthesis gate S1-S6 (anchors only copied from cards)"),
     "eval-compare": ("klode_kit.build.eval_compare:main",
@@ -131,7 +136,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "receipts; exit 10 = awaiting the human's confirm page"),
     "build": ("klode_kit.build.run_build:main",
               "build [--project DIR] [--kb DIR] [--source F --shelf S [--manifest M]] [--desk F [--holdout F]] "
-              "[--syntheses DIR] [--adopt OLD_KB [--adopt-shelves S[,S]]] [--cards-from DIR] [--loops [--budget-usd X]]: the 13 build steps into kb/<id>/builds/<build_id>/ "
+              "[--syntheses DIR] [--desk-routing F] [--adopt OLD_KB [--adopt-shelves S[,S]]] [--cards-from DIR] [--loops [--budget-usd X]]: the 13 build steps into kb/<id>/builds/<build_id>/ "
               "(read-only when finished; nothing outside builds/ is written); --loops repairs a failed content "
               "gate with the three loops (a new build per round, exit 50 when they give up)"),
     "records-to-txt": ("klode_kit.build.records_to_txt:main",

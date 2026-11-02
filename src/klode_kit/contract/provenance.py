@@ -58,6 +58,24 @@ revisions ``work/<batch>/audit/a<N>/``, ``records/`` and the build. Real kb-ocr 
 (kb-audit stamps it on read): such a line is traced by the run id its attempt directory names, the kb-ocr formula
 ``<batch>/<engine>/<fp>/t<N>`` for ``<batch>/ocr/<engine>/<fp>.t<N>/<key>.jsonl``; when the directories name no
 valid run id the line is a ``run_id_mismatch``.
+
+Route-B fallback (WI-37, real-data P21): the route's run id is authoritative and a line's ``engine`` names the engine
+that produced it. When the MLX route degenerates on a page it falls back to tesseract (``engines.ocr_page``): those
+lines carry ``engine: "tesseract"`` but live in the mlx run directory under the mlx run id, and the audit keys their
+cells by that line engine (``tesseract``) while ``runs.json`` names the route (``mlx``). That is legitimate
+(``FALLBACK_ENGINES``): a line labelled with the route's own engine or its fallback engine passes, a prov of the
+fallback engine may name the route's run when ``runs.json`` has that run under the route and no run of the fallback
+engine of its own. Everything else stays a ``run_id_mismatch``. The tesseract geometry-reference run (WI-33e,
+``ocr/tesseract/<fp>.t<n>/``) is a run of its own: its lines are tesseract lines in a tesseract directory.
+
+``value_audited`` (WI-37, P22): of an ``observation`` line the value of its first ``number`` field; of a ``source``
+line the value of its first printed field that is not the item (``records_to_txt``: "the first printed value of a
+source line"; the left-most field by ``positions``).
+
+``validate_build(project, build_dir)`` (WI-37) scopes the project scan to what the build binds: the batches of the
+audit revisions of the bound records' candidates and those records. A defect elsewhere in the project is not this
+build's violation (``validate`` over ``Layout.for_project`` still scans everything); every violation names its batch
+in its location (``work/<batch>/...``).
 """
 
 from __future__ import annotations
@@ -91,6 +109,8 @@ _PIPE_SLOT = re.compile(r"^(?:r\d{3,}-)?(number|date|unit|flag|drug)-\d+$")
 _CHAIN_SLOT = re.compile(r"^[A-Za-z_]\w*\[\d+\]\.(item|value|unit|flag|date)$")
 _CHAIN_KIND = {"value": "number"}
 DPI_TOLERANCE_PX = 1.0
+# route -> engines its lines may carry besides its own (route B: MLX primary -> alt -> tesseract fallback)
+FALLBACK_ENGINES: dict[str, frozenset[str]] = {"mlx": frozenset({"tesseract"})}
 
 
 class TransformError(ValueError):
@@ -122,6 +142,8 @@ class Layout:
     artifact_base: Path | None = None
     text_dirs: list[Path] = field(default_factory=list)
     audit_glob: str = "*/a*/"   # audit revision directories under ``audit_dir``
+    batches: frozenset[str] | None = None   # scope (validate_build): only these batch directories ...
+    recs: frozenset[str] | None = None      # ... and only these records
 
     @classmethod
     def for_products(cls, root: str | os.PathLike) -> "Layout":
@@ -156,6 +178,20 @@ class Layout:
                    page_map=files("page_map.jsonl"), ocr_dirs=dirs("ocr"), audit_dir=p / "work",
                    records_dir=p / "records", build_dir=Path(build_dir), artifact_base=p, text_dirs=dirs("text"),
                    audit_glob="*/audit/a*/")
+
+
+    def scoped(self, batches: Iterable[str], recs: Iterable[str]) -> "Layout":
+        """The same layout restricted to ``batches`` (by ``work/<batch>`` directory name) and ``recs``."""
+        keep = frozenset(batches)
+
+        def only(paths: list[Path]) -> list[Path]:
+            return [p for p in paths if p.parent.name in keep]
+
+        return Layout(root=self.root, manifest=only(self.manifest), derived=only(self.derived),
+                      page_map=only(self.page_map), ocr_dirs=only(self.ocr_dirs), audit_dir=self.audit_dir,
+                      records_dir=self.records_dir, build_dir=self.build_dir, artifact_base=self.artifact_base,
+                      text_dirs=only(self.text_dirs), audit_glob=self.audit_glob, batches=keep,
+                      recs=frozenset(recs))
 
 
 # --------------------------------------------------------------------------- transforms
@@ -398,7 +434,8 @@ class _Chain:
             self.ctx.add("run_id_mismatch", where, engine=engine,
                          detail=f"line carries no run_id and its directories name none (…{suffix})")
             return
-        if line.get("engine", engine) != engine or not run_id.endswith(suffix):
+        allowed = {engine} | FALLBACK_ENGINES.get(engine, frozenset())
+        if line.get("engine", engine) not in allowed or not run_id.endswith(suffix):
             self.ctx.add("run_id_mismatch", where, engine=engine, detail=f"line run_id {run_id} not under {suffix}")
         self.lines[(run_id, line["der_sha256"], int(line["line_idx"]))] = line
         if engine == "pdftext":
@@ -425,6 +462,8 @@ class _Chain:
     def load_audit(self) -> None:
         audit = self.lay.audit_dir
         revs = sorted(audit.glob(self.lay.audit_glob)) if audit is not None and audit.is_dir() else []
+        if self.lay.batches is not None and audit is not None:
+            revs = [r for r in revs if r.relative_to(audit).parts[0] in self.lay.batches]
         # a date alias (``work/<yyyymmdd>`` -> the batch, WI-13b) is the same audit revisions under a second name: count
         # each revision once, through the real directory (a decision seen twice would be "2 effective decisions")
         revs = [r for r in revs if not any(a.is_symlink() for a in r.parents if audit in a.parents)]
@@ -455,7 +494,8 @@ class _Chain:
 
     def _prov(self, where: str, key: str, fid: str, engine: str, p: dict, value: str) -> None:
         ctx = self.ctx
-        if not p["run_id"].startswith(TEXT_KEY_PREFIX) and self.runs[key].get(engine) != p["run_id"]:
+        if not p["run_id"].startswith(TEXT_KEY_PREFIX) and self.runs[key].get(engine) != p["run_id"] \
+                and not _fallback_run(self.runs[key], engine, p["run_id"]):
             ctx.add("run_id_mismatch", where, fid=fid, engine=engine, detail=f"prov run_id {p['run_id']} != runs.json")
         if p["der_sha256"] not in self.derived:
             ctx.add("der_parent_mismatch", where, fid=fid, engine=engine, detail="prov der_sha256 not in derived.jsonl")
@@ -498,6 +538,8 @@ class _Chain:
     def load_records(self) -> None:
         rec_dir = self.lay.records_dir
         by_id = sorted((rec_dir / "_by_id").glob("*.md")) if rec_dir is not None else []
+        if self.lay.recs is not None:
+            by_id = [p for p in by_id if p.stem in self.lay.recs]
         if not by_id:
             self.ctx.missing((rec_dir if rec_dir is not None else self.lay.root / "records") / "_by_id")
             return
@@ -623,7 +665,12 @@ class _Chain:
             if fid not in applied or not _is_span(pos, len(text)) or text[pos[0]:pos[1]] != applied[fid]:
                 self.ctx.add("export_text_mismatch", where, fid=fid,
                              detail=f"text at {pos} != apply(transforms, {values.get(fid)!r}) = {applied.get(fid)!r}")
-        value_fids = [f for f in ids if slot_kind(f) == "number"]
+        if row.get("line_kind") == "source":
+            printed = sorted((f for f in ids if slot_kind(f) not in ITEM_KINDS and _is_span(positions.get(f), len(text))),
+                             key=lambda f: positions[f][0])
+            value_fids = printed[:1]
+        else:
+            value_fids = [f for f in ids if slot_kind(f) == "number"][:1]
         if value_fids and row["value_audited"] != fields.get(value_fids[0]):
             self.ctx.add("value_audited_mismatch", where, fid=value_fids[0],
                          detail=f"value_audited {row['value_audited']!r} != bound revision value {fields.get(value_fids[0])!r}")
@@ -638,6 +685,15 @@ class _Chain:
         if not (1 <= n <= len(lines)) or lines[n - 1] != row["text"]:
             self.ctx.add("export_file_mismatch", where, rec=row["rec_id"],
                          detail=f"{row['source_file']} line {n} differs from export_map text")
+
+
+def _fallback_run(runs: Mapping[str, Any], engine: str, run_id: str) -> bool:
+    """A prov of fallback engine ``engine`` naming the run of the route whose fallback it is (route B, WI-37): the
+    run id is that of ``runs.json[route]`` and ``runs.json`` has no run of ``engine`` of its own."""
+    parts = run_id.split("/")
+    route = parts[1] if len(parts) == 4 else None
+    return (route is not None and engine in FALLBACK_ENGINES.get(route, frozenset())
+            and runs.get(route) == run_id and runs.get(engine) is None)
 
 
 def _attempt_run_id(batch: str, engine: str, fp: str, attempt: str) -> str | None:
@@ -670,6 +726,40 @@ def _unique(found: Iterable[Violation]) -> list[Violation]:
             seen.add(key)
             out.append(v)
     return sorted(out, key=lambda v: (v.code, v.rec_id or "", v.field_id or "", v.engine or "", v.location))
+
+
+def _bound_scope(lay: Layout) -> tuple[set[str], set[str]] | None:
+    """``(batches, records)`` the build binds, from its receipt and the bound records' candidates; ``None`` when the
+    bindings cannot be read (the caller then scans everything and the missing receipt is reported)."""
+    try:
+        receipt = json.loads((lay.build_dir / "build_receipt.json").read_text(encoding="utf-8"))
+        bindings = receipt["audit_bindings"]
+        if not isinstance(bindings, dict) or not bindings:
+            return None
+        batches: set[str] = set()
+        for rec, b in bindings.items():
+            revs = [b.get("audit_rev")]
+            try:
+                text = (lay.records_dir / "_by_id" / f"{rec}.md").read_text(encoding="utf-8")
+                meta = json.loads(text[4:text.find("\n---", 4)])
+                revs += [c.get("audit_rev") for c in meta.get("candidates", [])]
+                revs.append((meta.get("effective") or {}).get("audit_rev"))
+            except (OSError, ValueError, AttributeError):
+                pass
+            batches |= {r.split("/", 1)[0] for r in revs if isinstance(r, str) and "/" in r}
+        return batches, set(bindings)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def validate_build(project: str | os.PathLike, build_dir: str | os.PathLike) -> list[Violation]:
+    """``validate`` over the data project, scoped to the batches and records ``build_dir``'s receipt binds (the whole
+    project when the receipt has no readable bindings). A defect in an unrelated batch does not block the build."""
+    lay = Layout.for_project(project, build_dir)
+    scope = _bound_scope(lay)
+    if scope is not None:
+        lay = lay.scoped(*scope)
+    return validate(project, lay)
 
 
 def validate(root: str | os.PathLike, layout: Layout | None = None) -> list[Violation]:
