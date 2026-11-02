@@ -92,6 +92,8 @@ def read_old(root: str | Path) -> OldKb:
     if not isinstance(lib, dict):
         raise AdoptError("library.toml has no [library] table")
     kb_id = lib.get("id")
+    if kb_id is None:  # WI-34b: libraries made by an older klode have no id - the directory names them
+        kb_id = root.resolve().name
     if not isinstance(kb_id, str) or not kb_id.strip():
         raise AdoptError("library.toml: [library].id is missing")
     shelves = lib.get("shelves")
