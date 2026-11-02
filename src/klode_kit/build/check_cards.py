@@ -253,7 +253,7 @@ def _judge(kb: Path, cid: str, raw: str, policy: str, min_aliases: int, min_anch
         n = text.count(q)
         if n == 0:
             probs.append(f"A2 NOT FOUND：`{tag}`")
-        elif nth == 1 and n > 1:
+        elif mm.group(2) is None and n > 1:  # an explicit #1 pins the first occurrence (P24)
             probs.append(f"A2 AMBIGUOUS（命中 {n} 处，加长或加 #N）：`{tag}`")
         elif n < nth:
             probs.append(f"A2 #{nth} 但只命中 {n} 处：`{tag}`")

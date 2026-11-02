@@ -50,13 +50,18 @@ def test_earlier_substring_line_gets_nth_and_passes(tmp_path):
     assert res["pass"] and res["coverage"] == {"covered": 2, "lines": 2}, res["problems"]
 
 
-def test_later_superstring_line_cannot_be_anchored(tmp_path):
-    """The same two rows in the other order: the first line's text also occurs inside a later line, so no anchor
-    can name it unambiguously -> ``L1Error`` (never a card gate 1 would call AMBIGUOUS)."""
+def test_later_superstring_line_gets_explicit_nth1_and_passes(tmp_path):
+    """The same two rows in the other order: the first line's text also occurs inside a LATER line. klode's
+    resolver honours an explicit ``#1`` (first occurrence, not ambiguous), so the anchor pins it with ``#1`` and
+    gate 1 accepts the pin (P24/P28: a real billing slip had ``外来会計 …`` before ``神経精神科外来会計 …``)."""
     build = build_of(tmp_path, {REC_A: ("2026-09-18", [{"item": "蛋白", "value": "1"},
                                                        {"item": "血红蛋白", "value": "1"}])})
-    with pytest.raises(L.L1Error, match="later line"):
-        L.generate(build, min_aliases=0)
+    card = L.generate(build, min_aliases=0)["cards"][REC_A]
+    assert f"(grep: `蛋白 1 2026-09-18 ⟨{REC_A}⟩` #1)" in card
+    (build / "cards_content").mkdir()
+    (build / "cards_content" / f"{REC_A}.md").write_text(card, encoding="utf-8")
+    res = C.check_card(build, REC_A, min_aliases=0)
+    assert res["pass"] and res["coverage"] == {"covered": 2, "lines": 2}, res["problems"]
 
 
 def test_backtick_line_refused(tmp_path):

@@ -487,3 +487,14 @@ def test_help_exits_zero_and_documents_every_option(capsys, monkeypatch):
                  "--policy {auto,authored,deterministic} expected policy; the source's shelf decides (default auto) --project",
                  "--project PROJECT data project with klode-kit.toml overrides"):
         assert frag in text, frag
+
+
+def test_a2_explicit_nth1_pins_a_repeated_phrase(tmp_path):
+    """P24/P28: an explicit ``#1`` pins the first occurrence (klode's resolver reports it unambiguous); only a BARE
+    repeated anchor is AMBIGUOUS."""
+    src = "the repeated phrase appears here\nthe repeated phrase appears here\n"
+    bullets = ["- a (grep: `the repeated phrase appears here` #1)"]
+    bullets += [f"- c{i} (grep: `the repeated phrase appears here` #2)" for i in range(4)]
+    kb = make_kb(tmp_path, "book", src, authored(thin="t (grep: `the repeated phrase appears here` #1)\n", full=bullets))
+    probs = C.check_card(kb, "ch01")["problems"]
+    assert not any(p.startswith("A2") for p in probs), probs

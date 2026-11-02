@@ -348,3 +348,4 @@
 | WI-36 决策 | SEPARATION-BROKEN：Vision 前提被实测否定（方向不敏感），实现者按 D-47 整体替换了自己新写的规格文件（改为仅 180° 时用 tesseract 置信分复核）；既有断言未动，test_orient_all_four 通过。按「超时自动决策」授权认可，2026-11-03 |
 | WI-33m | 主会话自做（迁移 P25）：self_check 冒烟锚点改选「源中恰一次、无 #N」者，避免 verify_quote 因歧义失败（jpo-kijun、xiaolai 首卡首锚点在源中重复）。先写 4 测试（3 红 1 绿）再改，2026-11-03 |
 | WI-33m 补 | 冒烟检索词改为锚点原句（默认取首个别名，'AI' 这类泛词让目标卡排不进前 10，xiaolai）；kb-check 复用构建的选锚逻辑。先写 3 测试（红）再改，2026-11-03 |
+| P24/P28 | gate1 只在锚点未写 #N 时判歧义；显式 #1 指第一处（klode resolve 同义）。records-to-l1 对出现在后文行内的行写 #1，不再 L1Error（改动既有规格 test_later_superstring_line_cannot_be_anchored → …gets_explicit_nth1_and_passes；真实父亲账单记录触发）。2026-11-03 |

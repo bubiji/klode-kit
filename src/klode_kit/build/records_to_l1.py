@@ -261,9 +261,8 @@ def _anchor(text: str, offset: int, line: str) -> str:
         starts.append(pos)
         pos = text.find(line, pos + 1)
     nth = starts.index(offset) + 1
-    if nth == 1 and len(starts) > 1:
-        raise L1Error(f"line also occurs inside a later line, no unambiguous anchor: {line!r}")
-    return f"(grep: `{line}`)" if nth == 1 else f"(grep: `{line}` #{nth})"
+    # a line that also occurs inside a later line is pinned with an explicit #1 (P24/P28)
+    return f"(grep: `{line}`)" if len(starts) == 1 else f"(grep: `{line}` #{nth})"
 
 
 def _anchors(text: str, lines: list[_Line]) -> list[str]:
