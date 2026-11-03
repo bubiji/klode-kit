@@ -13,12 +13,29 @@
 - Powers of ten accept ``10^9/L``, ``×10^9/L``, ``10⁹/L`` and ``10^×9/L`` (MLX ``{10}^{\\times 9}`` after the
   WI-04a F-2 flattening, fx-lowres). ``10~9/L`` (a vision misread) is deliberately *not* a unit: normalising a
   misread into the true value would let a wrong route vote "agree".
-- Letter flags (``H``, ``L``) count only when no ASCII letter, digit, ``/`` or ``^`` touches them (the H in HGB,
-  the L in g/L are not flags); symbol flags (``↑ ↓ *``) count unless the same symbol repeats (``***``).
+- Letter flags (``H``, ``L``) count only when no letter (Unicode ``isalpha``: ``μL`` too), digit, ``/`` or ``^``
+  touches them (the H in HGB, the L in g/L and in ``/μL`` are not flags); symbol flags (``↑ ↓ *``) count unless the
+  same symbol repeats (``***``).
 - A number is not part of an identifier: digits right after ``<letter>-`` (``T-0000001``) or touching letters
   are skipped.
 - A drug (``config/fields/drugs.txt``) followed only by whitespace and then a number with a glued unit carries
   that number's ``norm`` as ``dose``.
+
+Rules revision 2 (WI-41, P37; ``FIELDS_RULES``; ``kb-audit --reextract`` re-reads a batch under the newest rules):
+
+- A range is one ``number`` with ``norm`` ``a-b`` even when its separator is doubled or spaced (``72--182``,
+  ``3.5 - 5.3``, ``(9.40--15.50)``, ``4.5～ 8``); parentheses around it are not part of the value. Dates are taken
+  first, so a date is never the left end of a range.
+- Thousands separators make one number (``3,200``, ``¥31,168``, full-width ``，`` too), ``norm`` without commas; a
+  comma not followed by exactly three digits is no separator (``1,2`` is two numbers). ``¥`` is not part of the value.
+- A spaced decimal point (``10. 1``) is one number (``10.1``) when exactly one space follows the point, 1-2 digits
+  follow and 1-3 digits precede; a list marker followed by a word (``1. 血红蛋白``) is never joined.
+- A power of ten may start with ``× x X *`` and end in ``/L`` or ``/μL``; it is one ``unit`` (or the unit of a
+  glued number). ``10~9/L`` stays no unit.
+- ``*`` and ``※`` are flags only when whitespace / line start / a digit / ``)`` stands before and whitespace / line
+  end / ``)`` after (``*[基]``, ``22.5mg*4``, ``※注`` are not flags).
+- A digit glued to a CJK item name (``物価対応料1``, ``評価料(I)2``, ``診療(3+N联动)``) with no unit after it is part
+  of the label, not a number; ``血红蛋白128g/L`` still has its number.
 
 Word lists: ``klode_kit/config/fields/{units,flags,drugs}.txt`` (one entry per line, ``#`` comments; drug names
 are synthetic only, the repository is public).
@@ -34,6 +51,7 @@ from functools import lru_cache
 from importlib import resources
 
 KINDS = ("number", "date", "drug", "unit", "flag")
+FIELDS_RULES = 2  # revision of the extraction rules; an audit revision records it (``a<N>/rules.json``); none = 1
 FIELDS_DIR = "fields"
 
 
@@ -96,7 +114,7 @@ def fold(text: str) -> str:
 
 # --------------------------------------------------------------------------- patterns (on the folded line)
 
-_NUM = r"\d+(?:\.\d+)?"
+_NUM = r"(?:\d{1,3}\.[ ]\d{1,2}(?![0-9])|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
 _SUPER = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _SUPER_MAP = {c: str(i) for i, c in enumerate(_SUPER)}
 _RANGE_SEP = "-~–—"
@@ -105,14 +123,24 @@ _DATE = re.compile(
     r"(?<![0-9])(?P<y>\d{4})(?:-(?P<m1>\d{1,2})-(?P<d1>\d{1,2})|/(?P<m2>\d{1,2})/(?P<d2>\d{1,2})"
     r"|年(?P<m3>\d{1,2})月(?P<d3>\d{1,2})日)(?![0-9])"
 )
-_POWER = re.compile(rf"(?P<x>×)?10(?:\^×?(?P<e>\d{{1,2}})|(?P<s>[{_SUPER}]{{1,2}}))/L(?![A-Za-z0-9])")
+_POWER = re.compile(
+    rf"(?P<x>[×xX*])?10(?:\^×?(?P<e>\d{{1,2}})|(?P<s>[{_SUPER}]{{1,2}}))/(?P<d>μ?L)(?![A-Za-z0-9])"
+)
 _NUMBER = re.compile(
-    rf"(?<![A-Za-z0-9.^~])(?<![A-Za-z]-)(?:(?P<cmp>[<>≤≥]){_NUM}|{_NUM}(?:[{_RANGE_SEP}]{_NUM})?)(?![0-9])"
+    rf"(?<![A-Za-z0-9.^~])(?<![A-Za-z]-)"
+    rf"(?:(?P<cmp>[<>≤≥]){_NUM}|{_NUM}(?:\s*[{_RANGE_SEP}]{{1,2}}\s*{_NUM})?)(?![0-9])"
 )
 _NOT_AFTER_NUMBER = re.compile(r"[A-Za-z^]")
 _UNIT_BEFORE = re.compile(r"[A-Za-z0-9μ]")
 _UNIT_AFTER = re.compile(r"[A-Za-z0-9/]")
-_LETTER_FLAG_TOUCH = re.compile(r"[A-Za-z0-9/^]")
+_CJK = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u3005]")
+_ROMAN_PAREN_AFTER_CJK = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u3005]\([IVXivx]{1,4}\)$")
+_COUNT_PAREN = re.compile(r"\+[A-Za-z]")
+_SYMBOL_FLAGS_IN_WORDS = ("*", "※")
+
+
+def _touches_letter_flag(ch: str) -> bool:
+    return ch.isalpha() or ch.isdigit() or ch in "/^"
 
 
 def _power_at(f: str, i: int) -> tuple[int, str] | None:
@@ -120,7 +148,7 @@ def _power_at(f: str, i: int) -> tuple[int, str] | None:
     if m is None:
         return None
     exp = m.group("e") if m.group("e") is not None else "".join(_SUPER_MAP[c] for c in m.group("s"))
-    return m.end(), f"10^{exp}/L"
+    return m.end(), f"10^{exp}/{m.group('d')}"
 
 
 def _list_unit_at(f: str, i: int) -> tuple[int, str] | None:
@@ -150,19 +178,40 @@ def _date_at(f: str, i: int) -> tuple[int, str] | None:
     return m.end(), d.isoformat()
 
 
-def _number_at(f: str, i: int) -> tuple[int, str, str | None] | None:
+def _label_digit(f: str, start: int, end: int) -> bool:
+    """A number glued to a CJK item name (rule A7): ``物価対応料1``, ``評価料(I)2``, ``診療(3+N联动)``."""
+    after = f[end] if end < len(f) else ""
+    if start == 0:
+        return False
+    before = f[start - 1]
+    if after and not after.isspace() and after != ")":
+        # the "3" of a label "(3+N联动)": parenthesis after a CJK char, then digits and "+<letter>"
+        return before == "(" and start >= 2 and _CJK.match(f, start - 2) is not None \
+            and _COUNT_PAREN.match(f, end) is not None
+    if _CJK.match(before):
+        return True
+    return before == ")" and _ROMAN_PAREN_AFTER_CJK.search(f, 0, start) is not None
+
+
+def _number_at(f: str, i: int) -> tuple[int, str | None, str | None] | None:
+    """``(end, norm, unit)``; ``norm`` is ``None`` for a digit run that is part of a label (skipped, no field)."""
     m = _NUMBER.match(f, i)
     if m is None:
         return None
     end = m.end()
-    num_norm = m.group(0) if m.group("cmp") else re.sub(f"[{_RANGE_SEP}]", "-", m.group(0))
+    if m.group("cmp"):
+        num_norm = m.group(0).replace(",", "").replace(" ", "")
+    else:
+        num_norm = re.sub(f"[{_RANGE_SEP}]+", "-", re.sub(r"[\s,]", "", m.group(0)))
     glued = _unit_at(f, end)
     if glued is not None:
         uend, unorm = glued
-        sep = "×" if f[end] == "×" else ""
+        sep = "×" if f[end] in "×xX*" else ""
         return uend, num_norm + sep + unorm, unorm
     if end < len(f) and _NOT_AFTER_NUMBER.match(f, end):
         return None
+    if _label_digit(f, i, end):
+        return end, None, None
     return end, num_norm, None
 
 
@@ -174,10 +223,14 @@ def _flag_at(f: str, i: int) -> tuple[int, str] | None:
         before = f[i - 1] if i > 0 else ""
         after = f[end] if end < len(f) else ""
         if flag.isascii() and flag.isalnum():
-            if (before and _LETTER_FLAG_TOUCH.match(before)) or (after and _LETTER_FLAG_TOUCH.match(after)):
+            if (before and _touches_letter_flag(before)) or (after and _touches_letter_flag(after)):
                 continue
         elif before == flag[-1] or after == flag[0]:
             continue
+        elif flag in _SYMBOL_FLAGS_IN_WORDS:
+            if (before and not (before.isspace() or before.isdigit() or before == ")")) \
+                    or (after and not (after.isspace() or after == ")")):
+                continue
         return end, flag
     return None
 
@@ -221,7 +274,8 @@ def extract(line: str) -> list[Field]:
         num = _number_at(f, i)
         if num is not None:
             end, norm, unit = num
-            out.append(Field("number", line[i:end], i, end, norm, unit=unit))
+            if norm is not None:
+                out.append(Field("number", line[i:end], i, end, norm, unit=unit))
             i = end
             continue
         if i == 0 or not _UNIT_BEFORE.match(f, i - 1):

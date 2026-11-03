@@ -1,7 +1,7 @@
 ---
 name: kb-audit
 description: 把 kb-ocr 一批的四路读数逐行对齐、投票、过闸门，生成分歧确认页；人在页面上点选后写回，成为可追溯的 verified 记录；已 verified 但读错的字段可以重开。用户说「分歧我点完了，写回」「2025 年那批重新 OCR 一遍」（OCR 之后接着审计），「这个字段其实读错了，重新确认」，或输入 /klode-kit:kb-audit 时使用。
-argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号> | --attribute --batch <批次号> --reviewer-model M --reviewer-rule R | --redate --batch <批次号> [--apply]
+argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号> | --attribute --batch <批次号> --reviewer-model M --reviewer-rule R | --redate --batch <批次号> [--apply] | --batch <批次号> --reextract
 allowed-tools: Bash(*/bin/klode-kit *)
 ---
 
@@ -92,6 +92,16 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --attribute --batch BATCH_ID --revi
 
 只追加一行到 `work/<批次>/audit/attributions.jsonl`（本批每个审计修订里、含 `by: human` 决定且已结束的提交），从不改 `fixes.jsonl`、`commits.jsonl`、记录正文或 `_rev/`。回执 `klode-kit.attribute_receipt/1`：`attributed`（退出码 0，含提交数和记录数）、`nothing`（已全部标过，退出码 0，不写任何东西）、`refused`（退出码 30：批次号不对、没有 `work/`、没有审计修订、缺 `--reviewer-model` 或 `--reviewer-rule`）。
 回填之后再有本人在审核员的提交上继续写回，新修订的 `verified_by` 仍是 `reviewer`。导出的 `library/records/<记录>.txt` 每条记录末尾多一行 `verified_by: auto | human | reviewer (<模型>)`。
+
+### 按新规则重读（`--reextract`）
+
+字段拆分规则改过（`fields.FIELDS_RULES`，现为 2）之后，旧批次里两路对同一段文字读对了却因拆分不同而永远对不上的字段，用它重读：
+
+```
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --batch BATCH_ID --reextract
+```
+
+新审计修订会记 `a<N>/rules.json`（`{"fields_rules": 2}`；没有这个文件的旧修订算规则 1）。不加 `--reextract` 时行为不变：运行集相同就复用 `a<N>`，不比较规则，已全部确认的批次不会被翻动。加了之后，最新修订的规则和当前不同就用**同一运行集**（不重新 OCR）写 `a<N+1>`，重新生成 cells、候选、裁图，确认页按需生成；输出一行 `new (reextract: rules 1 -> 2)`。规则相同则和不加一样，复用（`reused`）。只写候选，不动 `records/` 和 `effective`；已在 `a<N>` 确认的记录在写回前保持原样；之后 `--writeback --batch` 照常把 `a<N+1>` 的候选各提交一个新修订（已确认的那条得到同值的 r+1，来源 `a<N+1>`），在此之前 `--again` 会退出 30 提示先写回；待确认 / disputed 的记录在 `a<N+1>` 的确认页上决定，`--again`、`--attribute`、`--redate` 照常对 `a<N+1>` 工作。必须带 `--batch`，不能和 `--writeback`、`--reopen`、`--again`、`--attribute`、`--redate` 同用（退出码 2）。
 
 ### 补改日期（`--redate`）
 

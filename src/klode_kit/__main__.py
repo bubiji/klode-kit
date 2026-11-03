@@ -129,7 +129,8 @@ COMMANDS: dict[str, tuple[str, str]] = {
                  "batch's latest runs into audit revision a<N>; --writeback [CHOICES]: commit them / the human's "
                  "choices; --reopen FIELD_ID [--reason T]: put a verified field back on a one-field confirm page; "
                  "--again --batch BATCH_ID: a second-pass confirm page of the still undecided fields of the "
-                 "pending / disputed records"),
+                 "pending / disputed records; --batch BATCH_ID --reextract: re-read the batch's run set under the "
+                 "current field-extraction rules into a new audit revision"),
     "confirm-page": ("klode_kit.audit.confirm_page:main", "confirm-page --batch BATCH_ID [--project DIR] [--rev N]: "
                      "write the local confirm page work/<batch>/audit/a<N>/confirm.html"),
     "pipeline": ("klode_kit.pipeline:main",

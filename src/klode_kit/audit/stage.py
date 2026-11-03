@@ -6,12 +6,15 @@ Usage::
     klode-kit kb-audit --writeback [<choices.json>] ...        (WI-08c, audit/writeback.py)
     klode-kit kb-audit --reopen <field_id> [--reason ...] ...  (WI-08e, audit/reopen.py)
     klode-kit kb-audit --again --batch <batch_id> ...          (WI-38, audit/again.py)
+    klode-kit kb-audit --batch <batch_id> --reextract          (WI-41)
 
 It reads the kb-ocr batch receipt ``work/<batch>/receipt.json`` (WI-04b) and, for every page the routes read, aligns the routes' lines (WI-07b), votes every cell (WI-07c), crops the
 cells that do not agree (WI-07d) and gates the page's record (``audit.gate``). Layout::
 
     work/.lock                                  the project lock kb-ocr also takes (fcntl, pid + batch)
     work/<batch>/audit/a<N>/runs.json           {route: run_id | null} - the run set, frozen
+    work/<batch>/audit/a<N>/rules.json          {"fields_rules": N} - the extraction rules it was read with (WI-41);
+                                                a revision without the file is rules 1
     work/<batch>/audit/a<N>/crops/...           WI-07d crops and per-page crop index
     work/<batch>/audit/a<N>/cells.jsonl         one ``cells`` contract line per aligned cell
     work/<batch>/audit/a<N>/candidates.jsonl    one candidate per record: {rec_id, doc_id, page_id, record_idx,
@@ -45,6 +48,18 @@ Rules
   page that a record type has just made auditable) is not reused. ``a<N>`` is never rewritten: ``runs.json``, ``cells.jsonl``,
   ``candidates.jsonl`` and ``confirm.html`` go through ``write_once`` (a second write raises
   ``WriteOnceViolation``; the files are made read-only).
+- **Re-extraction** (WI-41, P37). ``fields.FIELDS_RULES`` is the revision of the field-extraction rules; a new revision
+  records it in ``rules.json`` (an older one has no such file: rules 1). The plain command never compares rules
+  (a fully verified batch must not churn). ``--reextract`` refuses to reuse the latest revision when its rules differ
+  from ``FIELDS_RULES`` and writes ``a<N+1>`` from the *same run set* (no OCR call): fresh cells, candidates, crops
+  (the confirm page is written on demand as for any revision). The stdout line then says
+  ``new (reextract: rules 1 -> 2)``. With equal rules the flag changes nothing (reuse). Records: ``a<N+1>`` brings
+  candidates only; ``effective`` does not move until a writeback. A record already verified at ``a<N>`` whose
+  ``a<N+1>`` candidate is verified (auto) again keeps its ``effective`` until a writeback; the ingest
+  (``--writeback --batch``) then commits a new revision for every record of ``a<N+1>`` as for any newer revision
+  (observed: the verified one gets r2 ``verified``/auto with ``audit_rev`` ``a<N+1>`` and the same values; the waiting
+  ones a new ``pending_confirm``), and ``--again`` exits 30 until that ingest has run. Pending / disputed records
+  are decided on the ``a<N+1>`` page as on any newest revision.
 - **Candidates only** (r4.1): kb-audit writes candidate records under ``a<N>``; it never writes ``records/`` and
   never moves ``effective`` - that is WI-08c writeback's alone.
 - **uncertain_log** (r2.3): ``UncertainLog`` only appends. A new revision appends an ``add`` line for every entry
@@ -74,13 +89,14 @@ from typing import Any, Iterable, Mapping, TextIO
 from klode_kit.audit import align as A
 from klode_kit.audit import compare as C
 from klode_kit.audit import crop as CR
+from klode_kit.audit import fields as FLD
 from klode_kit.audit import gate as G
 from klode_kit.contract import ids, schema
 from klode_kit.seams import crashpoint
 
 RECORD_TYPES = ("lab", "rx")
 TEXT_RUN = "text-layer"  # runs.json value of the pdftext route: its rows have no run of their own (``text/<key>``)
-WRITE_ONCE = ("runs.json", "cells.jsonl", "candidates.jsonl", "confirm.html")
+WRITE_ONCE = ("runs.json", "rules.json", "cells.jsonl", "candidates.jsonl", "confirm.html")
 LOG_NAME = "uncertain_log.jsonl"
 LOCK_NAME = ".lock"
 BATCH_RECEIPT = "klode-kit.ocr_batch/1"
@@ -276,9 +292,20 @@ def _covers(adir: Path, page_ids: Iterable[str]) -> bool:
     return done == set(page_ids)
 
 
-def _claim(root: Path, runs: Mapping[str, str | None], page_ids: Iterable[str] | None = None) -> tuple[int, bool]:
-    """``(n, new)``: the latest revision when its run set is ``runs`` and it covers ``page_ids`` (or it was claimed
-    by a killed run before its runs.json was written), else a new ``a<N+1>``."""
+def rules_of(adir: Path) -> int:
+    """The extraction rules revision ``adir`` was read with (no ``rules.json``: 1)."""
+    path = adir / "rules.json"
+    try:
+        return int(json.loads(path.read_text(encoding="utf-8"))["fields_rules"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 1
+
+
+def _claim(root: Path, runs: Mapping[str, str | None], page_ids: Iterable[str] | None = None,
+           reextract: bool = False) -> tuple[int, bool, int | None]:
+    """``(n, new, old_rules)``: the latest revision when its run set is ``runs`` and it covers ``page_ids`` (or it was
+    claimed by a killed run before its runs.json was written), else a new ``a<N+1>``. ``reextract`` also refuses a
+    revision whose rules are not ``FIELDS_RULES``; ``old_rules`` is then that revision's rules (else ``None``)."""
     found = sorted(int(m.group(1)) for p in root.iterdir() if p.is_dir() and (m := _REV_DIR.fullmatch(p.name))) \
         if root.is_dir() else []
     if found:
@@ -286,13 +313,20 @@ def _claim(root: Path, runs: Mapping[str, str | None], page_ids: Iterable[str] |
         rp = root / f"a{last}" / "runs.json"
         if not rp.exists() or (json.loads(rp.read_text(encoding="utf-8")) == dict(runs)
                                and (page_ids is None or _covers(root / f"a{last}", page_ids))):
-            return last, False
+            old = rules_of(root / f"a{last}") if rp.exists() else FLD.FIELDS_RULES
+            if not (reextract and old != FLD.FIELDS_RULES):
+                return last, False, None
+            reason = old
+        else:
+            reason = None
+    else:
+        reason = None
     n = (found[-1] + 1) if found else 1
     _ensure_dir(root)
     os.mkdir(root / f"a{n}")
     _fsync_dir(root)
     crashpoint("audit.mkdir")
-    return n, True
+    return n, True, reason
 
 
 def _rows(batch_dir: Path, page: Mapping[str, Any]) -> dict[str, list[dict]]:
@@ -408,7 +442,8 @@ def _audit_page(project: Path, batch_id: str, n: int, batch_dir: Path, page: Map
     return lines, candidate
 
 
-def run(project: Path, batch_id: str, *, out: TextIO | None = None, record_type: str | None = None) -> int:
+def run(project: Path, batch_id: str, *, out: TextIO | None = None, record_type: str | None = None,
+        reextract: bool = False) -> int:
     out = sys.stderr if out is None else out
     work = project / "work"
     batch_dir = work / batch_id
@@ -435,10 +470,13 @@ def run(project: Path, batch_id: str, *, out: TextIO | None = None, record_type:
         if any(p.get("text_class") == "text" for p in pages):
             runs["pdftext"] = TEXT_RUN  # a route of this revision (the writeback and the confirm page read it here)
         root = batch_dir / "audit"
-        n, new = _claim(root, runs, [p["page_id"] for p in pages])
+        n, new, old_rules = _claim(root, runs, [p["page_id"] for p in pages], reextract)
         adir = root / f"a{n}"
         audit_rev = ids.audit_rev(batch_id, n)
         if not (adir / "runs.json").exists():
+            if not (adir / "rules.json").exists():
+                write_once(adir, "rules.json",
+                           (json.dumps({"fields_rules": FLD.FIELDS_RULES}, sort_keys=True, indent=1) + "\n").encode("utf-8"))
             write_once(adir, "runs.json", (json.dumps(runs, sort_keys=True, indent=1) + "\n").encode("utf-8"))
         complete = (adir / "cells.jsonl").exists() and (adir / "candidates.jsonl").exists()
         if complete:
@@ -462,7 +500,9 @@ def run(project: Path, batch_id: str, *, out: TextIO | None = None, record_type:
     for c in candidates:
         print(f"kb-audit: {c['page_id']}: {c['status']} ({len(c['uncertain'])} uncertain)", file=out)
     waiting = sum(1 for c in candidates if c["status"] != G.VERIFIED)
-    print(f"kb-audit: batch {batch_id}: audit revision a{n} ({'new' if new else 'reused'}), "
+    state = "reused" if not new else "new" if old_rules is None \
+        else f"new (reextract: rules {old_rules} -> {FLD.FIELDS_RULES})"
+    print(f"kb-audit: batch {batch_id}: audit revision a{n} ({state}), "
           f"{len(candidates)} record(s), {waiting} awaiting confirmation", file=out)
     return AWAITING_EXIT if waiting else 0
 
@@ -495,12 +535,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--redate", action="store_true",
                         help="re-date (audit.redate, WI-40): re-derive the date of the records of --batch and list the "
                              "ones whose stored date differs (a date of birth taken for the visit date)")
+    parser.add_argument("--reextract", action="store_true",
+                        help="re-read the batch's run set under the current field-extraction rules (WI-41): a new "
+                             "audit revision when the latest one was read with older rules; needs --batch")
     parser.add_argument("--apply", action="store_true", help="with --redate: write the new dates (default: plan only)")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    if args.reextract:
+        if args.again or args.reopen is not None or args.writeback is not None or args.attribute or args.redate \
+                or args.reason is not None or args.apply:
+            print("kb-audit: --reextract is a step of its own: not with --again, --reopen, --writeback, --attribute, "
+                  "--redate, --reason or --apply", file=sys.stderr)
+            return USAGE_EXIT
+        if args.batch is None:
+            print("kb-audit: --reextract needs --batch <batch_id>", file=sys.stderr)
+            return USAGE_EXIT
     if args.redate:
         if args.again or args.reopen is not None or args.writeback is not None or args.attribute \
                 or args.reason is not None:
@@ -559,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
     if not _BATCH.fullmatch(args.batch):
         print(f"kb-audit: --batch must be a batch id (12 hex characters): {args.batch!r}", file=sys.stderr)
         return USAGE_EXIT
-    return run(project, args.batch, record_type=args.record_type)
+    return run(project, args.batch, record_type=args.record_type, reextract=args.reextract)
 
 
 if __name__ == "__main__":  # pragma: no cover - entry is ``klode-kit kb-audit``
