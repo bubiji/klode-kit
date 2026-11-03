@@ -35,7 +35,7 @@
     },
     "field_ids": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "string",
         "pattern": "^r-[0-9a-f]{12}/[^/\\s]+$"

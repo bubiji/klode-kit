@@ -221,8 +221,8 @@ class UncertainLog:
 
     def clear(self, ids_: Iterable[str], *, by: str, at: str, evidence: str, audit_rev: str | None = None) -> int:
         """Append one clear line per id; every id must be open (else ``ValueError``, nothing written)."""
-        if by not in ("auto", "human"):
-            raise ValueError(f"cleared_by must be auto or human: {by!r}")
+        if by not in ("auto", "human", "reviewer"):
+            raise ValueError(f"cleared_by must be auto, human or reviewer: {by!r}")
         if not evidence:
             raise ValueError("clearing an uncertain entry needs evidence")
         wanted = list(dict.fromkeys(ids_))
@@ -487,11 +487,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--again", action="store_true",
                         help="second pass (audit.again, WI-38): a confirm page of the still undecided fields of the "
                              "pending / disputed records of --batch, at their current revs")
+    parser.add_argument("--attribute", action="store_true",
+                        help="backfill (audit.attribution, WI-39): mark the earlier human decisions of --batch as an AI "
+                             "reviewer's (needs --reviewer-model and --reviewer-rule); append-only")
+    parser.add_argument("--reviewer-model", default=None, help="with --attribute: the reviewer's model id (1..64)")
+    parser.add_argument("--reviewer-rule", default=None, help="with --attribute: the reviewer's rule name (1..64)")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    if args.attribute:
+        if args.again or args.reopen is not None or args.writeback is not None or args.reason is not None:
+            print("kb-audit: --attribute is a step of its own: not with --again, --reopen, --writeback or --reason",
+                  file=sys.stderr)
+            return USAGE_EXIT
+        from klode_kit.audit import attribution
+
+        return attribution.run(project, batch_id=args.batch, model=args.reviewer_model, rule=args.reviewer_rule)
+    if args.reviewer_model is not None or args.reviewer_rule is not None:
+        print("kb-audit: --reviewer-model / --reviewer-rule belong to --attribute", file=sys.stderr)
+        return USAGE_EXIT
     if args.again:
         if args.reopen is not None or args.writeback is not None or args.reason is not None:
             print("kb-audit: --again is a step of its own: not with --reopen, --writeback or --reason",

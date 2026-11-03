@@ -1,7 +1,7 @@
 ---
 name: kb-audit
 description: 把 kb-ocr 一批的四路读数逐行对齐、投票、过闸门，生成分歧确认页；人在页面上点选后写回，成为可追溯的 verified 记录；已 verified 但读错的字段可以重开。用户说「分歧我点完了，写回」「2025 年那批重新 OCR 一遍」（OCR 之后接着审计），「这个字段其实读错了，重新确认」，或输入 /klode-kit:kb-audit 时使用。
-argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号>
+argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号> | --attribute --batch <批次号> --reviewer-model M --reviewer-rule R
 allowed-tools: Bash(*/bin/klode-kit *)
 ---
 
@@ -77,6 +77,21 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --again --batch BATCH_ID
 `pending_confirm` / `disputed` 记录生成一页新的确认页（`a<N>/again/g<NNNN>.html`，回执里有路径），只列还没定的字段，按记录当前修订号。
 退出码 10 表示有页可点（`opened` 新页，或 `unchanged` 沿用上一页）；退出码 0、`nothing` 表示本批没有待定字段（已 verified 的字段读错用第四节）。
 让用户在新页上点选、导出 `choices.json`，再按第三节写回；仍留「都不对」的字段下次再跑一遍本命令即可。退出码 30 表示不能做（本批没有审计修订，或最新审计修订还没写回，先做第三节的写回）。
+
+## 六、标注 AI 审核员的决定（reviewer）
+
+由审核员代理（sonnet / opus，D-43）替本人做确认页选择时，在 `choices.json` 顶层加 `"reviewer": {"model": "<模型号>", "rule": "<规则名>"}`（各 1..64 字符，多一个键、缺一个键、空值或超长都整份拒绝，零写入）。
+写回时这份文件里的每条决定记为 `by: "reviewer"`，并带 `evidence.reviewer`；新修订的 `verified_by` 在**它所依赖的任一人工决定**是审核员做的时为 `reviewer`（含之前几次写回留下的、重开时沿用的），全是本人做的才是 `human`，没人决定的仍是 `auto`。
+审核员的决定和本人的一样算「已定」：`--again` 不会再列，页面项规则同样适用。不写 `reviewer` 就是本人，行为和以前完全一样。
+
+以前（`reviewer` 出现之前）审核员做的决定被记成了 `human`，用回填补标：
+
+```
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --attribute --batch BATCH_ID --reviewer-model MODEL --reviewer-rule RULE
+```
+
+只追加一行到 `work/<批次>/audit/attributions.jsonl`（本批每个审计修订里、含 `by: human` 决定且已结束的提交），从不改 `fixes.jsonl`、`commits.jsonl`、记录正文或 `_rev/`。回执 `klode-kit.attribute_receipt/1`：`attributed`（退出码 0，含提交数和记录数）、`nothing`（已全部标过，退出码 0，不写任何东西）、`refused`（退出码 30：批次号不对、没有 `work/`、没有审计修订、缺 `--reviewer-model` 或 `--reviewer-rule`）。
+回填之后再有本人在审核员的提交上继续写回，新修订的 `verified_by` 仍是 `reviewer`。导出的 `library/records/<记录>.txt` 每条记录末尾多一行 `verified_by: auto | human | reviewer (<模型>)`。
 
 ## 已知坑
 

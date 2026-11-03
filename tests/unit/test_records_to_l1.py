@@ -301,10 +301,10 @@ def test_records_shelf_cards_generated(tmp_path, exported):
         card = (build / "cards_content" / f"{rec}.md").read_text(encoding="utf-8")
         assert front(card)[1] == "kind: deterministic"
         src = (build / "library" / "records" / f"{rec}.txt").read_text(encoding="utf-8").splitlines()
-        assert [q for q, _ in ANCHOR.findall(section(card, "Full"))] == src and len(src) == 4
+        assert [q for q, _ in ANCHOR.findall(section(card, "Full"))] == src and len(src) == 5
         res = gate(build, rec)
         assert res["pass"] and res["policy"] == "deterministic", res["problems"]
-        assert res["coverage"] == {"covered": 4, "lines": 4}
+        assert res["coverage"] == {"covered": 5, "lines": 5}
 
 
 # --------------------------------------------------------------------------- F1 aliases (WI-02a -> 01b)

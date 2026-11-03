@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "klode-kit/choices.json",
   "title": "Confirm-page export (choices.json)",
-  "description": "Human choices exported by the confirm page (02 r2.3, r3.3: no `partial`; r3.4: none + evidence.reason). A field_id appears at most once (F17, x-uniqueBy).",
+  "description": "Human choices exported by the confirm page (02 r2.3, r3.3: no `partial`; r3.4: none + evidence.reason). A field_id appears at most once (F17, x-uniqueBy). WI-39: an optional top-level `reviewer` {model, rule} marks the whole file as an AI reviewer's decisions (absent = the owner).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -196,6 +196,26 @@
               }
             }
           }
+        }
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "rule"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
         }
       }
     }

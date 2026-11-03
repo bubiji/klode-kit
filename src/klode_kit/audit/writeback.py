@@ -4,7 +4,8 @@
 Usage::
 
     klode-kit kb-audit --batch <batch_id> --writeback [--project <data project>]          # ingest
-    klode-kit kb-audit --writeback <choices.json> [--batch <batch_id>] [--project ...]      # human choices
+    klode-kit kb-audit --writeback <choices.json> [--batch <batch_id>] [--project ...]      # human / reviewer choices
+    klode-kit kb-audit --attribute --batch <batch_id> --reviewer-model M --reviewer-rule R   # WI-39 backfill
 
 **Two layers** (r4.1). ``records/_by_id/<rec_id>.md`` holds JSON front matter (contract ``record``)::
 
@@ -36,7 +37,7 @@ refused); ``evidence.reason`` is only ``not_a_field`` and only with ``none``; a 
 ``evidence.region`` (the cell's box on a registered derived image, else its crop box). Any failure rejects that
 record (listed with its field_ids; exit 30) and the others go on. A record whose every item matches a committed
 decision (idempotency key ``(field_id, rev_base, choice)``) is ``unchanged``. Otherwise one commit writes revision
-``r<current+1>``: ``verified`` (``verified_by: human``) when no field is left as plain ``none`` (``none`` +
+``r<current+1>``: ``verified`` (``verified_by: human``, or ``reviewer``, see below) when no field is left as plain ``none`` (``none`` +
 ``not_a_field`` drops the field), else ``disputed`` keeping the undecided fields' uncertain entries.
 
 **Other pages of the same audit revision.** ``confirm_sha256`` may instead be the stamp of a reopen page
@@ -45,6 +46,15 @@ decision (idempotency key ``(field_id, rev_base, choice)``) is ``unchanged``. Ot
 page`` for an again page). An again page holds a pending / disputed record's still undecided fields at its current
 rev; its commit carries what the human already decided on ``a<N>`` (``_earlier``), adds the new decisions (tagged
 ``again_id``, body ``again``) and is ``verified`` when nothing is left, else ``disputed`` again.
+
+**Reviewer** (WI-39, D-43). A choices file may carry a top-level ``reviewer: {model, rule}`` (1..64 characters each,
+nothing else; ``schemas/choices.json``): the file's choices were made by an AI reviewer, not the owner. Every decision
+written from it is then ``by: "reviewer"`` with ``evidence.reviewer = {model, rule}`` (first pass, reopen page and again
+page alike), and a verified revision is ``verified_by: "reviewer"`` when **any** person-made decision it rests on - new
+in this commit, or carried from earlier commits on the audit revision (attributed ones included, ``audit.attribution``)
+- is a reviewer's, ``"human"`` when all are the owner's; ``"auto"`` stays for revisions nobody decided. A reviewer
+decision is a decided field exactly like an owner's (``DECIDERS``). Absent ``reviewer`` = the owner, as before.
+``kb-audit --attribute`` marks the earlier ``human`` commits of a batch as a reviewer's without rewriting them.
 
 **Promotion** (r4.1): only a verified candidate moves ``effective``; it then equals that candidate on ``{rev,
 audit_rev, status, verified_by}`` and every earlier candidate gets ``superseded_by``. A pending or disputed
@@ -81,6 +91,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, TextIO
 
+from klode_kit.audit import attribution as AT
 from klode_kit.audit import confirm_page as CP
 from klode_kit.audit import gate as G
 from klode_kit.audit import record_meta as RM
@@ -95,6 +106,7 @@ FIXES, COMMITS, RECEIPTS, LOCK = "fixes.jsonl", "commits.jsonl", "writeback_rece
 REOPEN_LOG, REOPEN_DIR = "reopen.jsonl", "reopen"   # WI-08e: written by ``reopen``; read here to accept its pages
 AGAIN_LOG, AGAIN_DIR = "again.jsonl", "again"       # WI-38: written by ``again``; read here to accept its pages
 NON_VOTING = frozenset({"tesseract"})
+DECIDERS = AT.DECIDERS   # WI-39: the `by` of a decision a person made - the owner (human) or a reviewer
 DEFAULT_TYPE = "doc"
 CRASHPOINTS = ("writeback.lock", "writeback.begin", "writeback.fixes_appended", "writeback.mkdir",
                "writeback.rev_tmp", "writeback.rev_renamed", "writeback.rev_written", "writeback.byid_tmp",
@@ -299,7 +311,7 @@ def _decision_choice(d: Mapping[str, Any]) -> dict:
 def _committed_keys(adir: Path) -> set[str]:
     ended = {m["commit_id"] for m in _jsonl(adir / COMMITS) if m.get("op") == "end"}
     return {_choice_key(d["field_id"], d["rev_base"], _decision_choice(d)) for d in _jsonl(adir / FIXES)
-            if d.get("by") == "human" and d.get("commit_id") in ended}
+            if d.get("by") in DECIDERS and d.get("commit_id") in ended}
 
 
 # --------------------------------------------------------------------------- planning one commit
@@ -341,7 +353,7 @@ def _page_meta(rev: Revision, cand: Mapping[str, Any], front: Mapping | None) ->
 def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, status: str, verified_by: str | None,
           uncertain: list[dict], human: Mapping[str, dict], dropped: list[str], at: str,
           confirm_sha: str | None = None, carry: Mapping[str, Any] | None = None,
-          reopen_id: str | None = None, again_id: str | None = None) -> dict:
+          reopen_id: str | None = None, again_id: str | None = None, reviewer: Mapping[str, Any] | None = None) -> dict:
     """The complete commit of one record: decisions, body and front matter (``human``: field_id -> normalised
     choice; fields not in it are agreed and get an auto decision when the revision is verified).
 
@@ -375,6 +387,9 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
             elif ch.get("reason"):
                 evidence["reason"] = ch["reason"]
             by = "human"
+            if reviewer is not None:   # WI-39: the file says an AI reviewer made these choices, not the owner
+                by = "reviewer"
+                evidence["reviewer"] = {"model": reviewer["model"], "rule": reviewer["rule"]}
         elif carry is not None and (again_id is None or fid in carry["decided"]):
             continue
         elif is_page:   # WI-33f: a page item is only ever decided by a human
@@ -682,7 +697,8 @@ def _choices_mode(project: Path, batch_arg: str | None, path: Path, at: str, out
         for rec_id, items in groups.items():
             res, human = _check_record(rev, rec_id, items, committed, reopen)
             if human is not None:
-                res = _commit_human(rev, rec_id, human, at, data["confirm_sha256"], reopen)
+                res = _commit_human(rev, rec_id, human, at, data["confirm_sha256"], reopen,
+                                    data.get("reviewer"))
             rejected |= res["result"] == "rejected"
             receipt["per_record"].append(res)
             if res["result"] == "rejected":
@@ -698,7 +714,7 @@ def _choices_mode(project: Path, batch_arg: str | None, path: Path, at: str, out
 
 
 def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, confirm_sha: str,
-                  reopen: "Reopen | Again | None" = None) -> dict:
+                  reopen: "Reopen | Again | None" = None, reviewer: Mapping[str, Any] | None = None) -> dict:
     cand = rev.cands[rec_id]
     front = _front(_record_path(rev.project, rec_id))
     carry = None
@@ -715,11 +731,15 @@ def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, c
         uncertain = [u for u in cand.get("uncertain", [])
                      if u.get("field_id") in keep or (u.get("scope") == G.ROW)]
     else:
-        status, by, uncertain = G.VERIFIED, "human", []
+        # WI-39: ``reviewer`` when any decision the revision rests on is a reviewer's: this commit's, or one the
+        # human fields do not replace (earlier on this audit revision, attributed commits included)
+        earlier = _earlier(rev, rec_id)["by"]
+        reviewed = reviewer is not None or any(b == "reviewer" for f, b in earlier.items() if f not in human)
+        status, by, uncertain = G.VERIFIED, "reviewer" if reviewed else "human", []
     plan = _plan(rev, cand, front, status=status, verified_by=by, uncertain=uncertain, human=human,
                  dropped=dropped, at=at, confirm_sha=confirm_sha, carry=carry,
                  reopen_id=reopen.reopen_id if isinstance(reopen, Reopen) else None,
-                 again_id=reopen.again_id if isinstance(reopen, Again) else None)
+                 again_id=reopen.again_id if isinstance(reopen, Again) else None, reviewer=reviewer)
     _commit(rev, plan)
     return {"rec_id": rec_id, "result": "committed", "rev_new": plan["rev_new"], "status": status,
             "commit_id": plan["commit_id"]}
@@ -784,19 +804,21 @@ def _again_page(rev: Revision, sha: str) -> Again | None:
 
 def _earlier(rev: Revision, rec_id: str) -> dict:
     """What a human already decided for ``rec_id`` on audit revision ``rev`` (WI-38): ``{fields: {field_id: value},
-    dropped: [...], decided: {field_id, ...}}`` from its committed human decisions, the last one on a field winning.
+    dropped: [...], decided: {field_id, ...}, by: {field_id: human|reviewer}}`` from its committed human / reviewer
+    decisions, the last one on a field winning.
     A plain ``none`` decides nothing. (A disputed body claims no value, so the values are read from the decisions.)"""
     ended = {m["commit_id"] for m in _jsonl(rev.dir / COMMITS) if m.get("op") == "end"}
     last: dict[str, dict] = {}
     for d in _jsonl(rev.dir / FIXES):
-        if d.get("by") == "human" and d.get("commit_id") in ended and d["field_id"].split("/", 1)[0] == rec_id:
+        if d.get("by") in DECIDERS and d.get("commit_id") in ended and d["field_id"].split("/", 1)[0] == rec_id:
             last[d["field_id"]] = d
-    out: dict[str, Any] = {"fields": {}, "dropped": [], "decided": set()}
+    out: dict[str, Any] = {"fields": {}, "dropped": [], "decided": set(), "by": {}}
     for fid, d in last.items():
         reason = (d.get("evidence") or {}).get("reason")
         if d["choice"] == "none" and reason not in ("not_a_field", "acknowledged"):
             continue
         out["decided"].add(fid)
+        out["by"][fid] = AT.decided_by(rev.project, rev.batch_id, d)   # WI-39: an attributed commit is the reviewer's
         if reason == "not_a_field":
             out["dropped"].append(fid)
         elif d.get("value") is not None:

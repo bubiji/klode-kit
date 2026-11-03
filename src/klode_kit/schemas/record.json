@@ -80,6 +80,7 @@
           "enum": [
             "auto",
             "human",
+            "reviewer",
             null
           ]
         }
@@ -101,7 +102,8 @@
               "verified_by": {
                 "enum": [
                   "auto",
-                  "human"
+                  "human",
+                  "reviewer"
                 ]
               }
             }
@@ -143,6 +145,7 @@
             "enum": [
               "auto",
               "human",
+              "reviewer",
               null
             ]
           },
@@ -212,7 +215,8 @@
                 "cleared_by": {
                   "enum": [
                     "auto",
-                    "human"
+                    "human",
+                    "reviewer"
                   ]
                 },
                 "cleared_at": {

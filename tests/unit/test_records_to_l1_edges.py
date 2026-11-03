@@ -47,7 +47,7 @@ def test_earlier_substring_line_gets_nth_and_passes(tmp_path):
     (build / "cards_content").mkdir()
     (build / "cards_content" / f"{REC_A}.md").write_text(card, encoding="utf-8")
     res = C.check_card(build, REC_A, min_aliases=0)
-    assert res["pass"] and res["coverage"] == {"covered": 2, "lines": 2}, res["problems"]
+    assert res["pass"] and res["coverage"] == {"covered": 3, "lines": 3}, res["problems"]
 
 
 def test_later_superstring_line_gets_explicit_nth1_and_passes(tmp_path):
@@ -61,7 +61,7 @@ def test_later_superstring_line_gets_explicit_nth1_and_passes(tmp_path):
     (build / "cards_content").mkdir()
     (build / "cards_content" / f"{REC_A}.md").write_text(card, encoding="utf-8")
     res = C.check_card(build, REC_A, min_aliases=0)
-    assert res["pass"] and res["coverage"] == {"covered": 2, "lines": 2}, res["problems"]
+    assert res["pass"] and res["coverage"] == {"covered": 3, "lines": 3}, res["problems"]
 
 
 def test_backtick_line_refused(tmp_path):

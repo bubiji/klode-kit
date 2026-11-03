@@ -87,7 +87,8 @@ def test_line_format(tmp_path):
     expected = [obs_line(r["item"], r["value"], r["unit"], date, r["flag"], rid) for r in rec["rows"]]
     for r, line in zip(rec["rows"], expected):
         assert res["files"][f"library/items/{slug(r['item'])}.txt"] == line + "\n"
-    assert res["files"][f"library/records/{rid}.txt"] == "\n".join([f"日期 {date} ⟨{rid}⟩", *expected]) + "\n"
+    assert res["files"][f"library/records/{rid}.txt"] == "\n".join(
+        [f"日期 {date} ⟨{rid}⟩", *expected, f"verified_by: auto ⟨{rid}⟩"]) + "\n"
     assert set(res["files"]) == {f"library/items/{slug(r['item'])}.txt" for r in rec["rows"]} | {
         f"library/records/{rid}.txt"}
     assert res["audit_bindings"] == {rid: {"rev": 1, "audit_rev": res["audit_bindings"][rid]["audit_rev"]}}
@@ -141,7 +142,8 @@ def test_values_from_binding_rev_item_fields(tmp_path):
                  effective=1, date="2026-10-01")
     res = R.export(project)
     line = obs_line("血红蛋白", "128", "", "2026-09-18", "H", REC_A)
-    assert res["files"] == {"library/items/hemoglobin.txt": line + "\n", f"library/records/{REC_A}.txt": line + "\n"}
+    assert res["files"] == {"library/items/hemoglobin.txt": line + "\n",
+                            f"library/records/{REC_A}.txt": f"{line}\nverified_by: human ⟨{REC_A}⟩\n"}
     assert {row["rev"] for row in res["export_map"]} == {1}
     assert res["audit_bindings"] == {REC_A: {"rev": 1, "audit_rev": A1}}
     blob = json.dumps(res, ensure_ascii=False)
@@ -166,7 +168,7 @@ def test_values_from_binding_rev_pipeline_slots(tmp_path):
     res = R.export(project)
     line = obs_line("血红蛋白", "128", "g/L", "2026-09-18", "H", REC_A)
     assert res["files"] == {"library/items/hemoglobin.txt": line + "\n",
-                            f"library/records/{REC_A}.txt": f"日期 2026-09-18 ⟨{REC_A}⟩\n{line}\n"}
+                            f"library/records/{REC_A}.txt": f"日期 2026-09-18 ⟨{REC_A}⟩\n{line}\nverified_by: human ⟨{REC_A}⟩\n"}
     blob = json.dumps(res, ensure_ascii=False)
     assert not any(v in blob for v in ("白细胞", "wbc", "6.2", "2026-10-01", "WRONG-IF-READ"))
 
@@ -290,12 +292,14 @@ def test_source_and_observation_lines_classified(tmp_path):
     obs = obs_line("血红蛋白", "128", "g/L", "2026-09-18", "", REC_A)
     assert res["files"] == {
         "library/items/hemoglobin.txt": obs + "\n",
-        f"library/records/{REC_A}.txt": f"日期 2026-09-18 ⟨{REC_A}⟩\n{obs}\n白细胞 10^9/L ⟨{REC_A}⟩\n"}
+        f"library/records/{REC_A}.txt": f"日期 2026-09-18 ⟨{REC_A}⟩\n{obs}\n白细胞 10^9/L ⟨{REC_A}⟩\n"
+                                       f"verified_by: human ⟨{REC_A}⟩\n"}
     kinds = {(r["source_file"], r["text"]): r["line_kind"] for r in res["export_map"]}
     assert kinds == {("library/items/hemoglobin.txt", obs): "observation",
                      (f"library/records/{REC_A}.txt", obs): "observation",
                      (f"library/records/{REC_A}.txt", f"日期 2026-09-18 ⟨{REC_A}⟩"): "source",
-                     (f"library/records/{REC_A}.txt", f"白细胞 10^9/L ⟨{REC_A}⟩"): "source"}
+                     (f"library/records/{REC_A}.txt", f"白细胞 10^9/L ⟨{REC_A}⟩"): "source",
+                     (f"library/records/{REC_A}.txt", f"verified_by: human ⟨{REC_A}⟩"): "source"}
 
 
 # --------------------------------------------------------------------------- 01a-08 and guards

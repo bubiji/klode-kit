@@ -11,6 +11,10 @@ not the current one; R3-07: never ``cells.jsonl``, never a newer candidate). A b
 ``not_verified`` too; a body without fields is ``empty_record``; a value holding a line break (or not a string) is
 ``malformed_value``; a record without any date is ``no_date``. An excluded record yields no line.
 
+**Verified by** (WI-39). Every exported record ends with one more source line, anchored like the others and without
+field ids: ``verified_by: auto`` | ``verified_by: human`` | ``verified_by: reviewer (<model>)`` (``audit.attribution``;
+the model is the newest reviewer decision's of that revision). It is on the record shelf only.
+
 **Rows.** A body's ``fields`` are grouped into rows by slot:
 
 - kb-audit slots ``r<row>-<kind>-<k>`` (WI-07b/08a): ``number-0`` is the value, ``unit-0`` the unit, ``flag-0`` the
@@ -89,6 +93,7 @@ import tomllib
 from importlib import resources
 
 from klode_kit import items as items_mod
+from klode_kit.audit import attribution as attribution_mod
 from klode_kit.build import deident as deident_mod
 
 ITEMS_SHELF = "library/items"
@@ -442,6 +447,19 @@ def _record_lines(rec: str, body: Mapping[str, Any], labels: Mapping[str, str], 
 # --------------------------------------------------------------------------- export
 
 
+def _verified_by_line(project: Path, rec: str, bound: Mapping[str, Any], body: Mapping[str, Any]) -> _Line:
+    """The last line of a record (WI-39): who verified it - ``verified_by: auto`` | ``human`` | ``reviewer (<model>)``.
+    From ``attribution.record_verified_by`` (decisions read through the attributions) when the bound revision is the
+    effective one, else from the bound body. A source line without field ids; deterministic."""
+    eff = (_front(project / "records" / "_by_id" / f"{rec}.md").get("effective") or {})
+    who = attribution_mod.record_verified_by(project, rec) if eff.get("rev") == bound["rev"] else None
+    who = who or body.get("verified_by") or "auto"
+    model = attribution_mod.reviewer_model(project, rec) if who == "reviewer" and eff.get("rev") == bound["rev"] \
+        else None
+    base = f"verified_by: {who}" + (f" ({model})" if model else "")
+    return _Line(rec, base, "source", [(base, None)], [], str(who), text=f"{base} ⟨{rec}⟩")
+
+
 def _map_row(kb_id: str, rel: str, n: int, line: _Line, rev: int) -> dict:
     ids = list(dict.fromkeys(fid for _, fid in line.parts if fid is not None))
     return {"kb_id": kb_id, "source_file": rel, "line_no": n, "rec_id": line.rec_id, "field_ids": ids, "rev": rev,
@@ -483,6 +501,7 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
         if isinstance(lines, str):
             excluded.append({"rec_id": rec, "reason": lines, "status": body.get("status")})
             continue
+        lines.append(_verified_by_line(project, rec, b, body))
         per_record[rec] = lines
         audit_bindings[rec] = dict(b)
 

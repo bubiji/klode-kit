@@ -58,7 +58,8 @@
     "by": {
       "enum": [
         "auto",
-        "human"
+        "human",
+        "reviewer"
       ]
     },
     "choice": {
@@ -141,6 +142,26 @@
         "reason": {
           "type": "string",
           "minLength": 1
+        },
+        "reviewer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "rule"
+          ],
+          "properties": {
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "rule": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          }
         }
       }
     }

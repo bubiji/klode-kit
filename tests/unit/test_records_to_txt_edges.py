@@ -101,10 +101,10 @@ def test_rows_without_label_and_bare_slots_are_source_lines(tmp_path):
                  date="2026-09-18")
     res = R.export(project)
     assert res["files"][f"library/records/{REC}.txt"] == (
-        f"128 g/L ⟨{REC}⟩\n白细胞 6.2 2026-09-18 ⟨{REC}⟩\n复查 ⟨{REC}⟩\n")
+        f"128 g/L ⟨{REC}⟩\n白细胞 6.2 2026-09-18 ⟨{REC}⟩\n复查 ⟨{REC}⟩\nverified_by: human ⟨{REC}⟩\n")
     X.put_record(project, REC, {1: {"status": "verified", "audit_rev": None, "fields": fields}}, effective=1,
                  date="2026-09-18")
     res = R.export(project, bindings={REC: {"rev": 1, "audit_rev": A1}})
     assert res["files"][f"library/records/{REC}.txt"] == (
-        f"128 g/L ⟨{REC}⟩\n6.2 ⟨{REC}⟩\n复查 ⟨{REC}⟩\n")
+        f"128 g/L ⟨{REC}⟩\n6.2 ⟨{REC}⟩\n复查 ⟨{REC}⟩\nverified_by: human ⟨{REC}⟩\n")
     assert "library/items/wbc.txt" not in res["files"]
