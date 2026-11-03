@@ -1,7 +1,7 @@
 ---
 name: kb-audit
 description: 把 kb-ocr 一批的四路读数逐行对齐、投票、过闸门，生成分歧确认页；人在页面上点选后写回，成为可追溯的 verified 记录；已 verified 但读错的字段可以重开。用户说「分歧我点完了，写回」「2025 年那批重新 OCR 一遍」（OCR 之后接着审计），「这个字段其实读错了，重新确认」，或输入 /klode-kit:kb-audit 时使用。
-argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号>
+argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号>
 allowed-tools: Bash(*/bin/klode-kit *)
 ---
 
@@ -67,13 +67,24 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --reopen FIELD_ID --reason 原因
 退出码 10 表示已重开。让用户在页面上选一路或手输正确值（「都不对」和空白手输会被拒绝），导出 `choices.json`，再按第三节写回。
 新值成为新修订生效，旧修订保留，全程留痕。退出码 30 表示不能重开（字段没有 verified 的有效记录，或审计修订落后于记录，先做第三节的写回）。
 
+## 五、第二轮确认（第一次写回后还有字段没定）
+
+```
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --again --batch BATCH_ID
+```
+
+第一次写回留了「都不对」的记录变成 `disputed`，原确认页对它已过期（再导出会被拒：`rev_base … (stale page)`）。这条命令为本批所有
+`pending_confirm` / `disputed` 记录生成一页新的确认页（`a<N>/again/g<NNNN>.html`，回执里有路径），只列还没定的字段，按记录当前修订号。
+退出码 10 表示有页可点（`opened` 新页，或 `unchanged` 沿用上一页）；退出码 0、`nothing` 表示本批没有待定字段（已 verified 的字段读错用第四节）。
+让用户在新页上点选、导出 `choices.json`，再按第三节写回；仍留「都不对」的字段下次再跑一遍本命令即可。退出码 30 表示不能做（本批没有审计修订，或最新审计修订还没写回，先做第三节的写回）。
+
 ## 已知坑
 
 | 编号 | 现象 | 原因 | 处理 |
 | --- | --- | --- | --- |
 | A01 | 写回 exit 30，什么都没写 | 整份被拒：批次、审计修订、指纹或确认页封存码对不上（常见于重跑 OCR 之后还用旧页面导出的 choices），或点了 tesseract、漏了待确认的字段 | 用当前最新的确认页重新点选并导出；不要手改 choices.json |
 | A02 | 候选里有 tesseract 的值却选不了 | tesseract 只做几何，不投票，其读数不得作为点选结果 | 选其余三路之一，或手输 |
-| A03 | 留了「都不对」没手输，记录是 `disputed` | 设计如此：disputed 记录不进构建输入 | 想补就让用户再点一次手输，或用 `--reopen` |
+| A03 | 留了「都不对」没手输，记录是 `disputed` | 设计如此：disputed 记录不进构建输入；原确认页对它已过期 | 想补就用第五节 `--again` 生成第二轮确认页（`--reopen` 只收 verified 字段） |
 | A04 | 四路读成同一个错值，自动 verified | 一致不等于正确 | 用户发现后用 `--reopen` 放回确认页手输；旧修订保留 |
 | A05 | 确认页里的小图是裂的 | 小图用相对路径，经 `confirm/<别名>.html` 链接打开会找错目录 | 打开 `confirm/<别名>/confirm.html` |
 | A06 | `kb-advice` 被拒绝（exit 30） | 确认页已经生成并封存，建议要在它之前 | 只能在生成确认页之前请求建议；经流水线或 med-intake 进来的批次已经生成页面，不再请求 |

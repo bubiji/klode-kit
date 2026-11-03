@@ -324,12 +324,17 @@ def _page_item_html(pi: Mapping[str, Any], blocked: list[dict], srcs: list[str |
 
 
 def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
-           advice_path: str | os.PathLike | None = None, reopen: Mapping[str, Any] | None = None) -> bytes:
+           advice_path: str | os.PathLike | None = None, reopen: Mapping[str, Any] | None = None,
+           again: Mapping[str, Any] | None = None) -> bytes:
     """The confirm page of audit revision ``a<n>`` (default: the newest) as bytes, sealed (module docstring).
 
     ``reopen`` (WI-08e): a ``reopen.jsonl`` event. The page then holds only that event's record and field, whatever the
     field's verdict (it is a verified field a human doubts), labelled ``重开`` with the field's current value, shows no
-    advice, and its data block carries ``reopen: {reopen_id, field_id, value}``."""
+    advice, and its data block carries ``reopen: {reopen_id, field_id, value}``.
+
+    ``again`` (WI-38): an ``again.jsonl`` event. The page then holds only the event's records, each with only its
+    still undecided fields (cells and page items) and ``rev_base`` from the event, labelled ``候选 r<cur> (<status>) /
+    第二轮 <again_id>``; its data block carries ``again: {again_id}``."""
     project = Path(project)
     n, adir = _rev_dir(project, batch_id, n)
     audit_rev = f"{batch_id}/a{n}"
@@ -344,6 +349,11 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
         cands = [c for c in cands if c["rec_id"] == reopen["rec_id"]]
         now = "无（已删除）" if reopen["value"] is None else reopen["value"]
     wanted = (lambda f: f["field_id"] == reopen["field_id"]) if reopen is not None else _shown
+    if again is not None:
+        events = {r["rec_id"]: r for r in again["records"]}
+        cands = [c for c in cands if c["rec_id"] in events]
+        open_ids = {f for r in again["records"] for f in r["fields"]}
+        wanted = lambda f: f["field_id"] in open_ids  # noqa: E731
     shown_ids = [f["field_id"] for c in cands for f in c.get("fields", []) if wanted(f)]
     if len(shown_ids) != len(set(shown_ids)):
         raise ConfirmError(f"{adir / 'candidates.jsonl'}: a field_id appears twice")
@@ -357,6 +367,10 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
         label, rev_base = _labels(cand, front)
         if reopen is not None:
             label = f"生效 r{reopen['effective_rev']} (verified) / 重开 {reopen['reopen_id']}（现值 {now}）"
+        if again is not None:
+            rev_base = events[cand["rec_id"]]["rev_base"]
+            cur = next((c for c in (front or {}).get("candidates", []) if c.get("rev") == rev_base), {})
+            label = f"候选 r{rev_base} ({cur.get('status', cand['status'])}) / 第二轮 {again['again_id']}"
         blocked = [u for u in cand.get("uncertain", []) if G.blocks_page(u)]
         fields, items = [], []
         for f in cand.get("fields", []):
@@ -374,6 +388,8 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
             items.append(_item_html(f, view, routes, blocked, advice.get(f["field_id"], []),
                                     "重开：现生效值待核对" if reopen is not None else None))
         for pi in ([] if reopen is not None else cand.get("page_items", [])):  # WI-33f: one item per engine
+            if again is not None and pi["field_id"] not in open_ids:
+                continue   # WI-38: already acknowledged (or typed) on an earlier pass
             fields.append({"field_id": pi["field_id"], "cell": {"row": None, "col": f"extra_values:{pi['engine']}"},
                            "seen": G.page_item_seen(pi, routes), "item_label": "页面未归位的值",
                            "verdict": "page_extra", "recommended": None, "page_item": True})
@@ -404,6 +420,10 @@ def render(project: str | os.PathLike, batch_id: str, n: int | None = None, *,
     if reopen is not None:
         data["reopen"] = {"reopen_id": reopen["reopen_id"], "field_id": reopen["field_id"], "value": reopen["value"]}
         summary = f"重开字段 {reopen['field_id']}（{reopen['reopen_id']}），现生效值 {now}"
+    if again is not None:
+        data["again"] = {"again_id": again["again_id"]}
+        left = sum(len(r["fields"]) for r in again["records"])
+        summary = f"第二轮确认（{again['again_id']}）：{len(cands)} 条记录；仍待点选 {left} 处"
     script = EXPORT_JS.read_text(encoding="utf-8")
     if "</script" in script.lower() or "<!--" in script:
         raise ConfirmError(f"{EXPORT_JS} cannot be embedded in a script element")

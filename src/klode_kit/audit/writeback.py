@@ -39,6 +39,13 @@ decision (idempotency key ``(field_id, rev_base, choice)``) is ``unchanged``. Ot
 ``r<current+1>``: ``verified`` (``verified_by: human``) when no field is left as plain ``none`` (``none`` +
 ``not_a_field`` drops the field), else ``disputed`` keeping the undecided fields' uncertain entries.
 
+**Other pages of the same audit revision.** ``confirm_sha256`` may instead be the stamp of a reopen page
+(``a<N>/reopen/o*.html``, WI-08e, ``audit.reopen``) or of an again page (``a<N>/again/g*.html``, WI-38,
+``audit.again``) whose event is logged. Such a page speaks for its own fields only (any other is ``not on this
+page`` for an again page). An again page holds a pending / disputed record's still undecided fields at its current
+rev; its commit carries what the human already decided on ``a<N>`` (``_earlier``), adds the new decisions (tagged
+``again_id``, body ``again``) and is ``verified`` when nothing is left, else ``disputed`` again.
+
 **Promotion** (r4.1): only a verified candidate moves ``effective``; it then equals that candidate on ``{rev,
 audit_rev, status, verified_by}`` and every earlier candidate gets ``superseded_by``. A pending or disputed
 candidate never touches ``effective``.
@@ -86,6 +93,7 @@ RECEIPT_SCHEMA = "klode-kit.writeback_receipt/1"
 CHOICES_SCHEMA = "klode-kit.choices/1"
 FIXES, COMMITS, RECEIPTS, LOCK = "fixes.jsonl", "commits.jsonl", "writeback_receipts.jsonl", ".lock"
 REOPEN_LOG, REOPEN_DIR = "reopen.jsonl", "reopen"   # WI-08e: written by ``reopen``; read here to accept its pages
+AGAIN_LOG, AGAIN_DIR = "again.jsonl", "again"       # WI-38: written by ``again``; read here to accept its pages
 NON_VOTING = frozenset({"tesseract"})
 DEFAULT_TYPE = "doc"
 CRASHPOINTS = ("writeback.lock", "writeback.begin", "writeback.fixes_appended", "writeback.mkdir",
@@ -333,13 +341,17 @@ def _page_meta(rev: Revision, cand: Mapping[str, Any], front: Mapping | None) ->
 def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, status: str, verified_by: str | None,
           uncertain: list[dict], human: Mapping[str, dict], dropped: list[str], at: str,
           confirm_sha: str | None = None, carry: Mapping[str, Any] | None = None,
-          reopen_id: str | None = None) -> dict:
+          reopen_id: str | None = None, again_id: str | None = None) -> dict:
     """The complete commit of one record: decisions, body and front matter (``human``: field_id -> normalised
     choice; fields not in it are agreed and get an auto decision when the revision is verified).
 
     ``carry`` (WI-08e, a reopened field): the effective revision's body. The new revision then decides only the
     ``human`` fields (each decision tagged ``reopen_id``); every other value, and the dropped fields, are carried over
-    from ``carry`` and keep the effective decision they already have."""
+    from ``carry`` and keep the effective decision they already have.
+
+    ``again_id`` (WI-38, a second pass): ``carry`` is then what the human already decided on this audit revision
+    (``_earlier``). Only those fields are carried (values only into a verified revision, which claims values); the
+    others are planned as on the first pass (agreed fields auto when verified, else open)."""
     base = _current(front)
     rev_new = base + 1
     marks = _jsonl(rev.dir / COMMITS)
@@ -363,7 +375,7 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
             elif ch.get("reason"):
                 evidence["reason"] = ch["reason"]
             by = "human"
-        elif carry is not None:
+        elif carry is not None and (again_id is None or fid in carry["decided"]):
             continue
         elif is_page:   # WI-33f: a page item is only ever decided by a human
             if status == G.VERIFIED:
@@ -386,8 +398,11 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
                           "by": by, "choice": kind, "route": route, "value": value, "evidence": evidence, "at": at})
         if reopen_id is not None:
             decisions[-1]["reopen_id"] = reopen_id
+        if again_id is not None:
+            decisions[-1]["again_id"] = again_id
     if carry is not None:
-        values = {**{f: v for f, v in carry["fields"].items() if f not in human}, **values}
+        if again_id is None or status == G.VERIFIED:
+            values = {**{f: v for f, v in carry["fields"].items() if f not in human}, **values}
         dropped = sorted(set(dropped) | (set(carry.get("dropped", [])) - set(human)))
     rtype, date = _page_meta(rev, cand, front)
     key = rev.pages.get(cand["page_id"], {}).get("key") or cand["page_id"]
@@ -397,6 +412,8 @@ def _plan(rev: Revision, cand: Mapping[str, Any], front: Mapping | None, *, stat
             "uncertain": V.uncertain_ids(uncertain, key)}
     if reopen_id is not None:
         body["reopened"] = reopen_id
+    if again_id is not None:
+        body["again"] = again_id
     new = {"rev": rev_new, "audit_rev": rev.audit_rev, "status": status, "verified_by": verified_by,
            "uncertain": uncertain, "created": at}
     olds = copy.deepcopy(list((front or {}).get("candidates", [])))
@@ -522,9 +539,10 @@ def _normalise(choices: Any) -> Any:
 
 
 def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[str],
-                  reopen: "Reopen | None" = None) -> tuple[dict, dict | None]:
+                  reopen: "Reopen | Again | None" = None) -> tuple[dict, dict | None]:
     """``(result, human choices or None)`` for one record's items (all checks, no write). ``reopen``: the choices come
-    from a reopen page, whose field is the only one to confirm (WI-08e)."""
+    from a reopen page, whose field is the only one to confirm (WI-08e), or from an again page, whose event's fields
+    are (WI-38)."""
     cand = rev.cands.get(rec_id)
     fids = [it["field_id"] for it in items]
     if cand is None:
@@ -543,8 +561,8 @@ def _check_record(rev: Revision, rec_id: str, items: list[dict], committed: set[
         counts[f] = counts.get(f, 0) + 1
     duplicate = [f for f in dict.fromkeys(fids) if counts[f] > 1]
     missing = [f for f in shown if f not in counts]
-    errors = [{"field_id": f, "reason": "not a field to confirm of this record"}
-              for f in dict.fromkeys(fids) if f not in shown]
+    off = "not on this page" if isinstance(reopen, Again) else "not a field to confirm of this record"
+    errors = [{"field_id": f, "reason": off} for f in dict.fromkeys(fids) if f not in shown]
     if not duplicate and not missing and not errors and all(
             _choice_key(it["field_id"], it["rev_base"], _item_choice(it)) in committed for it in items):
         return {"rec_id": rec_id, "result": "unchanged"}, None
@@ -601,7 +619,7 @@ def _page_item_problem(rev: Revision, item: Mapping[str, Any], it: Mapping[str, 
 
 
 def _item_problem(rev: Revision, cand: Mapping[str, Any], it: Mapping[str, Any], current: int,
-                  reopen: "Reopen | None" = None) -> str | None:
+                  reopen: "Reopen | Again | None" = None) -> str | None:
     fid = it["field_id"]
     if fid in rev.page_items:
         return _page_item_problem(rev, rev.page_items[fid], it, current)
@@ -614,7 +632,7 @@ def _item_problem(rev: Revision, cand: Mapping[str, Any], it: Mapping[str, Any],
     ch, reason = it["choice"], (it.get("evidence") or {}).get("reason")
     if reason is not None and (reason != "not_a_field" or ch["kind"] != "none"):
         return f"evidence.reason {reason!r}: the only reason is not_a_field, with a 'none' choice"
-    if reopen is not None and ch["kind"] == "none" and reason is None:
+    if isinstance(reopen, Reopen) and ch["kind"] == "none" and reason is None:
         return "a reopened field must be decided: pick a route, type a value, or mark it as not a field"
     if ch["kind"] == "route":
         route = ch["route"]
@@ -672,16 +690,22 @@ def _choices_mode(project: Path, batch_arg: str | None, path: Path, at: str, out
                 parts += [f"missing field_id {f}" for f in res["missing"]]
                 parts += [f"duplicate field_id {f}" for f in res["duplicate"]]
                 print(f"kb-audit --writeback: {rec_id}: rejected, nothing written: {'; '.join(parts)}", file=out)
+        if isinstance(reopen, Again):   # WI-38: a record of the again page nobody answered is left as it is
+            receipt["per_record"] += [{"rec_id": r, "result": "unchanged"} for r in reopen.fields if r not in groups]
         code = CONTRACT_EXIT if rejected else _awaiting(project, groups)
         _finish(rev, receipt, code, at)
     return code, receipt
 
 
 def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, confirm_sha: str,
-                  reopen: "Reopen | None" = None) -> dict:
+                  reopen: "Reopen | Again | None" = None) -> dict:
     cand = rev.cands[rec_id]
     front = _front(_record_path(rev.project, rec_id))
-    carry = _front(_body_path(rev.project, rec_id, front["effective"]["rev"])) if reopen is not None else None
+    carry = None
+    if isinstance(reopen, Reopen):
+        carry = _front(_body_path(rev.project, rec_id, front["effective"]["rev"]))
+    elif isinstance(reopen, Again):
+        carry = _earlier(rev, rec_id)
     undecided = [f for f, ch in human.items()
                  if ch["kind"] == "none" and ch.get("reason") not in ("not_a_field", "acknowledged")]
     dropped = [f for f, ch in human.items() if ch["kind"] == "none" and ch.get("reason") == "not_a_field"]
@@ -694,7 +718,8 @@ def _commit_human(rev: Revision, rec_id: str, human: dict[str, dict], at: str, c
         status, by, uncertain = G.VERIFIED, "human", []
     plan = _plan(rev, cand, front, status=status, verified_by=by, uncertain=uncertain, human=human,
                  dropped=dropped, at=at, confirm_sha=confirm_sha, carry=carry,
-                 reopen_id=reopen.reopen_id if reopen is not None else None)
+                 reopen_id=reopen.reopen_id if isinstance(reopen, Reopen) else None,
+                 again_id=reopen.again_id if isinstance(reopen, Again) else None)
     _commit(rev, plan)
     return {"rec_id": rec_id, "result": "committed", "rev_new": plan["rev_new"], "status": status,
             "commit_id": plan["commit_id"]}
@@ -729,7 +754,64 @@ def _reopen_page(rev: Revision, sha: str) -> Reopen | None:
     return None
 
 
-def _check_page(rev: Revision, data: Mapping[str, Any]) -> Reopen | None:
+@dataclass(frozen=True)
+class Again:
+    """The again page (WI-38) the choices come from: its event and the still undecided fields it asks about."""
+
+    again_id: str
+    fields: dict[str, list[str]]   # rec_id -> [field_id]
+
+
+def _again_page(rev: Revision, sha: str) -> Again | None:
+    """The sealed page ``a<N>/again/g*.html`` whose stamp is ``sha`` and whose event is in ``again.jsonl`` (as
+    ``_reopen_page``)."""
+    events = {e.get("again_id") for e in _jsonl(rev.dir / AGAIN_LOG)}
+    for path in sorted((rev.dir / AGAIN_DIR).glob("g*.html")):
+        try:
+            html = path.read_bytes()
+            if CP.confirm_sha256(html) != sha:
+                continue
+            data = CP.page_data(html)
+            fields = {r["rec_id"]: [f["field_id"] for f in r["fields"]] for r in data["records"]}
+            gid = data["again"]["again_id"]
+        except (CP.ConfirmError, KeyError, TypeError):
+            continue
+        if gid not in events:
+            raise WritebackError(f"{path.name} is not an again page of {rev.audit_rev}: {gid} is not in {AGAIN_LOG}")
+        return Again(gid, fields)
+    return None
+
+
+def _earlier(rev: Revision, rec_id: str) -> dict:
+    """What a human already decided for ``rec_id`` on audit revision ``rev`` (WI-38): ``{fields: {field_id: value},
+    dropped: [...], decided: {field_id, ...}}`` from its committed human decisions, the last one on a field winning.
+    A plain ``none`` decides nothing. (A disputed body claims no value, so the values are read from the decisions.)"""
+    ended = {m["commit_id"] for m in _jsonl(rev.dir / COMMITS) if m.get("op") == "end"}
+    last: dict[str, dict] = {}
+    for d in _jsonl(rev.dir / FIXES):
+        if d.get("by") == "human" and d.get("commit_id") in ended and d["field_id"].split("/", 1)[0] == rec_id:
+            last[d["field_id"]] = d
+    out: dict[str, Any] = {"fields": {}, "dropped": [], "decided": set()}
+    for fid, d in last.items():
+        reason = (d.get("evidence") or {}).get("reason")
+        if d["choice"] == "none" and reason not in ("not_a_field", "acknowledged"):
+            continue
+        out["decided"].add(fid)
+        if reason == "not_a_field":
+            out["dropped"].append(fid)
+        elif d.get("value") is not None:
+            out["fields"][fid] = d["value"]
+    return out
+
+
+def _undecided(rev: Revision, cand: Mapping[str, Any]) -> list[str]:
+    """The fields of ``cand`` a human still has to decide (WI-38): those to confirm (cells, then page items) that no
+    committed human decision on ``rev`` has settled."""
+    decided = _earlier(rev, cand["rec_id"])["decided"]
+    return [f for f in _to_confirm(cand) if f not in decided]
+
+
+def _check_page(rev: Revision, data: Mapping[str, Any]) -> Reopen | Again | None:
     if data.get("audit_rev") is not None and data["audit_rev"] != rev.audit_rev:
         raise WritebackError(f"the choices are for {data['audit_rev']}; the newest audit revision is "
                              f"{rev.audit_rev} (stale page)")
@@ -743,6 +825,9 @@ def _check_page(rev: Revision, data: Mapping[str, Any]) -> Reopen | None:
     reopen = _reopen_page(rev, data["confirm_sha256"])
     if reopen is not None:
         return reopen
+    again = _again_page(rev, data["confirm_sha256"])
+    if again is not None:
+        return again
     if not page.is_file():
         raise WritebackError(f"{rev.audit_rev} has no confirm page; the choices cannot come from it")
     raise WritebackError(f"confirm_sha256 is not the sealed sha of {rev.audit_rev}/confirm.html")

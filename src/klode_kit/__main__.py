@@ -127,7 +127,9 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "kb-ocr": ("klode_kit.ocr.run_batch:main", "kb-ocr --batch DIR|PDF [--project DIR] [--routes a,b] [--redo]: OCR an image/PDF inbox"),
     "kb-audit": ("klode_kit.audit.stage:main", "kb-audit --batch BATCH_ID [--project DIR]: align, vote and gate the "
                  "batch's latest runs into audit revision a<N>; --writeback [CHOICES]: commit them / the human's "
-                 "choices; --reopen FIELD_ID [--reason T]: put a verified field back on a one-field confirm page"),
+                 "choices; --reopen FIELD_ID [--reason T]: put a verified field back on a one-field confirm page; "
+                 "--again --batch BATCH_ID: a second-pass confirm page of the still undecided fields of the "
+                 "pending / disputed records"),
     "confirm-page": ("klode_kit.audit.confirm_page:main", "confirm-page --batch BATCH_ID [--project DIR] [--rev N]: "
                      "write the local confirm page work/<batch>/audit/a<N>/confirm.html"),
     "pipeline": ("klode_kit.pipeline:main",

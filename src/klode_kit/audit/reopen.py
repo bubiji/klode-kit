@@ -25,7 +25,9 @@ decides. The decision goes through the ordinary writeback::
   template and seal, one record, one field (``confirm_page.render(reopen=...)``).
 
 **Refused** (exit 30, nothing written): no such record or field; the record has no ``effective`` revision (it is not
-verified - confirm it on the ordinary page); a newer candidate than ``effective`` waits for confirmation; the batch's
+verified - confirm it on the ordinary page or, once a first writeback left it pending / disputed, on the second-pass
+page of ``kb-audit --again --batch <batch_id>``, WI-38 ``audit.again``); a newer candidate than ``effective`` waits
+for confirmation; the batch's
 newest audit revision is newer than the record's last candidate (``kb-audit --writeback --batch`` first, else the
 correction would be stamped over an audit revision nobody wrote back); the field is not in the effective revision
 (``fields`` or ``dropped``) or not in the audit revision's cells; ``--batch`` is not the record's batch.
@@ -104,7 +106,8 @@ def _check(project: Path, field_id: str, batch_id: str | None) -> tuple[WB.Revis
     eff = front.get("effective")
     if not eff or eff.get("status") != "verified":
         raise Refused(f"record {rec_id} is not verified (status {front.get('status')}): confirm its fields on the "
-                      f"ordinary confirm page; only a verified field is reopened")
+                      f"ordinary confirm page (after a first writeback: kb-audit --again --batch <batch_id>); "
+                      f"only a verified field is reopened")
     current = WB._current(front)
     if eff["rev"] != current:
         newer = next(c for c in front["candidates"] if c["rev"] == current)

@@ -351,3 +351,4 @@
 | P24/P28 | gate1 只在锚点未写 #N 时判歧义；显式 #1 指第一处（klode resolve 同义）。records-to-l1 对出现在后文行内的行写 #1，不再 L1Error（改动既有规格 test_later_superstring_line_cannot_be_anchored → …gets_explicit_nth1_and_passes；真实父亲账单记录触发）。2026-11-03 |
 | P23 | gate1 新增 A4：锚点里再套 grep 标记即报错（gate1 原先只看到内层锚点而放行，klode 读外层后拒收）。先红后绿，2026-11-03 |
 | P17 | synthesis 模板「动作」标题去掉 gate 一词（worker 照抄标题进 Craft 会被 S6 拦）；新增测试禁止模板标题含引擎术语。先红后绿，2026-11-03 |
+| WI-38 | `kb-audit --again`：待定字段 = 应确认字段（格子+页面项）减去 a<N> 上已提交的人工决定（「都不对」不算定），不取正文 uncertain（多数票无代码的格子如 r005 不在其中）；第二轮 verified 时沿用的值取自 a<N>/fixes.jsonl 的已提交人工决定（`_earlier`），因 disputed 正文 fields 为空、无值可沿用；页级缺路（blocked）记录不上第二轮页；坏批次号按规格 exit 30（reopen 为 2），a<N> 文件不全仍为 2；fixes.json 增可选 `again_id`；prompts/ 无 kb-audit 内容，改在 skills/kb-audit/SKILL.md 新增第五节并改正 A03（原写 disputed 用 --reopen，实际会被拒）；未答的事件记录在回执里记 unchanged，退出码只看有答复的记录（同普通页）；崩溃点在 unit 里用子进程逐点测，未加 audit-hook 分区（00s-16）合同测试。先写 20 测试（红：stub 下全为断言失败）再实现，2026-11-03 |

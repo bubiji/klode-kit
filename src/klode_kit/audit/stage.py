@@ -5,6 +5,7 @@ Usage::
     klode-kit kb-audit --batch <batch_id> [--project <data project>] [--type lab|rx]
     klode-kit kb-audit --writeback [<choices.json>] ...        (WI-08c, audit/writeback.py)
     klode-kit kb-audit --reopen <field_id> [--reason ...] ...  (WI-08e, audit/reopen.py)
+    klode-kit kb-audit --again --batch <batch_id> ...          (WI-38, audit/again.py)
 
 It reads the kb-ocr batch receipt ``work/<batch>/receipt.json`` (WI-04b) and, for every page the routes read, aligns the routes' lines (WI-07b), votes every cell (WI-07c), crops the
 cells that do not agree (WI-07d) and gates the page's record (``audit.gate``). Layout::
@@ -483,11 +484,25 @@ def main(argv: list[str] | None = None) -> int:
                         help="reopen (audit.reopen, WI-08e): put an already verified field back on a one-field confirm "
                              "page; --batch (optional) is checked against the record's batch")
     parser.add_argument("--reason", default=None, help="with --reopen: the human's note on the reopen event")
+    parser.add_argument("--again", action="store_true",
+                        help="second pass (audit.again, WI-38): a confirm page of the still undecided fields of the "
+                             "pending / disputed records of --batch, at their current revs")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    if args.again:
+        if args.reopen is not None or args.writeback is not None or args.reason is not None:
+            print("kb-audit: --again is a step of its own: not with --reopen, --writeback or --reason",
+                  file=sys.stderr)
+            return USAGE_EXIT
+        if args.batch is None:
+            print("kb-audit: --again needs --batch <batch_id>", file=sys.stderr)
+            return USAGE_EXIT
+        from klode_kit.audit import again
+
+        return again.run(project, batch_id=args.batch)
     if args.reopen is not None:
         if args.writeback is not None:
             print("kb-audit: --reopen and --writeback are two steps: reopen first, then write back the choices",
