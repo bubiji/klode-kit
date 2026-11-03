@@ -1,7 +1,7 @@
 ---
 name: kb-audit
 description: 把 kb-ocr 一批的四路读数逐行对齐、投票、过闸门，生成分歧确认页；人在页面上点选后写回，成为可追溯的 verified 记录；已 verified 但读错的字段可以重开。用户说「分歧我点完了，写回」「2025 年那批重新 OCR 一遍」（OCR 之后接着审计），「这个字段其实读错了，重新确认」，或输入 /klode-kit:kb-audit 时使用。
-argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号> | --attribute --batch <批次号> --reviewer-model M --reviewer-rule R
+argument-hint: --batch <批次号> | --writeback <choices.json> | --reopen <字段号> | --again --batch <批次号> | --attribute --batch <批次号> --reviewer-model M --reviewer-rule R | --redate --batch <批次号> [--apply]
 allowed-tools: Bash(*/bin/klode-kit *)
 ---
 
@@ -92,6 +92,17 @@ ${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --attribute --batch BATCH_ID --revi
 
 只追加一行到 `work/<批次>/audit/attributions.jsonl`（本批每个审计修订里、含 `by: human` 决定且已结束的提交），从不改 `fixes.jsonl`、`commits.jsonl`、记录正文或 `_rev/`。回执 `klode-kit.attribute_receipt/1`：`attributed`（退出码 0，含提交数和记录数）、`nothing`（已全部标过，退出码 0，不写任何东西）、`refused`（退出码 30：批次号不对、没有 `work/`、没有审计修订、缺 `--reviewer-model` 或 `--reviewer-rule`）。
 回填之后再有本人在审核员的提交上继续写回，新修订的 `verified_by` 仍是 `reviewer`。导出的 `library/records/<记录>.txt` 每条记录末尾多一行 `verified_by: auto | human | reviewer (<模型>)`。
+
+### 补改日期（`--redate`）
+
+记录日期以前在没有「日期」行的页（日文检验单写「採取日」「検査日」等）上取页面里最早的日期，结果就是 `生年月日`。规则已改：`DATE_LABELS`（採取日、検査日、受付日、報告日、采样、报告时间……）标出的行优先；`生年月日` / `出生日期` / `DOB` / `Birth` 等行上的日期（以及单独一行出生标签的下一行）永远不当记录日期。已写错的记录日期不会自己改回来（重做不改视图名），用补改：
+
+```
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --redate --batch BATCH_ID            # 只列出，什么都不写
+${CLAUDE_PLUGIN_ROOT}/bin/klode-kit kb-audit --redate --batch BATCH_ID --apply    # 写入
+```
+
+按本批最新审计修订的各路读数重新推导每条记录（任何状态）的日期，和 `records/_by_id` 里的日期不同的才列出。`--apply`：往 `work/<批次>/audit/redate.jsonl` 追加一行 `{op: redate, rec_id, old, new, source: page|inbox_dir|batch, at}`，改 `_by_id` 的 `date`，重建视图（`records/`、`verified/` 的文件名跟着新日期）；`_rev/` 里的修订正文不改（只追加的存储）。之后的写回把新日期写进新修订；`records_to_txt` 导出有 `redate` 事件的记录时用 `_by_id` 的日期。幂等：再跑一次是 `nothing`。回执 `klode-kit.redate_receipt/1`：`planned` / `applied` / `nothing`（退出码 0）、`refused`（退出码 30：批次号不对、没有 `work/`、没有审计修订；40 是项目锁被占）。不能和 `--again`、`--reopen`、`--writeback`、`--attribute` 同用（退出码 2）。
 
 ## 已知坑
 

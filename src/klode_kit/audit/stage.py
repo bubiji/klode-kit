@@ -492,11 +492,30 @@ def main(argv: list[str] | None = None) -> int:
                              "reviewer's (needs --reviewer-model and --reviewer-rule); append-only")
     parser.add_argument("--reviewer-model", default=None, help="with --attribute: the reviewer's model id (1..64)")
     parser.add_argument("--reviewer-rule", default=None, help="with --attribute: the reviewer's rule name (1..64)")
+    parser.add_argument("--redate", action="store_true",
+                        help="re-date (audit.redate, WI-40): re-derive the date of the records of --batch and list the "
+                             "ones whose stored date differs (a date of birth taken for the visit date)")
+    parser.add_argument("--apply", action="store_true", help="with --redate: write the new dates (default: plan only)")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return USAGE_EXIT if exc.code else 0
     project = Path.cwd() if args.project is None else args.project
+    if args.redate:
+        if args.again or args.reopen is not None or args.writeback is not None or args.attribute \
+                or args.reason is not None:
+            print("kb-audit: --redate is a step of its own: not with --again, --reopen, --writeback, --attribute "
+                  "or --reason", file=sys.stderr)
+            return USAGE_EXIT
+        if args.batch is None:
+            print("kb-audit: --redate needs --batch <batch_id>", file=sys.stderr)
+            return USAGE_EXIT
+        from klode_kit.audit import redate
+
+        return redate.run(project, batch_id=args.batch, apply=args.apply)
+    if args.apply:
+        print("kb-audit: --apply belongs to --redate", file=sys.stderr)
+        return USAGE_EXIT
     if args.attribute:
         if args.again or args.reopen is not None or args.writeback is not None or args.reason is not None:
             print("kb-audit: --attribute is a step of its own: not with --again, --reopen, --writeback or --reason",

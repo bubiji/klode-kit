@@ -94,6 +94,7 @@ from importlib import resources
 
 from klode_kit import items as items_mod
 from klode_kit.audit import attribution as attribution_mod
+from klode_kit.audit import redate as redate_mod
 from klode_kit.build import deident as deident_mod
 
 ITEMS_SHELF = "library/items"
@@ -484,6 +485,7 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
     new_items: set[str] = set()
     identity = identity_labels(project) if deid is not None else frozenset()
     dropped: list[dict] = []
+    redated = redate_mod.redated(project)
     per_record: dict[str, list[_Line]] = {}
     audit_bindings: dict[str, dict] = {}
     for rec in sorted(bound):
@@ -492,6 +494,8 @@ def export(project: str | os.PathLike, out: str | os.PathLike | None = None, *, 
         if not path.is_file():
             raise ExportError(f"{path}: bound revision body not found")
         body = _front(path)
+        if rec in redated:   # WI-40: the front date replaced the date of birth the body was written with
+            body = {**body, "date": _front(project / "records" / "_by_id" / f"{rec}.md").get("date")}
         status = body.get("status") or _candidate_status(project, rec, b["rev"])
         if status != "verified":
             excluded.append({"rec_id": rec, "reason": "not_verified", "status": status})

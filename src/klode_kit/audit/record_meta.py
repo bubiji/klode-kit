@@ -11,9 +11,12 @@ the voting routes read on the page, deterministically:
     -> ``None``. (Cloud routes read the masked image whose header band is black; the local routes see the title.)
 
 ``page_date(lines)``
-    Per route, the earliest date (WI-07a ``date`` field, ISO) on a line holding ``日期``; failing that, the earliest
-    date anywhere on the page. Across routes the most common date wins; a tie goes to the earliest date. No date
-    -> ``None``.
+    Per route, the earliest date (WI-07a ``date`` field, ISO) on a line holding one of ``DATE_LABELS`` (``日期``,
+    ``採取日``, ``検査日``, ... - Japanese lab reports do not say ``日期``); failing that, the earliest date anywhere
+    on the page. **A date of birth is never a candidate** (WI-40): not a date on a line holding one of
+    ``BIRTH_LABELS`` (``生年月日``, ``DOB``, ...), nor the date on the line right after a line that holds only a birth
+    label (label and value split over two lines). Across routes the most common date wins; a tie goes to the earliest
+    date. No date -> ``None`` (then the inbox directory date wins in ``derive``).
 
 ``dir_date(source)``
     The nearest directory of the inbox path named like a date (``YYYY-MM-DD`` or ``YYYYMMDD``, a real calendar day).
@@ -40,7 +43,9 @@ from klode_kit.audit import fields as F
 from klode_kit.audit.gate import ENGINES
 
 TYPE_KEYWORDS: tuple[tuple[str, str], ...] = (("处方", "rx"), ("检验", "lab"), ("化验", "lab"))
-DATE_LABEL = "日期"
+DATE_LABELS: tuple[str, ...] = ("日期", "采样", "采集", "送检", "报告时间", "检验时间", "検査日", "採取日", "採血日", "受付日",
+                                "報告日", "依頼日", "実施日", "診療日", "処方日", "交付年月日", "調剤日")
+BIRTH_LABELS: tuple[str, ...] = ("生年月日", "出生日期", "出生", "生日", "誕生日", "DOB", "Birth")
 TEXT_ROUTE = "text"
 _DIR_DATE = re.compile(r"(\d{4})-?(\d{2})-?(\d{2})")
 
@@ -75,12 +80,27 @@ def record_type(lines: Mapping[str, Sequence[str]]) -> str | None:
     return next(t for _, t in votes if counts[t] == best)
 
 
+def _birth_line(squashed: str) -> bool:
+    low = squashed.lower()
+    return any(b.lower() in low for b in BIRTH_LABELS)
+
+
+def _bare_birth_label(squashed: str) -> bool:
+    return squashed.strip(":").lower() in {b.lower() for b in BIRTH_LABELS}
+
+
 def _route_date(lines: Sequence[str]) -> str | None:
     labelled, anywhere = [], []
+    after_label = False
     for line in lines:
+        s = _squash(line)
+        birth = after_label or _birth_line(s)
+        after_label = _bare_birth_label(s)
+        if birth:
+            continue
         dates = [f.norm for f in F.extract(line) if f.kind == "date"]
         anywhere += dates
-        if DATE_LABEL in _squash(line):
+        if any(label in s for label in DATE_LABELS):
             labelled += dates
     pool = labelled or anywhere
     return min(pool) if pool else None
